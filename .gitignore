@@ -8,6 +8,7 @@
 /config-temp
 /elf2dmp
 /trace-events-all
+/build*
 /trace/generated-events.h
 /trace/generated-events.c
 /trace/generated-helpers-wrappers.h
