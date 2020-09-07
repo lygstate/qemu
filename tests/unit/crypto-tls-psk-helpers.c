@@ -51,5 +51,5 @@ void test_tls_psk_init_alt(const char *pskfile)
 
 void test_tls_psk_cleanup(const char *pskfile)
 {
-    unlink(pskfile);
+    qemu_unlink(pskfile);
 }
