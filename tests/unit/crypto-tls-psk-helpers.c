@@ -21,8 +21,11 @@
 #include "qemu/osdep.h"
 
 #include "crypto-tls-x509-helpers.h"
+
 #include "crypto-tls-psk-helpers.h"
 #include "qemu/sockets.h"
+
+#include <glib/gstdio.h>
 
 void test_tls_psk_init(const char *pskfile)
 {
@@ -40,5 +43,5 @@ void test_tls_psk_init(const char *pskfile)
 
 void test_tls_psk_cleanup(const char *pskfile)
 {
-    unlink(pskfile);
+    qemu_unlink(pskfile);
 }
