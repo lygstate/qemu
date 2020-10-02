@@ -1,5 +1,7 @@
 /GNUmakefile
 /build/
+/meson/
+/roms/**/*
 *.pyc
 .sdk
 .stgit-*
