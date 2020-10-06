@@ -3137,7 +3137,7 @@ tracetool_depends = files(
   'scripts/tracetool/vcpu.py'
 )
 
-qemu_version_cmd = [find_program('scripts/qemu-version.sh'),
+qemu_version_cmd = [find_program('scripts/qemu-version.py'),
                     meson.current_source_dir(),
                     get_option('pkgversion'), meson.project_version()]
 qemu_version = custom_target('qemu-version.h',
