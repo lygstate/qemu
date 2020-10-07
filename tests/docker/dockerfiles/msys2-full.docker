@@ -1,0 +1,15 @@
+FROM lygstate/windowsservercore:msys2
+
+RUN C:\tools\msys64\usr\bin\bash.exe -lc "pacman.exe --noconfirm -S --needed \
+base-devel git \
+mingw-w64-x86_64-python-sphinx \
+mingw-w64-x86_64-libnfs \
+"
+
+RUN C:\tools\msys64\usr\bin\bash.exe -lc "rm -rf /var/cache/pacman/pkg/*"
+RUN cd C:\tools\msys64 && cmd /C "7z a -ttar . -so | 7z a -txz -simsys2-x86_64-full.tar C:\tools\msys2-x86_64-full.tar.xz"
+# docker build --tag lygstate/windowsservercore:msys2-full -f "msys2-full.docker" .
+# docker run -it --rm -v c:/work:c:/work lygstate/windowsservercore:msys2-full cmd
+# docker push lygstate/windowsservercore:msys2-full
+# no cache
+# docker build --no-cache --tag lygstate/windowsservercore:msys2-full -f "msys2-full.docker" .

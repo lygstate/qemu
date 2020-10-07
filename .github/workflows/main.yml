@@ -1,0 +1,142 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  push:
+    branches: [ master, msys2 ]
+  pull_request:
+    branches: [ master ]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  check-patch:
+    name: Check Patch
+    runs-on: ubuntu-latest
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Install dependent packages
+        run: sudo apt install perl
+      - name: Checkpatch
+        run: |
+          git fetch https://git.qemu.org/git/qemu.git master
+          git tag base_tag_to_rebase FETCH_HEAD --force
+          ./scripts/checkpatch.pl --mailback base_tag_to_rebase..
+
+  msys2-build:
+    name: C++ msys2 (Windows)
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+      - name: Install MSYS2
+        run: |
+          cd C:\tools
+          $start_time = Get-Date
+          curl -LJ -s https://github.com/lygstate/qemu/releases/download/v5.1.0/msys2-x86_64.tar.xz --output msys2-x86_64.tar.xz
+          Write-Output "Download time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)"
+          $start_time = Get-Date
+          cmd /C "7z x msys2-x86_64.tar.xz -so | 7z x -aoa -simsys2-x86_64.tar -ttar -omsys64"
+          Write-Output "Extract time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)"
+
+      - name: Build
+        env:
+          MSYS: winsymlinks:nativestrict
+          MSYSTEM: MINGW64
+          CHERE_INVOKING: 1
+        run: |
+          C:\tools\msys64\usr\bin\bash.exe -lc "pacman --noconfirm -S --needed mingw-w64-x86_64-libnfs"
+          C:\tools\msys64\usr\bin\bash.exe -lc "mkdir build &&
+          cd build &&
+          ../configure \
+          --python=python3 \
+          --ninja=ninja \
+          --enable-stack-protector \
+          --enable-guest-agent \
+          --enable-plugins --enable-modules \
+          --enable-gnutls --enable-nettle \
+          --enable-sdl --enable-sdl-image --enable-gtk --disable-vte \
+          --enable-curses --enable-iconv \
+          --enable-vnc --enable-vnc-sasl --enable-vnc-jpeg --enable-vnc-png \
+          --enable-slirp=git \
+          --disable-brlapi --enable-curl \
+          --enable-fdt \
+          --disable-kvm --enable-hax --enable-whpx \
+          --enable-libnfs --enable-libusb \
+          --enable-live-block-migration --enable-usb-redir \
+          --enable-lzo --enable-snappy --enable-bzip2 --enable-zstd \
+          --enable-membarrier --enable-coroutine-pool \
+          --enable-libssh --enable-libxml2 \
+          --enable-jemalloc --enable-avx2 \
+          --enable-replication \
+          --enable-tools \
+          --enable-bochs --enable-cloop --enable-dmg --enable-qcow1 \
+          --enable-vdi --enable-vvfat --enable-qed --enable-parallels \
+          --enable-sheepdog &&
+          make -j6 &&
+          make V=1 check
+          "
+
+  msys2-build-debug:
+    name: C++ msys2 debug (Windows)
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+      - name: Install MSYS2
+        run: |
+          cd C:\tools
+          $start_time = Get-Date
+          curl -LJ -s https://github.com/lygstate/qemu/releases/download/v5.1.0/msys2-x86_64.tar.xz --output msys2-x86_64.tar.xz
+          Write-Output "Download time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)"
+          $start_time = Get-Date
+          cmd /C "7z x msys2-x86_64.tar.xz -so | 7z x -aoa -simsys2-x86_64.tar -ttar -omsys64"
+          Write-Output "Extract time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)"
+
+      - name: Build
+        env:
+          MSYS: winsymlinks:nativestrict
+          MSYSTEM: MINGW64
+          CHERE_INVOKING: 1
+        run: |
+          C:\tools\msys64\usr\bin\bash.exe -lc "pacman --noconfirm -S --needed mingw-w64-x86_64-libnfs"
+          C:\tools\msys64\usr\bin\bash.exe -lc "mkdir build &&
+          cd build &&
+          ../configure \
+          --python=python3 \
+          --ninja=ninja \
+          --enable-stack-protector \
+          --enable-guest-agent \
+          --enable-plugins --enable-modules \
+          --enable-gnutls --enable-nettle \
+          --enable-sdl --enable-sdl-image --enable-gtk --disable-vte \
+          --enable-curses --enable-iconv \
+          --enable-vnc --enable-vnc-sasl --enable-vnc-jpeg --enable-vnc-png \
+          --enable-slirp=git \
+          --disable-brlapi --enable-curl \
+          --enable-fdt \
+          --disable-kvm --enable-hax --enable-whpx \
+          --enable-libnfs --enable-libusb \
+          --enable-live-block-migration --enable-usb-redir \
+          --enable-lzo --enable-snappy --enable-bzip2 --enable-zstd \
+          --enable-membarrier --enable-coroutine-pool \
+          --enable-libssh --enable-libxml2 \
+          --enable-jemalloc --enable-avx2 \
+          --enable-replication \
+          --enable-tools \
+          --enable-bochs --enable-cloop --enable-dmg --enable-qcow1 \
+          --enable-vdi --enable-vvfat --enable-qed --enable-parallels \
+          --enable-sheepdog \
+          --enable-debug-info --enable-debug &&
+          make -j6 &&
+          make V=1 check
+          "
