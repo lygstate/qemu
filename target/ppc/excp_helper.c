@@ -1153,8 +1153,10 @@ static inline void do_rfi(CPUPPCState *env, target_ulong nip, target_ulong msr)
 {
     CPUState *cs = env_cpu(env);
 
-    /* MSR:POW cannot be set by any form of rfi */
+    /* MSR:POW,TGPR,ILE cannot be set by any form of rfi */
     msr &= ~(1ULL << MSR_POW);
+    msr &= ~(1ULL << MSR_TGPR);
+    msr &= ~(1ULL << MSR_ILE);
 
 #if defined(TARGET_PPC64)
     /* Switching to 32-bit ? Crop the nip */
@@ -1187,7 +1189,6 @@ void helper_rfi(CPUPPCState *env)
     do_rfi(env, env->spr[SPR_SRR0], env->spr[SPR_SRR1] & 0xfffffffful);
 }
 
-#define MSR_BOOK3S_MASK
 #if defined(TARGET_PPC64)
 void helper_rfid(CPUPPCState *env)
 {
