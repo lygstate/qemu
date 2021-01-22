@@ -1699,9 +1699,7 @@ qemu_version_cmd = [find_program('scripts/qemu-version.py'),
 qemu_version = custom_target('qemu-version.h',
                              output: 'qemu-version.h',
                              command: qemu_version_cmd,
-                             capture: true,
-                             build_by_default: true,
-                             build_always_stale: true)
+                             capture: true)
 genh += qemu_version
 
 hxdep = []
