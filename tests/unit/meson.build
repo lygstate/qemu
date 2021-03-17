@@ -149,14 +149,9 @@ if have_system
   # are not runnable under TSan due to a known issue.
   # https://github.com/google/sanitizers/issues/1116
   if not get_option('tsan')
-    if targetos != 'windows'
-        tests += {
-          'test-char': ['socket-helpers.c', qom, io, chardev]
-        }
-    endif
-
     tests += {
-      'test-qdev-global-props': [qom, hwcore]
+      'test-qdev-global-props': [qom, hwcore],
+      'test-char': ['socket-helpers.c', qom, io, chardev]
     }
   endif
 endif
