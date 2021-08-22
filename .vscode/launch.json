@@ -1,0 +1,402 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "(gdb) 启动 qemu tests lldb",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/tests/test-crypto-tlssession.exe",
+      "args": [],
+      "env": {
+        "GNUTLS_FORCE_FIPS_MODE": "2",
+      },
+      "cwd": "${workspaceFolder}/build"
+    },
+    {
+      "name": "(gdb) 启动 qemu tests gdb",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/tests/test-crypto-tlssession.exe",
+      "args": [],
+      "environment": [
+        {"name": "GNUTLS_FORCE_FIPS_MODE", "value": "2"}
+      ],
+      "cwd": "${workspaceFolder}/build"
+    },
+    {
+      "name": "gdb p2020 VxWorks 653",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "E:/CI-Cor-Ready/xemu/build-xemu-x64-ppc-debug/ppc-softmmu/qemu-system-ppc.exe",
+      "logging": { "engineLogging": true },
+      "args": [
+//        "-d", "int",
+        "-m", "1024M",
+        "-monitor", "none",
+        "-serial", "stdio",
+//        "-s", "-S", // Waiting remote gdb debugger
+        "-nographic",
+        "-M", "wrsbc8548",
+        "-no-reboot",
+        "-L", ".",
+        "--accel", "tcg,thread=multi",
+        "-nic", "tap,ifname=tap0,model=eTSEC,mac=52:55:00:d1:55:05",
+        "-pflash", "E:\\CI-Cor-Ready\\xemu\\xemu-bsp\\xemu653\\export\\p2020\\sms_romPayload_full.bin",
+        "-append", "mottsec(0,0)host:boot.txt g=192.168.31.1 h=192.168.31.1 e=192.168.31.13 b=192.168.31.255 u=usr-p2020-653 pw=target",
+      ],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/../build-xemu-x64-ppc-debug",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "C:/CI-Tools/msys64/mingw64/bin/gdb.exe"
+    },
+    {
+      "name": "gdb wrSbc834x VxWorks 653",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "E:/CI-Cor-Ready/xemu/build-xemu-x64-ppc-debug/ppc-softmmu/qemu-system-ppc.exe",
+      "args": [
+//        "-d", "int",
+        "-m", "512M",
+        "-monitor", "none",
+        "-serial", "stdio",
+//        "-s", "-S", // Waiting remote gdb debugger
+        "-nographic",
+        "-M", "wrsbc834x",
+        "-no-reboot",
+        "-L", ".",
+        "--accel", "tcg,thread=multi",
+        //  xemu-core-system-ppc -monitor none -qmp tcp\:localhost\:58780 -m 512M -name wrsbc834x-653 -machine wrsbc834x -uuid b4917057-874c-41c5-9978-e3a56744ce41 -accel tcg -serial tcp:\:55011\,server -nographic -no-reboot -L . -netdev tap\,id\=xemu\,ifname\=tap7 -net nic\,model\=eTSEC\,netdev\=xemu\,macaddr\=80\:08\:2b\:6f\:cb\:ee
+        "-nic", "tap,ifname=tap0,model=eTSEC,mac=52:55:00:d1:55:05",
+        "-bios", "E:\\CI-Cor-Ready\\xemu\\xemu-bsp\\xemu653\\export\\sms_romPayload_bios.bin",
+        "-pflash", "E:\\CI-Cor-Ready\\xemu\\xemu-bsp\\xemu653\\export\\sms_romPayload_flash.bin",
+        "-append", "mottsec(0,0)host:boot.txt tn=wrSbc834x g=192.168.31.1 h=192.168.31.1 e=192.168.31.2 b=192.168.31.255 u=usr-wrSbc834x-653 pw=passwd",
+      ],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "C:/CI-Tools/msys64/mingw64/bin/gdb.exe",
+      "setupCommands": [
+          {
+              "description": "为 gdb 启用整齐打印",
+              "text": "-enable-pretty-printing",
+              "ignoreFailures": true
+          }
+      ]
+    },
+    {
+      "name": "gdb hpcNet8641 VxWorks",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "E:/CI-Cor-Ready/xemu/build-xemu-x64-ppc-debug/ppc-softmmu/qemu-system-ppc.exe",
+      "args": [
+//        "-d", "int",
+        "-m", "512M",
+        "-monitor", "none",
+        "-serial", "stdio",
+//        "-s", "-S", // Waiting remote gdb debugger
+        "-nographic",
+        "-M", "hpcNet8641",
+        "-no-reboot",
+        "-L", ".",
+        "--accel", "tcg,thread=multi",
+        "-nic", "tap,ifname=tap0,model=eTSEC,mac=52:55:00:d1:55:05",
+        "-kernel", "E:\\CI-Cor-Ready\\xemu\\xemu-bsp\\hpcNet8641\\default\\vxWorks",
+        "-append", "motetsec(0,0)host:vxWorks f=0x0 g=192.168.31.1 h=192.168.31.1 e=192.168.31.8 b=192.168.31.255 u=vxworks_hpcNet8641 pw=vxworks",
+      ],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "C:/CI-Tools/msys64/mingw64/bin/gdb.exe",
+      "setupCommands": [
+          {
+              "description": "为 gdb 启用整齐打印",
+              "text": "-enable-pretty-printing",
+              "ignoreFailures": true
+          }
+      ]
+    },
+    {
+      "name": "gdb hpcNet8641 VxWorks 653",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "E:/CI-Cor-Ready/xemu/build-xemu-x64-ppc-debug/ppc-softmmu/qemu-system-ppc.exe",
+      "args": [
+//        "-d", "int",
+        "-m", "512M",
+        "-monitor", "none",
+        "-serial", "stdio",
+//        "-s", "-S", // Waiting remote gdb debugger
+        "-nographic",
+        "-M", "hpcNet8641",
+        "-no-reboot",
+        "-L", ".",
+        "--accel", "tcg,thread=multi",
+        "-bios", "E:\\CI-Cor-Ready\\xemu\\xemu-bsp\\xemu653\\export\\sms_romPayload_bios.bin",
+        "-pflash", "E:\\CI-Cor-Ready\\xemu\\xemu-bsp\\xemu653\\export\\sms_romPayload_flash.bin",
+        //         "-kernel", "E:\\CI-Cor-Ready\\xemu\\xemu-bsp\\xemu653\\export\\sms_flash.bin",
+
+        "-nic", "tap,ifname=tap0,model=eTSEC,mac=52:55:00:d1:55:05",
+        "-append", "mottsec(0,0)host:boot.txt f=0x0 g=192.168.31.1 h=192.168.31.1 e=192.168.31.7 b=192.168.31.255 u=usr-hpcnet8641-653 pw=vxworks",
+      ],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "C:/CI-Tools/msys64/mingw64/bin/gdb.exe",
+      "setupCommands": [
+          {
+              "description": "为 gdb 启用整齐打印",
+              "text": "-enable-pretty-printing",
+              "ignoreFailures": true
+          }
+      ]
+    },
+    {
+      "name": "(gdb) 启动 8641d",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "E:/CI-Cor-Ready/xemu/build-xemu-x64-ppc-debug/ppc-softmmu/qemu-system-ppc.exe",
+      "args": [
+        "-d", "int",
+        "-m", "1024M",
+        "-monitor", "none",
+        "-serial", "stdio",
+        "-smp", "1,sockets=1,cores=1",
+//        "-s", "-S", // Waiting remote gdb debugger
+        "-nographic",
+        "-M", "wrsbc8641d",
+        "-no-reboot",
+        "-L", ".",
+        "--accel", "tcg,thread=multi",
+        "-nic", "tap,ifname=tap0,model=eTSEC,mac=52:55:00:d1:55:05",
+        "-kernel", "E:/CI-Cor-Ready/xemu/xemu-bsp/wrSbc8641d/default/vxWorks",
+        "-append", "motetsec(0,0)host:vxWorks h=192.168.46.20 e=192.168.46.22 b=192.168.46.255 u=vxworks_wrsbc8641d pw=vxworks f=0x0",
+      ],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "C:/CI-Tools/msys64/mingw64/bin/gdb.exe",
+      "setupCommands": [
+          {
+              "description": "为 gdb 启用整齐打印",
+              "text": "-enable-pretty-printing",
+              "ignoreFailures": true
+          }
+      ]
+    },
+    {
+      "name": "(gdb) 启动 8641d 653",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "E:/CI-Cor-Ready/xemu/build-xemu-x64-ppc-debug/ppc-softmmu/qemu-system-ppc.exe",
+      "args": [
+//        "-d", "int",
+        // "-d", "in_asm",
+        "-monitor","none","-m","512M","-name","wrsbc8641d-653","-machine","wrsbc8641d","-uuid","1590d34c-de7d-4fd9-b680-54586457d93a","-accel","tcg","-serial","stdio","-nographic","-no-reboot","-L",".","-netdev","tap,id=xemu,ifname=tap0","-net","nic,model=eTSEC,netdev=xemu,macaddr=80:08:f7:64:9d:27","-bios","E:\\CI-Cor-Ready\\xemu\\xemu-bsp\\wrSbc8641d-653\\hello-full\\export\\sms_romPayload_full.bin",
+        "-rtc","clock=vm","-icount","shift=3","-append","mottsec(0,0)host:boot.txt f=0x0 g=192.168.31.1 h=192.168.31.1 e=192.168.31.2 b=192.168.31.255 u=usr-wrSbc8641d-653 pw=vxworks",
+],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "C:/CI-Tools/msys64/mingw64/bin/gdb.exe",
+      "setupCommands": [
+          {
+              "description": "为 gdb 启用整齐打印",
+              "text": "-enable-pretty-printing",
+              "ignoreFailures": true
+          }
+      ]
+    },
+    {
+      "name": "(gdb) 启动 8560",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "E:/CI-Cor-Ready/xemu/build-xemu-x64-ppc-debug/ppc-softmmu/qemu-system-ppc.exe",
+      "args": [
+        // "-d", "int",
+        "-m", "1024M",
+        "-monitor", "none",
+        "-serial", "stdio",
+        "-smp", "1,sockets=1,cores=1",
+//        "-s", "-S", // Waiting remote gdb debugger
+        "-nographic",
+        "-M", "wrsbc8560",
+        "-no-reboot",
+        "-L", ".",
+        "--accel", "tcg,thread=multi",
+        "-nic", "tap,ifname=tap0,model=eTSEC,mac=52:55:00:d1:55:05",
+        "-kernel", "E:/CI-Cor-Ready/xemu/xemu-bsp/wrSbc8560/default/vxWorks",
+        "-append", "motetsec(0,0)host:vxWorks h=192.168.46.20 e=192.168.46.22 u=vxworks_wrsbc8560 pw=passwd f=0x0",
+      ],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "C:/CI-Tools/msys64/mingw64/bin/gdb.exe",
+      "setupCommands": [
+          {
+              "description": "为 gdb 启用整齐打印",
+              "text": "-enable-pretty-printing",
+              "ignoreFailures": true
+          }
+      ]
+    },
+    {
+      "name": "(gdb) 启动 8560 653",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "E:/CI-Cor-Ready/xemu/build-xemu-x64-ppc-debug/ppc-softmmu/qemu-system-ppc.exe",
+      "args": [
+        // "-d", "int",
+        "-m", "1024M",
+        "-monitor", "none",
+        "-serial", "stdio",
+        "-smp", "1,sockets=1,cores=1",
+//        "-s", "-S", // Waiting remote gdb debugger
+        "-nographic",
+        "-M", "wrsbc8560",
+        "-no-reboot",
+        "-L", ".",
+        "--accel", "tcg,thread=multi",
+        "-nic", "tap,ifname=tap0,model=eTSEC,mac=00:a0:1e:d1:55:06",
+        "-pflash", "E:/CI-Cor-Ready/xemu/xemu-bsp/wrSbc8560-653/hello-full/export/sms_flash_final.bin",
+        "-append", "mottsec(0,0)host:boot.txt h=192.168.46.20 e=192.168.46.22 b=192.168.46.255 u=usr-wrSbc8560-653 pw=target tn=wrSbc8560-test",
+      ],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "C:/CI-Tools/msys64/mingw64/bin/gdb.exe",
+      "setupCommands": [
+          {
+              "description": "为 gdb 启用整齐打印",
+              "text": "-enable-pretty-printing",
+              "ignoreFailures": true
+          }
+      ]
+    },
+    {
+      "name": "(gdb) 启动 wrSbc8548 VxWorks653 Bootloader",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "E:/CI-Cor-Ready/xemu/build-xemu-x64-ppc-debug/ppc-softmmu/qemu-system-ppc.exe",
+      "args": [
+        "-d", "int,guest_errors",
+        "-m", "1024M",
+        "-monitor", "none",
+        "-serial", "stdio",
+//        "-s", "-S", // Waiting remote gdb debugger
+        "-nographic",
+        "-M", "wrsbc8548",
+        "-no-reboot",
+        "-L", ".",
+        "-pflash", "flash.bin",
+        "--accel", "tcg,thread=multi",
+        "-nic", "tap,ifname=tap0,model=eTSEC,mac=52:55:00:d1:55:05",
+        // cd /d C:\WindRiver-VxWorks653-2.4\vxworks653-2.4\target\proj\wrSbc8548_bootApp\PPCE500V2gnu_romCopy
+
+        "-kernel", "C:/WindRiver-VxWorks653-2.4/vxworks653-2.4/target/proj/wrSbc8548_bootApp/PPCE500V2gnu_romCopy/bootApp_reloc",
+        // "-kernel", "C:/WindRiver-VxWorks653-2.4/vxworks653-2.4/target/proj/wrSbc8548_bootApp/PPCE500V2gnu_romResident/bootApp_romResident",
+        "-append", "motetsec(0,0)host:boot.txt h=192.168.46.20 e=192.168.46.22 u=usr pw=passwd tn=wrSbc8548",
+      ],
+      "stopAtEntry": false,
+      "cwd": "C:/WindRiver6.9/vxworks-6.9/target",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "C:/CI-Tools/msys64/mingw64/bin/gdb.exe",
+      "setupCommands": [
+          {
+              "description": "为 gdb 启用整齐打印",
+              "text": "-enable-pretty-printing",
+              "ignoreFailures": true
+          }
+      ]
+    },
+    {
+      "name": "(gdb) 启动 wrSbc8548 VxWorks 6.9",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "E:/CI-Cor-Ready/xemu/build-xemu-x64-ppc-debug/ppc-softmmu/qemu-system-ppc.exe",
+      "args": [
+        "-d", "int",
+        "-m", "1024M",
+        "-monitor", "none",
+        "-serial", "stdio",
+//        "-s", "-S", // Waiting remote gdb debugger
+        "-nographic",
+        "-M", "wrsbc8548",
+        "-no-reboot",
+        "-L", ".",
+        "--accel", "tcg,thread=multi",
+        "-nic", "tap,ifname=tap0,model=eTSEC,mac=52:55:00:d1:55:05",
+        "-kernel", "E:/CI-Cor-Ready/xemu/xemu-bsp/wrSbc8548/default/vxWorks",
+        "-append", "motetsec(0,0)host:boot.txt h=192.168.46.20 e=192.168.46.22 u=usr pw=passwd tn=wrSbc8548",
+      ],
+      "stopAtEntry": false,
+      "cwd": "C:/WindRiver6.9/vxworks-6.9/target",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "C:/CI-Tools/msys64/mingw64/bin/gdb.exe",
+      "setupCommands": [
+          {
+              "description": "为 gdb 启用整齐打印",
+              "text": "-enable-pretty-printing",
+              "ignoreFailures": true
+          }
+      ]
+    },
+    {
+      "name": "(gdb) 启动 p3041ds",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "E:/CI-Cor-Ready/xemu/build-xemu-x64-ppc-debug/ppc-softmmu/qemu-system-ppc.exe",
+      "args": [
+        "-m", "2048M",
+        // "-d", "int",
+        "-smp", "1",
+        "-monitor", "none",
+        "-serial", "stdio",
+        "-nographic",
+        "-M", "p3041ds",
+        "-no-reboot",
+        "-L", ".",
+        "--accel", "tcg,thread=multi",
+        "-d", "guest_errors,unimp",
+      //  "-nic", "tap,ifname=tap0,model=eTSEC,mac=52:55:00:d1:55:05",
+        "-kernel", "E:/CI-Cor-Ready/xemu/xemu-bsp/p3041ds/default/VxWorks",
+        //"-append", "mottsec(0,0)host:boot.txt h=192.168.46.20 e=192.168.46.21 u=usr pw=passwd tn=p3041ds",
+      ],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "C:/CI-Tools/msys64/mingw64/bin/gdb.exe",
+      "setupCommands": [
+          {
+              "description": "为 gdb 启用整齐打印",
+              "text": "-enable-pretty-printing",
+              "ignoreFailures": true
+          }
+      ]
+    }
+  ]
+}

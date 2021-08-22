@@ -1,0 +1,149 @@
+#!/bin/sh
+# List copied from tests/docker/dockerfiles/ubuntu2004.docker
+PACKAGES="bc \
+    bsdmainutils \
+    bzip2 \
+    ca-certificates \
+    ccache \
+    clang \
+    dbus \
+    debianutils \
+    diffutils \
+    exuberant-ctags \
+    findutils \
+    g++ \
+    gcc \
+    gcovr \
+    genisoimage \
+    gettext \
+    git \
+    hostname \
+    libaio-dev \
+    libasan5 \
+    libasound2-dev \
+    libattr1-dev \
+    libbrlapi-dev \
+    libbz2-dev \
+    libc6-dev \
+    libcacard-dev \
+    libcap-ng-dev \
+    libcapstone-dev \
+    libcurl4-gnutls-dev \
+    libdaxctl-dev \
+    libdrm-dev \
+    libepoxy-dev \
+    libfdt-dev \
+    libffi-dev \
+    libgbm-dev \
+    libgcrypt20-dev \
+    libglib2.0-dev \
+    libglusterfs-dev \
+    libgnutls28-dev \
+    libgtk-3-dev \
+    libibverbs-dev \
+    libiscsi-dev \
+    libjemalloc-dev \
+    libjpeg-turbo8-dev \
+    liblttng-ust-dev \
+    liblzo2-dev \
+    libncursesw5-dev \
+    libnfs-dev \
+    libnuma-dev \
+    libpam0g-dev \
+    libpixman-1-dev \
+    libpmem-dev \
+    libpng-dev \
+    libpulse-dev \
+    librbd-dev \
+    librdmacm-dev \
+    libsasl2-dev \
+    libsdl2-dev \
+    libsdl2-image-dev \
+    libseccomp-dev \
+    libselinux-dev \
+    libslirp-dev \
+    libsnappy-dev \
+    libspice-protocol-dev \
+    libspice-server-dev \
+    libssh-dev \
+    libsystemd-dev \
+    libtasn1-6-dev \
+    libtest-harness-perl \
+    libubsan1 \
+    libudev-dev \
+    libusb-1.0-0-dev \
+    libusbredirhost-dev \
+    libvdeplug-dev \
+    libvirglrenderer-dev \
+    libvte-2.91-dev \
+    libxen-dev \
+    libxml2-dev \
+    libzstd-dev \
+    llvm \
+    locales \
+    make \
+    multipath-tools \
+    ncat \
+    nettle-dev \
+    ninja-build \
+    openssh-client \
+    perl-base \
+    pkgconf \
+    python3 \
+    python3-numpy \
+    python3-opencv \
+    python3-pillow \
+    python3-pip \
+    python3-setuptools \
+    python3-sphinx \
+    python3-sphinx-rtd-theme \
+    python3-venv \
+    python3-wheel \
+    python3-yaml \
+    rpm2cpio \
+    sed \
+    sparse \
+    systemtap-sdt-dev \
+    tar \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    texinfo \
+    xfslibs-dev \
+    zlib1g-dev"
+
+echo $PACKAGES
+
+apt-get update && DEBIAN_FRONTEND=noninteractive apt-get -y install $PACKAGES
+
+dpkg -l $PACKAGES | sort > /packages.txt
+
+sed -i 's/^const/static const/g' /usr/lib/llvm-10/lib/clang/10.0.0/include/sanitizer/tsan_interface.h
+
+../configure \
+  --python=python3 \
+  --disable-gtk --disable-sdl \
+  --enable-docs \
+  --enable-stack-protector \
+  --enable-gnutls \
+  --enable-nettle \
+  --enable-vnc \
+  --enable-vnc-sasl \
+  --enable-vnc-jpeg \
+  --enable-vnc-png \
+  --enable-membarrier \
+  --enable-slirp=git \
+  --enable-kvm \
+  --disable-hax \
+  --disable-whpx \
+  --enable-spice \
+  --enable-lzo \
+  --enable-snappy \
+  --enable-bzip2 \
+  --enable-vdi \
+  --enable-qcow1 \
+  --enable-tools \
+  --enable-libusb \
+  --enable-usb-redir \
+  --enable-libnfs \
+  --enable-libssh \
+  --enable-plugins --enable-modules
