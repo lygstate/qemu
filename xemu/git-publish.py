@@ -1,0 +1,910 @@
+#!/usr/bin/env python3
+#
+# git-publish - Prepare and store patch revisions as git tags
+#
+# Copyright 2011 IBM, Corp.
+# Copyright 2014-2019 Red Hat, Inc.
+#
+# Authors:
+#   Stefan Hajnoczi <stefanha@gmail.com>
+#
+# This work is licensed under the MIT License.  Please see the LICENSE file or
+# http://opensource.org/licenses/MIT.
+
+from __future__ import print_function, unicode_literals
+from io import open
+import email
+import email.policy
+import os
+import glob
+import sys
+import optparse
+import re
+import tempfile
+import shutil
+import subprocess
+import locale
+
+VERSION = '1.6.1'
+
+tag_version_re = re.compile(r'^[a-zA-Z0-9_/\-\.]+-v(\d+)$')
+
+ENCODING = 'utf-8'
+
+# As a git alias it is helpful to be a single file script with no external
+# dependencies, so these git command-line wrappers are used instead of
+# python-git.
+
+class GitSendEmailError(Exception):
+    pass
+
+class GitError(Exception):
+    pass
+
+class GitHookError(Exception):
+    pass
+
+class InspectEmailsError(Exception):
+    pass
+
+def to_text(data):
+    if isinstance(data, bytes):
+        return data.decode(ENCODING)
+    return data
+
+def popen_lines(cmd, **kwargs):
+    '''Communicate with a Popen object and return a list of lines for stdout and stderr'''
+    stdout, stderr = cmd.communicate(**kwargs)
+    stdout = re.split('\r\n|\n',stdout.decode(ENCODING))[:-1]
+    stderr = re.split('\r\n|\n',stderr.decode(ENCODING))[:-1]
+    return stdout, stderr
+
+def _git_check(*args):
+    '''Run a git command and return a list of lines, may raise GitError'''
+    cmdstr = 'git ' + ' '.join(('"%s"' % arg if ' ' in arg else arg) for arg in args)
+    if VERBOSE:
+        print(cmdstr)
+    cmd = subprocess.Popen(['git'] + list(args),
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE)
+    stdout, stderr = popen_lines(cmd)
+    if cmd.returncode != 0:
+        raise GitError('ERROR: %s\n%s' % (cmdstr, '\n'.join(stderr)))
+    return stdout
+
+def _git(*args):
+    '''Run a git command and return a list of lines, ignore errors'''
+    try:
+        return _git_check(*args)
+    except GitError:
+        # ignore git command errors
+        return []
+
+def _git_with_stderr(*args):
+    '''Run a git command and return a list of lines for stdout and stderr'''
+    if VERBOSE:
+        print('git ' + ' '.join(args))
+    cmd = subprocess.Popen(['git'] + list(args),
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE)
+    return popen_lines(cmd)
+
+def bool_from_str(s):
+    '''Parse a boolean string value like true/false, yes/no, or on/off'''
+    return s.lower() in ('true', 'yes', 'on')
+
+def git_get_config(*components):
+    '''Get a git-config(1) variable'''
+    lines = _git('config', '.'.join(components))
+    if len(lines):
+        return lines[0]
+    return None
+
+def git_get_config_list(*components):
+    '''Get a git-config(1) list variable'''
+    return _git('config', '--get-all', '.'.join(components))
+
+def git_unset_config(*components):
+    _git('config', '--unset-all', '.'.join(components))
+
+def git_set_config(*components):
+    '''Set a git-config(1) variable'''
+    if len(components) < 2:
+        raise TypeError('git_set_config() takes at least 2 arguments (%d given)' % len(components))
+
+    val = components[-1]
+    name = '.'.join(components[:-1])
+
+    if isinstance(val, (str, bytes)) or not hasattr(val, '__iter__'):
+        _git('config', name, val)
+    else:
+        git_unset_config(name)
+        for v in val:
+            _git('config', '--add', name, v)
+
+def git_get_var(name):
+    '''Get a git-var(1)'''
+    lines = _git('var', name)
+    if len(lines):
+        return lines[0]
+    return None
+
+def git_get_current_branch():
+    git_dir = git_get_git_dir()
+    rebase_dir = os.path.join(git_dir, 'rebase-merge')
+    if os.path.exists(rebase_dir):
+        branch_path = os.path.join(rebase_dir, 'head-name')
+        prefix = 'refs/heads/'
+        branch = open(branch_path).read().strip()
+        if branch.startswith(prefix):
+            return branch[len(prefix):]
+        return branch
+    else:
+        return _git_check('symbolic-ref', '--short', 'HEAD')[0]
+
+GIT_TOPLEVEL = None
+def git_get_toplevel_dir():
+    global GIT_TOPLEVEL
+    if GIT_TOPLEVEL is None:
+        GIT_TOPLEVEL = _git_check('rev-parse', '--show-toplevel')[0]
+    return GIT_TOPLEVEL
+
+GIT_DIR = None
+def git_get_git_dir():
+    global GIT_DIR
+    if GIT_DIR is None:
+        GIT_DIR = _git('rev-parse', '--git-dir')[0]
+    return GIT_DIR
+
+def git_delete_tag(name):
+    # Hide stderr when tag does not exist
+    _git_with_stderr('tag', '-d', name)
+
+def git_get_tags(pattern=None):
+    if pattern:
+        return _git('tag', '-l', pattern)
+    else:
+        return _git('tag')
+
+def git_get_tag_message(tag):
+    r = _git('tag', '-l', '--format=%(contents)', tag)
+    # --format=%(contents) will print an extra newline if the tag message
+    # already ends with a newline, so drop the extra line at the end:
+    if r and r[-1] == '':
+        r.pop()
+    return r
+
+def git_get_remote_url(remote):
+    '''Return the URL for a given remote'''
+    return _git_check('ls-remote', '--get-url', remote)[0]
+
+def git_request_pull(base, remote, signed_tag):
+    return _git_check('request-pull', base, remote, signed_tag)
+
+def git_log(revlist):
+    return _git('log', '--no-color', '--oneline', revlist)
+
+def git_tag(name, annotate=None, force=False, sign=False, keyid=None):
+    args = ['tag', '--annotate']
+    if annotate:
+        args += ['--file', annotate]
+    else:
+        args += ['--message', '']
+    if force:
+        args += ['--force']
+    if sign:
+        args += ['--sign']
+    if keyid:
+        args += ['--local-user', keyid]
+    args += [name]
+    _git_check(*args)
+
+def git_format_patch(revlist, subject_prefix=None, output_directory=None,
+                     numbered=False, cover_letter=False, signoff=False,
+                     notes=False, binary=True, headers=[], extra_args=[]):
+    args = ['format-patch']
+    if subject_prefix:
+        args += ['--subject-prefix', subject_prefix]
+    if output_directory:
+        args += ['--output-directory', output_directory]
+    if numbered:
+        args += ['--numbered']
+    if cover_letter:
+        args += ['--cover-letter']
+    else:
+        args += ['--no-cover-letter']
+    if signoff:
+        args += ['--signoff']
+    if notes:
+        args += ['--notes']
+    if not binary:
+        args += ['--no-binary']
+
+    for header in headers:
+        args += ['--add-header', header]
+
+    args += [revlist]
+    args += extra_args
+    _git_check(*args)
+
+def git_send_email(to_list, cc_list, patches, suppress_cc, in_reply_to, dry_run=False):
+    args = ['git', 'send-email']
+    for address in to_list:
+        args += ['--to', address]
+    for address in cc_list:
+        args += ['--cc', address]
+    if suppress_cc:
+        args += ['--suppress-cc', suppress_cc]
+    if in_reply_to:
+        args += ['--in-reply-to', in_reply_to]
+    if dry_run:
+        args += ['--dry-run', '--relogin-delay=0', '--batch-size=0']
+    else:
+        args += ['--quiet']
+    args += ['--confirm=never']
+    args += patches
+    if dry_run:
+            return _git_with_stderr(*args[1:])[0]
+    else:
+        if subprocess.call(args) != 0:
+            raise GitSendEmailError
+
+GIT_HOOKDIR = None
+def git_get_hook_dir():
+    global GIT_HOOKDIR
+    if GIT_HOOKDIR is None:
+        common_dir = _git('rev-parse', '--git-common-dir')[0]
+        if common_dir.startswith("--git-common-dir"):
+            common_dir = git_get_git_dir()
+        GIT_HOOKDIR = os.path.join(common_dir, 'hooks')
+    return GIT_HOOKDIR
+
+def invoke_hook(name, *args):
+    '''Run a githooks(5) script'''
+    hooks_path = git_get_config("core", "hooksPath") or \
+                    os.path.join(git_get_hook_dir())
+    hook_path = os.path.join(hooks_path, name)
+    if not os.access(hook_path, os.X_OK):
+        return
+    if subprocess.call((hook_path,) + args, cwd=git_get_toplevel_dir()) != 0:
+        raise GitHookError
+
+def git_push(remote, ref, force=False):
+    args = ['push']
+    if force:
+        args += ['-f']
+    args += [remote, ref]
+    _git_check(*args)
+
+def git_config_with_profile(*args):
+    '''Like git-config(1) except with .gitpublish added to the file lookup chain
+
+    Note that only git-config(1) read operations are supported.  Write
+    operations are not allowed since we should not modify .gitpublish.'''
+    cmd = subprocess.Popen(['git', 'config', '--includes', '--file', '/dev/stdin'] + list(args),
+                           stdin=subprocess.PIPE,
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE)
+
+    # git-config(1) --includes requires absolute paths
+    gitpublish = os.path.abspath(os.path.join(git_get_toplevel_dir(), '.gitpublish'))
+    if 'GIT_CONFIG' in os.environ:
+        gitconfig = os.path.abspath(os.environ['GIT_CONFIG'])
+    else:
+        gitconfig = os.path.abspath(os.path.join(git_get_git_dir(), 'config'))
+
+    git_config_file = '''
+[include]
+    path = ~/.gitconfig
+    path = %s
+    path = %s
+''' % (gitpublish,  gitconfig)
+
+    stdout, _ = popen_lines(cmd, input=git_config_file.encode(ENCODING))
+    return stdout
+
+def git_cover_letter_info(base, topic, to, cc, in_reply_to, number):
+    cl_info = ['Lines starting with \'#\' will be ignored.']
+    cl_info += ['']
+
+    cl_info += ['Version number: ' + str(number)]
+    cl_info += ['Branches:']
+    cl_info += ['         base:  ' + base, '         topic: ' + topic]
+    cl_info += ['']
+
+    if to:
+        cl_info += ['To: ' + '\n#     '.join(list(to))]
+    if cc:
+        cl_info += ['Cc: ' + '\n#     '.join(list(cc))]
+    if in_reply_to:
+        cl_info += ['In-Reply-To: ' + in_reply_to]
+    cl_info += ['']
+
+    cl_info += _git('shortlog', base + '..' + topic)
+    cl_info += _git('diff', '--stat', base + '..' + topic)
+
+    return ["#" + (l if l == '' else ' ' + l) for l in cl_info]
+
+def check_profile_exists(profile_name):
+    '''Return True if the profile exists, False otherwise'''
+    lines = git_config_with_profile('--get-regexp', '^gitpublishprofile\\.%s\\.' % profile_name)
+    return bool(lines)
+
+def has_profiles():
+    '''Return True if any profile exists, False otherwise'''
+    lines = git_config_with_profile('--get-regexp', '^gitpublishprofile\\.*\\.')
+    return bool(lines)
+
+def get_profile_var(profile_name, var_name):
+    '''Get a profile variable'''
+    option = '.'.join(['gitpublishprofile', profile_name, var_name])
+    lines = git_config_with_profile(option)
+    if len(lines):
+        return lines[0]
+    return None
+
+def get_profile_var_list(profile_name, var_name):
+    '''Get a profile list variable'''
+    option = '.'.join(['gitpublishprofile', profile_name, var_name])
+    return git_config_with_profile('--get-all', option)
+
+def setup():
+    '''Add git alias in ~/.gitconfig'''
+    path = os.path.abspath(sys.argv[0])
+    ret = subprocess.call(['git', 'config', '--global',
+                           'alias.publish', '!' + path])
+    if ret == 0:
+        print('You can now use \'git publish\' like a built-in git command.')
+
+def tag_name(topic, number):
+    '''Build a tag name from a topic name and version number'''
+    return '%s-v%d' % (topic, number)
+
+def tag_name_staging(topic):
+    '''Build a staging tag name from a topic name'''
+    return '%s-staging' % topic
+
+def tag_name_pull_request(topic):
+    '''Build a pull request tag name from a topic name'''
+    return '%s-pull-request' % topic
+
+def get_latest_tag_number(branch):
+    '''Find the latest tag number or 0 if no tags exist'''
+    number = 0
+    for tag in git_get_tags('%s-v[0-9]*' % branch):
+        m = tag_version_re.match(tag)
+        if not m:
+            continue
+        n = int(m.group(1))
+        if n > number:
+            number = n
+    return number
+
+def get_latest_tag_message(topic, default_lines):
+    '''Find the latest tag message or return a template if no tags exist'''
+    msg = git_get_tag_message(tag_name_staging(topic))
+    if msg:
+        return msg
+
+    number = get_latest_tag_number(topic)
+    msg = git_get_tag_message(tag_name(topic, number))
+    if msg:
+        return msg
+
+    return default_lines
+
+def get_pull_request_message(base, remote, topic):
+    # Add a subject line
+    message = [topic.replace('_', ' ').replace('-', ' ').capitalize() + ' patches',
+               '']
+    output = git_request_pull(base, remote, tag_name_pull_request(topic))
+
+    # Chop off diffstat because git-send-email(1) will generate it
+    first_separator = True
+    for line in output:
+        message.append(line)
+        if line == '----------------------------------------------------------------':
+            if not first_separator:
+                break
+            first_separator = False
+
+    return message
+
+def get_number_of_commits(base):
+    return len(git_log('%s..' % base))
+
+def edit(*filenames):
+    cmd = git_get_var('GIT_EDITOR').split(" ")
+    cmd.extend(filenames)
+    subprocess.call(cmd)
+
+def tag(name, template, annotate=False, force=False, sign=False, keyid=None):
+    '''Edit a tag message and create the tag'''
+    fd, tmpfile = None, None
+
+    try:
+        if annotate:
+            fd, tmpfile = tempfile.mkstemp(text=True)
+            os.fdopen(fd, 'wb').write(os.linesep.join(template + ['']).encode(ENCODING))
+            edit(tmpfile)
+
+        git_tag(name, annotate=tmpfile, force=force, sign=sign, keyid=keyid)
+    finally:
+        if tmpfile:
+            os.unlink(tmpfile)
+
+def menu_select(menu):
+    while True:
+        for k, v in menu:
+            print("[%s] %s" % (k, v))
+        a = sys.stdin.readline().strip()
+        if a not in [k for (k, v) in menu]:
+            print("Unknown command, please retry")
+            continue
+        return a
+
+def edit_email_list(cc_list):
+    tmpfile = tempfile.NamedTemporaryFile(mode='wb', suffix='.txt')
+    tmpfile.write(os.linesep.join(cc_list).encode(ENCODING))
+    tmpfile.flush()
+    edit(tmpfile.name)
+    r = []
+    for line in open(tmpfile.name, "r").readlines():
+        r += [x.strip() for x in line.split(",")]
+    return r
+
+def git_save_email_lists(topic, to, cc, override_cc):
+    # Store --to and --cc for next revision
+    git_set_config('branch', topic, 'gitpublishto', to)
+    if not override_cc:
+        git_set_config('branch', topic, 'gitpublishcc', cc)
+
+def inspect_menu(tmpdir, to_list, cc_list, patches, suppress_cc, in_reply_to,
+                 topic, override_cc):
+    while True:
+        print('Stopping so you can inspect the patch emails:')
+        print('  cd %s' % tmpdir)
+        print()
+        output = git_send_email(to_list, cc_list, patches, suppress_cc,
+                                in_reply_to, dry_run=True)
+        index = 0
+        for f in patches:
+            m = email.message_from_binary_file(open(f, 'rb'),
+                                               policy=email.policy.SMTP)
+            print(m['Subject'].strip())
+            # Print relevant 'Adding cc' lines from the git-send-email --dry-run output
+            while index < len(output) and len(output[index]):
+                line = output[index].replace('\r', '')
+                if line.find('Adding cc') != -1:
+                    print('  ' + line)
+                index += 1
+            index += 1
+        print()
+        print("To:", "\n    ".join(to_list))
+        if cc_list:
+            print("Cc:", "\n    ".join(cc_list))
+        if in_reply_to:
+            print("In-Reply-To:", in_reply_to)
+        print()
+        a = menu_select([
+                ('c', 'Edit Cc list in editor (save after edit)'),
+                ('t', 'Edit To list in editor (save after edit)'),
+                ('e', 'Edit patches in editor'),
+                ('s', 'Select patches to send (default: all)'),
+                ('p', 'Print final email headers (dry run)'),
+                ('a', 'Send all'),
+                ('q', 'Cancel (quit)'),
+            ])
+        if a == 'q':
+            raise InspectEmailsError
+        elif a == 'c':
+            new_cc_list = edit_email_list(cc_list)
+            cc_list.clear()
+            cc_list.update(new_cc_list)
+            git_save_email_lists(topic, to_list, cc_list, override_cc)
+        elif a == 't':
+            new_to_list = edit_email_list(to_list)
+            to_list.clear()
+            to_list.update(new_to_list)
+            git_save_email_lists(topic, to_list, cc_list, override_cc)
+        elif a == 'e':
+            edit(*patches)
+        elif a == 's':
+            fd, tmpfile = tempfile.mkstemp(text=True)
+            fd_opened = os.fdopen(fd, 'wb')
+            fd_opened.write(os.linesep.join(patches).encode(ENCODING))
+            fd_opened.close()
+
+            edit(tmpfile)
+            fd_opened = open(tmpfile, 'rb')
+            patches = [x for x in fd_opened.read().splitlines() if len(x.strip())]
+            fd_opened.close()
+            if tmpfile:
+                os.unlink(tmpfile)
+        elif a == 'p':
+            print('\n'.join(output))
+        elif a == 'a':
+            break
+    return patches
+
+def parse_args():
+
+    parser = optparse.OptionParser(version='%%prog %s' % VERSION,
+            usage='%prog [options] -- [common format-patch options]',
+            description='Prepare and store patch revisions as git tags.',
+            epilog='Please report bugs to Stefan Hajnoczi <stefanha@gmail.com>.')
+    parser.add_option('--annotate', dest='annotate', action='store_true',
+                      default=False, help='review and edit each patch email')
+    parser.add_option('-b', '--base', dest='base', default=None,
+                      help='branch which this is based off [defaults to master]')
+    parser.add_option('--blurb-template', dest='blurb_template', default=None,
+                      help='Template for blurb [defaults to *** BLURB HERE ***]')
+    parser.add_option('--cc', dest='cc', action='append', default=[],
+                      help='specify a Cc: email recipient')
+    parser.add_option('--cc-cmd',
+                      help='specify a command whose output to add to the cc list')
+    parser.add_option('--no-check-url', dest='check_url', action='store_false',
+                      help='skip publicly accessible pull request URL check')
+    parser.add_option('--check-url', dest='check_url', action='store_true',
+                      help='check pull request URLs are publicly accessible')
+    parser.add_option('--edit', dest='edit', action='store_true',
+                      default=False, help='edit message but do not tag a new version')
+    parser.add_option('--no-inspect-emails', dest='inspect_emails',
+                      action='store_false',
+                      help='no confirmation before sending emails')
+    parser.add_option('--inspect-emails', dest='inspect_emails',
+                      action='store_true', default=True,
+                      help='show confirmation before sending emails')
+    parser.add_option('-n', '--number', type='int', dest='number', default=-1,
+                      help='version number [auto-generated by default]')
+    parser.add_option('--no-message', '--no-cover-letter', dest='message',
+                      action='store_false', help='do not add a message')
+    parser.add_option('-m', '--message', '--cover-letter', dest='message',
+                      action='store_true', help='add a message')
+    parser.add_option('--no-cover-info', dest='cover_info',
+                      action='store_false', default=True,
+                      help='do not append comments information when editing the cover letter')
+    parser.add_option('--no-binary', dest='binary',
+                      action='store_false', default=True,
+                      help='Do not output contents of changes in binary files, instead display a notice that those files changed')
+    parser.add_option('--profile', '-p', dest='profile_name', default='default',
+                      help='select default settings profile')
+    parser.add_option('--pull-request', dest='pull_request', action='store_true',
+                      default=False, help='tag and send as a pull request')
+    parser.add_option('--sign-pull', dest='sign_pull', action='store_true',
+                      help='sign tag when sending pull request')
+    parser.add_option('-k', '--keyid', dest='keyid',
+                      help='use the given GPG key when signing pull request tag')
+    parser.add_option('--no-sign-pull', dest='sign_pull', action='store_false',
+                      help='do not sign tag when sending pull request')
+    parser.add_option('--subject-prefix', dest='prefix', default=None,
+                      help='set the email Subject: header prefix')
+    parser.add_option('--clear-subject-prefix', dest='clear_prefix',
+                      action='store_true', default=False,
+                      help='clear the per-branch subject prefix')
+    parser.add_option('--setup', dest='setup', action='store_true', default=False,
+                      help='add git alias in ~/.gitconfig')
+    parser.add_option('-t', '--topic', dest='topic',
+                      help='topic name [defaults to current branch name]')
+    parser.add_option('--to', dest='to', action='append', default=[],
+                      help='specify a primary email recipient')
+    parser.add_option('-s', '--signoff', dest='signoff', action='store_true',
+                      default=False,
+                      help='add Signed-off-by: <self> to commits when emailing')
+    parser.add_option('--notes', dest='notes', action='store_true',
+                      default=False,
+                      help='Append the notes (see git-notes(1)) for the commit after the three-dash line.')
+    parser.add_option('--suppress-cc', dest='suppress_cc',
+                      help='override auto-cc when sending email (man git-send-email for details)')
+    parser.add_option('-v', '--verbose', dest='verbose',
+                      action='store_true', default=False,
+                      help='show executed git commands (useful for troubleshooting)')
+    parser.add_option('--forget-cc', dest='forget_cc', action='store_true',
+                      default=False, help='Forget all previous CC emails')
+    parser.add_option('--override-to', dest='override_to', action='store_true',
+                      default=False, help='Ignore any profile or saved TO emails')
+    parser.add_option('--override-cc', dest='override_cc', action='store_true',
+                      default=False, help='Ignore any profile or saved CC emails')
+    parser.add_option('--in-reply-to', "-R",
+                      help='specify the In-Reply-To: of the cover letter (or the single patch)')
+    parser.add_option('--add-header', '-H', action='append', dest='headers',
+                      help='specify custom headers to git-send-email')
+    parser.add_option('--separate-send', '-S', dest='separate_send', action='store_true',
+                      default=False, help='Send patches using separate git-send-email cmd')
+
+    return parser.parse_args()
+
+def main():
+    global VERBOSE
+
+    options, args = parse_args()
+    VERBOSE = options.verbose
+
+    # The --edit option is for editing the cover letter without publishing a
+    # new revision.  Therefore it doesn't make sense to combine it with options
+    # that create new revisions.
+    if options.edit and any((options.annotate, options.number != -1,
+                             options.setup, options.to, options.pull_request)):
+        print('The --edit option cannot be used together with other options')
+        return 1
+
+    # Keep this before any operations that call out to git(1) so that setup
+    # works when the current working directory is outside a git repo.
+    if options.setup:
+        setup()
+        return 0
+
+    if not check_profile_exists(options.profile_name):
+        if options.profile_name == 'default':
+            if has_profiles():
+                print('Using defaults when a non-default profile exists. Forgot to pass --profile ?')
+        else:
+            print('Profile "%s" does not exist, please check .gitpublish or git-config(1) files' % options.profile_name)
+            return 1
+
+    current_branch = git_get_current_branch()
+
+    if options.topic:
+        topic = options.topic
+    else:
+        topic = current_branch
+
+    base = options.base
+    if not base:
+        base = git_get_config('branch', current_branch, 'gitpublishbase')
+    if not base:
+        base = get_profile_var(options.profile_name, 'base')
+    if not base:
+        base = git_get_config('git-publish', 'base')
+    if not base:
+        base = 'master'
+
+    if topic == base:
+        print('Please use a topic branch, cannot version the base branch (%s)' % base)
+        return 1
+
+    if options.number >= 0:
+        number = options.number
+    elif options.pull_request:
+        number = 1
+    else:
+        number = get_latest_tag_number(topic) + 1
+
+    to = set([to_text(_) for _ in options.to])
+    if not options.edit and not options.override_to:
+        to = to.union(git_get_config_list('branch', topic, 'gitpublishto'))
+        to = to.union(get_profile_var_list(options.profile_name, 'to'))
+
+    if options.forget_cc:
+        git_set_config('branch', topic, 'gitpublishcc', [])
+
+    cc = set([to_text(_) for _ in options.cc])
+    if not options.edit and not options.override_cc:
+        cc = cc.union(git_get_config_list('branch', topic, 'gitpublishcc'))
+        cc = cc.union(get_profile_var_list(options.profile_name, 'cc'))
+
+    cc_cmd = options.cc_cmd
+    if not cc_cmd:
+        cc_cmd = git_get_config('branch', topic, 'gitpublishcccmd') or \
+                 get_profile_var(options.profile_name, 'cccmd')
+
+    blurb_template = options.blurb_template
+    if not blurb_template:
+        blurb_template = '\n'.join(get_profile_var_list(options.profile_name, 'blurb-template'))
+    if not blurb_template:
+        blurb_template = "*** BLURB HERE ***"
+
+    headers = options.headers
+    if not headers:
+        headers = []
+
+    if options.pull_request:
+        remote = git_get_config('branch', topic, 'pushRemote')
+        if remote is None:
+            remote = git_get_config('remote', 'pushDefault')
+        if remote is None:
+            remote = git_get_config('branch', topic, 'remote')
+        if remote is None or remote == '.':
+            remote = get_profile_var(options.profile_name, 'remote')
+        if remote is None:
+            print('''Unable to determine remote repo to push.  Please set git config
+branch.%s.pushRemote, branch.%s.remote, remote.pushDefault, or
+gitpublishprofile.%s.remote''' % (topic, topic, options.profile_name))
+            return 1
+
+        check_url = options.check_url
+        if check_url is None:
+            check_url_var = get_profile_var(options.profile_name, 'checkUrl')
+            if check_url_var is None:
+                check_url_var = git_get_config('git-publish', 'checkUrl')
+            if check_url_var is not None:
+                check_url = bool_from_str(check_url_var)
+        if check_url is None:
+            check_url = True
+
+        url = git_get_remote_url(remote)
+        if check_url and not any(url.startswith(scheme) for scheme in ('git://', 'http://', 'https://')):
+            print('''Possible private URL "%s", normally pull requests reference publicly
+accessible git://, http://, or https:// URLs.  Are you sure
+branch.%s.pushRemote is set appropriately?  (Override with --no-url-check)''' % (url, topic))
+            return 1
+
+        sign_pull = options.sign_pull
+        if sign_pull is None:
+            sign_pull_var = get_profile_var(options.profile_name, 'signPull')
+            if sign_pull_var is None:
+                sign_pull_var = git_get_config('git-publish', 'signPull')
+            if sign_pull_var is not None:
+                sign_pull = bool_from_str(sign_pull_var)
+        if sign_pull is None:
+            sign_pull = True
+
+    profile_message_var = get_profile_var(options.profile_name, 'message')
+    if options.message is not None:
+        message = options.message
+    elif git_get_tag_message(tag_name_staging(topic)):
+        # If there is a staged tag message, we definitely want a cover letter
+        message = True
+    elif profile_message_var is not None:
+        message = bool_from_str(profile_message_var)
+    elif options.pull_request:
+        # Pull requests always get a cover letter by default
+        message = True
+    else:
+        config_cover_letter = git_get_config('format', 'coverLetter')
+        if config_cover_letter is None or config_cover_letter.lower() == 'auto':
+            # If there are several commits we probably want a cover letter
+            message = get_number_of_commits(base) > 1
+        else:
+            message = bool_from_str(config_cover_letter)
+
+    keyid = options.keyid
+    if keyid is None:
+        keyid_var = get_profile_var(options.profile_name, 'signingkey')
+        if keyid_var is None:
+            keyid_var = git_get_config('git-publish', 'signingkey')
+
+    invoke_hook('pre-publish-tag', base)
+
+    cl_info = ['']
+    if options.cover_info:
+        cl_info += git_cover_letter_info(base, topic, to, cc, options.in_reply_to, number)
+
+    # Tag the tree
+    if options.pull_request:
+        tag_message = get_latest_tag_message(topic, ['Pull request'])
+        tag_message += cl_info
+        tag(tag_name_pull_request(topic), tag_message, annotate=message, force=True, sign=sign_pull, keyid=keyid)
+        git_push(remote, tag_name_pull_request(topic), force=True)
+    else:
+        tag_message = get_latest_tag_message(topic, [
+            '*** SUBJECT HERE ***',
+            '',
+            blurb_template])
+        tag_message += cl_info
+        anno = options.edit or message
+        tag(tag_name_staging(topic), tag_message, annotate=anno, force=True)
+
+    if options.clear_prefix:
+        git_unset_config('branch', topic, 'gitpublishprefix')
+
+    prefix = options.prefix
+    if prefix is not None:
+        git_set_config('branch', topic, 'gitpublishprefix', prefix)
+    else:
+        prefix = git_get_config('branch', topic, 'gitpublishprefix')
+    if prefix is None:
+        prefix = get_profile_var(options.profile_name, 'prefix')
+    if prefix is None:
+        if options.pull_request:
+            prefix = 'PULL'
+        else:
+            prefix = git_get_config('format', 'subjectprefix') or 'PATCH'
+    if number > 1:
+        prefix = '%s v%d' % (prefix, number)
+
+    if to:
+        if options.pull_request:
+            message = get_pull_request_message(base, remote, topic)
+        else:
+            message = git_get_tag_message(tag_name_staging(topic))
+        suppress_cc = options.suppress_cc
+        if suppress_cc is None:
+            suppress_cc = get_profile_var(options.profile_name, 'suppresscc')
+
+        if options.signoff:
+            signoff = True
+        else:
+            signoff = get_profile_var(options.profile_name, 'signoff')
+
+        if options.inspect_emails:
+            inspect_emails = True
+        else:
+            inspect_emails = get_profile_var(options.profile_name, 'inspect-emails')
+
+        if options.notes:
+            notes = True
+        else:
+            notes = get_profile_var(options.profile_name, 'notes')
+
+        try:
+            tmpdir = tempfile.mkdtemp()
+            numbered = get_number_of_commits(base) > 1 or message
+            git_format_patch(base + '..',
+                             subject_prefix=prefix,
+                             output_directory=tmpdir,
+                             numbered=numbered,
+                             cover_letter=message,
+                             signoff=signoff,
+                             notes=notes,
+                             binary=options.binary,
+                             headers=headers,
+                             extra_args=args)
+            if message:
+                cover_letter_path = os.path.join(tmpdir, '0000-cover-letter.patch')
+                msg = email.message_from_binary_file(open(cover_letter_path, 'rb'),
+                                                     policy=email.policy.SMTP)
+
+                subject = msg['Subject'].replace('\n', '')
+                subject = subject.replace('*** SUBJECT HERE ***', message[0])
+                msg.replace_header('Subject', subject)
+
+                blurb = os.linesep.join(message[2:])
+                body = msg.get_content().replace('*** BLURB HERE ***', blurb)
+                msg.set_content(body)
+
+                open(cover_letter_path, 'wb').write(msg.as_bytes())
+            patches = sorted(glob.glob(os.path.join(tmpdir, '*')))
+            if options.annotate:
+                edit(*patches)
+            if cc_cmd:
+                for x in patches:
+                    output = subprocess.check_output(cc_cmd + " " + x,
+                                shell=True, cwd=git_get_toplevel_dir()).decode(ENCODING)
+                    cc = cc.union(output.splitlines())
+            cc.difference_update(to)
+            if inspect_emails:
+                selected_patches = inspect_menu(tmpdir, to, cc, patches, suppress_cc,
+                                                options.in_reply_to, topic,
+                                                options.override_cc)
+            else:
+                selected_patches = patches
+
+            invoke_hook('pre-publish-send-email', tmpdir)
+
+            final_patches = sorted(glob.glob(os.path.join(tmpdir, '*')))
+            if final_patches != patches:
+                added = set(final_patches).difference(set(patches))
+                deleted = set(patches).difference(set(final_patches))
+                print("The list of files in %s changed and I don't know what to do" % tmpdir)
+                if added:
+                    print('Added files: %s' % ' '.join(added))
+                if deleted:
+                    print('Deleted files: %s' % ' '.join(deleted))
+                return 1
+
+            if (options.separate_send):
+                for patch in selected_patches:
+                    git_send_email(to, cc, [patch], suppress_cc, options.in_reply_to)
+            else:
+                git_send_email(to, cc, selected_patches, suppress_cc, options.in_reply_to)
+        except (GitSendEmailError, GitHookError, InspectEmailsError):
+            return 1
+        except GitError as e:
+            print(e)
+            return 1
+        finally:
+            if tmpdir:
+                shutil.rmtree(tmpdir)
+
+        git_save_email_lists(topic, to, cc, options.override_cc)
+
+        if not options.pull_request:
+            # Publishing is done, stablize the tag now
+            _git_check('tag', '-f', tag_name(topic, number), tag_name_staging(topic))
+            git_delete_tag(tag_name_staging(topic))
+
+    return 0
+
+if __name__ == '__main__':
+    sys.exit(main())
