@@ -934,7 +934,7 @@ virtio_gpu_resource_detach_backing(VirtIOGPU *g,
 void virtio_gpu_resource_assign_uuid(VirtIOGPU *g,
                                      struct virtio_gpu_ctrl_command *cmd)
 {
-    struct virtio_gpu_simple_resource *res;
+    //struct virtio_gpu_simple_resource *res;
     struct virtio_gpu_resource_assign_uuid assign;
     struct virtio_gpu_resp_resource_uuid resp;
 
@@ -942,10 +942,10 @@ void virtio_gpu_resource_assign_uuid(VirtIOGPU *g,
     virtio_gpu_bswap_32(&assign, sizeof(assign));
     trace_virtio_gpu_cmd_res_assign_uuid(assign.resource_id);
 
-    res = virtio_gpu_find_check_resource(g, assign.resource_id, false, __func__, &cmd->error);
-    if (!res) {
-        return;
-    }
+    //res = virtio_gpu_find_check_resource(g, assign.resource_id, false, __func__, &cmd->error);
+    //if (!res) {
+    //    return;
+    //}
 
     memset(&resp, 0, sizeof(resp));
     resp.hdr.type = VIRTIO_GPU_RESP_OK_RESOURCE_UUID;
