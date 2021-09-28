@@ -631,7 +631,7 @@ virgl = not_found
 
 have_vhost_user_gpu = have_tools and targetos == 'linux' and pixman.found()
 if not get_option('virglrenderer').auto() or have_system or have_vhost_user_gpu
-  virgl = dependency('virglrenderer',
+  virgl = dependency('virglrenderer', version: '>=0.9.0',
                      method: 'pkg-config',
                      required: get_option('virglrenderer'),
                      kwargs: static_kwargs)
