@@ -121,7 +121,7 @@ sed -i 's/^const/static const/g' /usr/lib/llvm-10/lib/clang/10.0.0/include/sanit
 
 ../configure \
   --python=python3 \
-  --disable-gtk --disable-sdl \
+  --enable-gtk --enable-sdl \
   --enable-docs \
   --enable-stack-protector \
   --enable-gnutls \
