@@ -446,4 +446,17 @@ int vnc_init_func(void *opaque, QemuOpts *opts, Error **errp);
 /* input.c */
 int index_from_key(const char *key, size_t key_length);
 
+/* glidewnd.c */
+void glide_prepare_window(uint32_t res, void *, void *);
+void glide_release_window(void *, void *);
+int glide_window_stat(const int);
+int glide_gui_fullscreen(int *, int *);
+void glide_renderer_stat(const int);
+
+/* mglcntx.c */
+void mesa_renderer_stat(const int);
+void mesa_prepare_window(void *);
+void mesa_release_window(void);
+int mesa_gui_fullscreen(int *, int *);
+
 #endif

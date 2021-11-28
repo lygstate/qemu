@@ -755,6 +755,248 @@ static void sdl_cleanup(void)
     SDL_QuitSubSystem(SDL_INIT_VIDEO);
 }
 
+static void sdl_display_valid(const char *feat)
+{
+    if (!sdl2_console) {
+        error_report("%s: invalid sdl display. Use -display sdl", feat);
+        exit(1);
+    }
+}
+
+static struct sdl_console_cb {
+    QEMUTimer *ts;
+    struct sdl2_console *scon;
+    int gui_saved_res;
+    int render_pause;
+    int res;
+    void *opaque;
+    void *hnwnd;
+    void (*cwnd_fn)(void *, void *, void *);
+} scon_cb;
+static void sched_wndproc(void *opaque)
+{
+    struct sdl_console_cb *s = opaque;
+
+    if (s->res == -1) {
+        if (s->render_pause) {
+            SDL_DestroyTexture(s->scon->texture);
+            s->scon->texture = 0;
+        }
+        else {
+            if (!s->scon->real_renderer)
+                s->scon->real_renderer = SDL_CreateRenderer(s->scon->real_window, -1 ,0);
+            if (!s->scon->opengl)
+                sdl2_2d_switch(&s->scon->dcl, s->scon->surface);
+        }
+        return;
+    }
+
+    if (s->gui_saved_res) {
+        SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
+        SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, 32);
+        SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE,  24);
+        SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+        SDL_DestroyRenderer(s->scon->real_renderer);
+        s->scon->real_renderer = SDL_CreateRenderer(s->scon->real_window, -1, 0);
+        SDL_SysWMinfo wmi;
+        SDL_VERSION(&wmi.version);
+        if (SDL_GetWindowWMInfo(s->scon->real_window, &wmi)) {
+            switch(wmi.subsystem) {
+#if defined(SDL_VIDEO_DRIVER_WINDOWS)
+                case SDL_SYSWM_WINDOWS:
+                    s->hnwnd = (void *)wmi.info.win.window;
+                    break;
+#endif
+#if defined(SDL_VIDEO_DRIVER_X11)
+                case SDL_SYSWM_X11:
+                    s->hnwnd = (void *)wmi.info.x11.window;
+                    break;
+#endif
+#if defined(SDL_VIDEO_DRIVER_COCOA)
+                case SDL_SYSWM_COCOA:
+                    s->hnwnd = (void *)wmi.info.cocoa.window;
+                    break;
+#endif
+                default:
+                    s->hnwnd = 0;
+                    break;
+            }
+        }
+        SDL_DestroyRenderer(s->scon->real_renderer);
+        s->scon->real_renderer = 0;
+        s->render_pause = 1;
+        s->scon->winctx = SDL_GL_GetCurrentContext();
+        if (!s->scon->winctx)
+            s->scon->winctx = SDL_GL_CreateContext(s->scon->real_window);
+        if (!s->opaque)
+            s->cwnd_fn(s->scon->real_window, s->hnwnd, 0);
+    }
+    else {
+        SDL_GL_MakeCurrent(s->scon->real_window, NULL);
+        SDL_GL_DeleteContext(s->scon->winctx);
+        s->scon->winctx = 0;
+        s->render_pause = 0;
+        SDL_SetHint(SDL_HINT_RENDER_DRIVER, "0");
+        SDL_DestroyRenderer(s->scon->real_renderer);
+        s->scon->real_renderer = SDL_CreateRenderer(s->scon->real_window, -1, 0);
+        if (!s->scon->real_renderer) {
+            sdl2_window_destroy(s->scon);
+            sdl2_window_create(s->scon);
+        }
+        if (!s->scon->opengl)
+            sdl2_2d_switch(&s->scon->dcl, s->scon->surface);
+        timer_del(s->ts);
+        timer_free(s->ts);
+        s->ts = 0;
+    }
+    if (s->opaque && (s->res > 0))
+        SDL_SetWindowSize(s->scon->real_window, (s->res & 0xFFFFU), (s->res >> 0x10));
+}
+
+static int sdl_gui_fullscreen(int *width, int *height, const char *feat)
+{
+    struct sdl_console_cb *s = &scon_cb;
+
+    sdl_display_valid(feat);
+    s->scon = &sdl2_console[0];
+    if (width)
+        *width = surface_width(s->scon->surface);
+    if (height)
+        *height = surface_height(s->scon->surface);
+    return gui_fullscreen;
+
+
+}
+
+static void sdl_renderer_stat(const int activate, const char *feat)
+{
+    struct sdl_console_cb *s = &scon_cb;
+
+    if (activate == s->render_pause)
+        return;
+
+    sdl_display_valid(feat);
+    s->scon = &sdl2_console[0];
+    s->res = -1;
+    s->render_pause = activate;
+
+    if (!s->ts)
+        s->ts = timer_new_ms(QEMU_CLOCK_REALTIME, &sched_wndproc, s);
+    timer_mod(s->ts, qemu_clock_get_ms(QEMU_CLOCK_REALTIME));
+}
+
+void glide_prepare_window(uint32_t res, void *opaque, void *cwnd_fn)
+{
+    int scr_w, scr_h;
+    struct sdl_console_cb *s = &scon_cb;
+
+    sdl_display_valid("glidept");
+    s->scon = &sdl2_console[0];
+    s->res = res;
+    s->opaque = opaque;
+    s->cwnd_fn = (void (*)(void *, void *, void *))cwnd_fn;
+
+    SDL_GetWindowSize(s->scon->real_window, &scr_w, &scr_h);
+    s->gui_saved_res = ((scr_h & 0x7FFFU) << 0x10) | scr_w;
+
+    if (!s->ts)
+        s->ts = timer_new_ms(QEMU_CLOCK_REALTIME, &sched_wndproc, s);
+    timer_mod(s->ts, qemu_clock_get_ms(QEMU_CLOCK_REALTIME));
+}
+
+void glide_release_window(void *opaque, void *cwnd_fn)
+{
+    struct sdl_console_cb *s = &scon_cb;
+
+    sdl_display_valid("glidept");
+    s->scon = &sdl2_console[0];
+    s->res = s->gui_saved_res;
+    s->opaque = opaque;
+    s->cwnd_fn = (void (*)(void *, void *, void *))cwnd_fn;
+    s->gui_saved_res = 0;
+
+    if (s->ts)
+        timer_mod(s->ts, qemu_clock_get_ms(QEMU_CLOCK_REALTIME));
+}
+
+int glide_window_stat(const int activate)
+{
+    int stat;
+    struct sdl_console_cb *s = &scon_cb;
+
+    if (activate) {
+        if (s->scon->winctx) {
+            int scr_w, scr_h;
+            SDL_GetWindowSize(s->scon->real_window, &scr_w, &scr_h);
+            if (SDL_GL_MakeCurrent(s->scon->real_window, s->scon->winctx))
+                fprintf(stderr, "%s", SDL_GetError());
+            stat = ((scr_h & 0x7FFFU) << 0x10) | scr_w;
+            s->cwnd_fn(s->scon->real_window, s->hnwnd, s->opaque);
+        }
+        else
+            stat = 1;
+    }
+    else {
+        s->cwnd_fn(s->scon->real_window, s->hnwnd, s->opaque);
+	stat = (s->scon->winctx)? 1:0;
+    }
+    return stat;
+}
+
+int glide_gui_fullscreen(int *width, int *height)
+{
+    return sdl_gui_fullscreen(width, height, "glidept");
+}
+
+void glide_renderer_stat(const int activate)
+{
+    sdl_renderer_stat(activate, "glidept");
+}
+
+void mesa_renderer_stat(const int activate)
+{
+    sdl_renderer_stat(activate, "mesapt");
+}
+
+void mesa_prepare_window(void *cwnd_fn)
+{
+    int scr_w, scr_h;
+    struct sdl_console_cb *s = &scon_cb;
+
+    sdl_display_valid("mesapt");
+    s->scon = &sdl2_console[0];
+    s->res = 0;
+    s->opaque = 0;
+    s->cwnd_fn = (void (*)(void *, void *, void *))cwnd_fn;
+
+    SDL_GetWindowSize(s->scon->real_window, &scr_w, &scr_h);
+    s->gui_saved_res = ((scr_h & 0x7FFFU) << 0x10) | scr_w;
+
+    if (!s->ts)
+        s->ts = timer_new_ms(QEMU_CLOCK_REALTIME, &sched_wndproc, s);
+    timer_mod(s->ts, qemu_clock_get_ms(QEMU_CLOCK_REALTIME));
+}
+
+void mesa_release_window(void)
+{
+    struct sdl_console_cb *s = &scon_cb;
+
+    sdl_display_valid("mesapt");
+    s->scon = &sdl2_console[0];
+    s->res = 0;
+    s->opaque = 0;
+    s->cwnd_fn = 0;
+    s->gui_saved_res = 0;
+
+    if (s->ts)
+        timer_mod(s->ts, qemu_clock_get_ms(QEMU_CLOCK_REALTIME));
+}
+
+int mesa_gui_fullscreen(int *width, int *height)
+{
+    return sdl_gui_fullscreen(width, height, "mesapt");
+}
+
 static const DisplayChangeListenerOps dcl_2d_ops = {
     .dpy_name             = "sdl2-2d",
     .dpy_gfx_update       = sdl2_2d_update,

@@ -15,6 +15,8 @@
 
 #ifdef CONFIG_WHPX
 
+void whpx_update_guest_pa_range(uint64_t start_pa, uint64_t size, void *host_va, int readonly, int add);
+
 int whpx_enabled(void);
 
 #else /* CONFIG_WHPX */
