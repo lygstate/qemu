@@ -821,6 +821,13 @@ static MachineClass *find_default_machine(GSList *machines)
     return default_machineclass;
 }
 
+static void feature(void)
+{
+    const char rev_[ALIGNED(1)]
+        ;
+    printf("  featuring qemu-3dfx@%s"__TIME__" "__DATE__" build\n", rev_);
+}
+
 static void version(void)
 {
     printf("QEMU emulator version " QEMU_FULL_VERSION "\n"
@@ -3021,6 +3028,7 @@ void qemu_init(int argc, char **argv, char **envp)
                 break;
             case QEMU_OPTION_version:
                 version();
+                feature();
                 exit(0);
                 break;
             case QEMU_OPTION_m:

@@ -43,6 +43,9 @@ subdir('watchdog')
 subdir('xen')
 subdir('xenpv')
 
+subdir('3dfx')
+subdir('mesa')
+
 subdir('alpha')
 subdir('arm')
 subdir('avr')
