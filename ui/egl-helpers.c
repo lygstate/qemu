@@ -225,7 +225,7 @@ int egl_get_fd_for_texture(uint32_t tex_id, EGLint *stride, EGLint *fourcc,
 
     image = eglCreateImageKHR(qemu_egl_display, eglGetCurrentContext(),
                               EGL_GL_TEXTURE_2D_KHR,
-                              (EGLClientBuffer)(unsigned long)tex_id,
+                              (EGLClientBuffer)(uintptr_t)tex_id,
                               NULL);
     if (!image) {
         return -1;
