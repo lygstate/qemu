@@ -23,6 +23,7 @@
 EGLDisplay *qemu_egl_display;
 EGLConfig qemu_egl_config;
 DisplayGLMode qemu_egl_mode;
+EGLContext qemu_egl_rn_ctx;
 
 /* ------------------------------------------------------------------ */
 
@@ -158,33 +159,54 @@ void egl_texture_blend(QemuGLShader *gls, egl_fb *dst, egl_fb *src, bool flip,
 /* ---------------------------------------------------------------------- */
 
 #ifdef CONFIG_GBM
+static int qemu_egl_rn_fd;
+static struct gbm_device *qemu_egl_rn_gbm_dev;
+#endif
 
-int qemu_egl_rn_fd;
-struct gbm_device *qemu_egl_rn_gbm_dev;
-EGLContext qemu_egl_rn_ctx;
-
+/**
+ * @brief Init rendernode by using rendernode option
+ *
+ * @param rendernode
+ *   NULL means disable usage of drm
+ *   '' means dynamically choose the DRM device
+ *   otherwise use rendernode as the DRM device path to open
+ * @param mode
+ * @return int
+ */
 int egl_rendernode_init(const char *rendernode, DisplayGLMode mode)
 {
-    qemu_egl_rn_fd = -1;
-    int rc;
+    int gbm_inited = 0;
+#ifdef CONFIG_GBM
+    if (rendernode != NULL) {
+        int rc = -1;
+        /* Empty string '' */
+        if (strlen(rendernode) == 0) {
+            qemu_egl_rn_fd = qemu_drm_rendernode_open(NULL);
+        } else {
+            qemu_egl_rn_fd = qemu_drm_rendernode_open(rendernode);
+        }
+        if (qemu_egl_rn_fd == -1) {
+            error_report("egl: no drm render node available");
+            goto err;
+        }
 
-    qemu_egl_rn_fd = qemu_drm_rendernode_open(rendernode);
-    if (qemu_egl_rn_fd == -1) {
-        error_report("egl: no drm render node available");
-        goto err;
+        qemu_egl_rn_gbm_dev = gbm_create_device(qemu_egl_rn_fd);
+        if (!qemu_egl_rn_gbm_dev) {
+            error_report("egl: gbm_create_device failed");
+            goto err;
+        }
+
+        rc = qemu_egl_init_dpy_mesa((EGLNativeDisplayType)qemu_egl_rn_gbm_dev,
+                                    mode);
+        if (rc != 0) {
+            /* qemu_egl_init_dpy_mesa reports error */
+            goto err;
+        }
+        gbm_inited = 1;
     }
-
-    qemu_egl_rn_gbm_dev = gbm_create_device(qemu_egl_rn_fd);
-    if (!qemu_egl_rn_gbm_dev) {
-        error_report("egl: gbm_create_device failed");
-        goto err;
-    }
-
-    rc = qemu_egl_init_dpy_mesa((EGLNativeDisplayType)qemu_egl_rn_gbm_dev,
-                                mode);
-    if (rc != 0) {
-        /* qemu_egl_init_dpy_mesa reports error */
-        goto err;
+#endif /* !CONFIG_GBM */
+    if (!gbm_inited) {
+        qemu_egl_init_dpy(EGL_DEFAULT_DISPLAY, EGL_PLATFORM_SURFACELESS_MESA, mode);
     }
 
     if (!epoxy_has_egl_extension(qemu_egl_display,
@@ -194,8 +216,10 @@ int egl_rendernode_init(const char *rendernode, DisplayGLMode mode)
     }
     if (!epoxy_has_egl_extension(qemu_egl_display,
                                  "EGL_MESA_image_dma_buf_export")) {
-        error_report("egl: EGL_MESA_image_dma_buf_export not supported");
-        goto err;
+        if (gbm_inited) {
+            error_report("egl: EGL_MESA_image_dma_buf_export not supported");
+            goto err;
+        }
     }
 
     qemu_egl_rn_ctx = qemu_egl_init_ctx();
@@ -207,13 +231,14 @@ int egl_rendernode_init(const char *rendernode, DisplayGLMode mode)
     return 0;
 
 err:
+#ifdef CONFIG_GBM
     if (qemu_egl_rn_gbm_dev) {
         gbm_device_destroy(qemu_egl_rn_gbm_dev);
     }
     if (qemu_egl_rn_fd != -1) {
         close(qemu_egl_rn_fd);
     }
-
+#endif
     return -1;
 }
 
@@ -225,7 +250,7 @@ int egl_get_fd_for_texture(uint32_t tex_id, EGLint *stride, EGLint *fourcc,
 
     image = eglCreateImageKHR(qemu_egl_display, eglGetCurrentContext(),
                               EGL_GL_TEXTURE_2D_KHR,
-                              (EGLClientBuffer)(unsigned long)tex_id,
+                              (EGLClientBuffer)(uintptr_t)tex_id,
                               NULL);
     if (!image) {
         return -1;
@@ -330,8 +355,6 @@ void egl_dmabuf_create_fence(QemuDmaBuf *dmabuf)
     }
 }
 
-#endif /* CONFIG_GBM */
-
 /* ---------------------------------------------------------------------- */
 
 EGLSurface qemu_egl_init_surface_x11(EGLContext ectx, EGLNativeWindowType win)
@@ -357,8 +380,6 @@ EGLSurface qemu_egl_init_surface_x11(EGLContext ectx, EGLNativeWindowType win)
 }
 
 /* ---------------------------------------------------------------------- */
-
-#if defined(CONFIG_X11) || defined(CONFIG_GBM)
 
 /*
  * Taken from glamor_egl.h from the Xorg xserver, which is MIT licensed
@@ -409,7 +430,7 @@ static EGLDisplay qemu_egl_get_display(EGLNativeDisplayType native,
     return dpy;
 }
 
-static int qemu_egl_init_dpy(EGLNativeDisplayType dpy,
+int qemu_egl_init_dpy(EGLNativeDisplayType dpy,
                              EGLenum platform,
                              DisplayGLMode mode)
 {
@@ -459,14 +480,16 @@ static int qemu_egl_init_dpy(EGLNativeDisplayType dpy,
                         gles ? conf_att_gles : conf_att_core,
                         &qemu_egl_config, 1, &n);
     if (b == EGL_FALSE || n != 1) {
-        error_report("egl: eglChooseConfig failed (%s mode)",
-                     gles ? "gles" : "core");
+        error_report("egl: eglChooseConfig failed (%s mode) with error: 0x%x",
+                     gles ? "gles" : "core", eglGetError());
         return -1;
     }
 
     qemu_egl_mode = gles ? DISPLAYGL_MODE_ES : DISPLAYGL_MODE_CORE;
     return 0;
 }
+
+#if defined(CONFIG_X11) || defined(CONFIG_GBM)
 
 int qemu_egl_init_dpy_x11(EGLNativeDisplayType dpy, DisplayGLMode mode)
 {
@@ -521,7 +544,7 @@ EGLContext qemu_egl_init_ctx(void)
 
     b = eglMakeCurrent(qemu_egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, ectx);
     if (b == EGL_FALSE) {
-        error_report("egl: eglMakeCurrent failed");
+        error_report("egl: eglMakeCurrent failed:0x%x", eglGetError());
         return NULL;
     }
 
