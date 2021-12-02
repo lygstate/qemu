@@ -348,6 +348,15 @@ void gd_egl_flush(DisplayChangeListener *dcl,
     gd_egl_scanout_flush(&vc->gfx.dcl, x, y, w, h);
 }
 
+static int qemu_egl_init_dpy_x11(EGLNativeDisplayType dpy, DisplayGLMode mode)
+{
+#ifdef EGL_KHR_platform_x11
+    return qemu_egl_init_dpy(dpy, EGL_PLATFORM_X11_KHR, mode);
+#else
+    return qemu_egl_init_dpy(dpy, 0, mode);
+#endif
+}
+
 void gtk_egl_init(DisplayGLMode mode)
 {
     GdkDisplay *gdk_display = gdk_display_get_default();

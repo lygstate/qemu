@@ -2027,7 +2027,9 @@ SRST
     ``egl-headless[,rendernode=<file>]``
         Offload all OpenGL operations to a local DRI device. For any
         graphical display, this display needs to be paired with either
-        VNC or SPICE displays.
+        VNC or SPICE displays. If rendernode is not present, means DRI
+        not used; if rendernode is empty string('') then dynamically choose
+        the device
 
     ``vnc=<display>``
         Start a VNC server on display <display>
