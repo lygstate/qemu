@@ -23,6 +23,9 @@
 #include "ui/shader.h"
 
 #include "sysemu/sysemu.h"
+ #ifdef GDK_WINDOWING_WIN32
+ #include <gdk/gdkwin32.h>  // for GDK_WINDOW_HWND
+ #endif
 
 static void gtk_egl_set_scanout_mode(VirtualConsole *vc, bool scanout)
 {
@@ -46,19 +49,24 @@ static void gtk_egl_set_scanout_mode(VirtualConsole *vc, bool scanout)
 
 void gd_egl_init(VirtualConsole *vc)
 {
+    EGLNativeWindowType egl_window = 0;
     GdkWindow *gdk_window = gtk_widget_get_window(vc->gfx.drawing_area);
     if (!gdk_window) {
         return;
     }
 
-    Window x11_window = gdk_x11_window_get_xid(gdk_window);
-    if (!x11_window) {
+#ifdef CONFIG_X11
+    egl_window = (EGLNativeWindowType)gdk_x11_window_get_xid(gdk_window);
+#elif defined(GDK_WINDOWING_WIN32)
+    egl_window = GDK_WINDOW_HWND(gdk_window);
+#endif
+    if (!egl_window) {
         return;
     }
 
     vc->gfx.ectx = qemu_egl_init_ctx();
-    vc->gfx.esurface = qemu_egl_init_surface_x11
-        (vc->gfx.ectx, (EGLNativeWindowType)x11_window);
+    vc->gfx.esurface = qemu_egl_init_surface
+        (vc->gfx.ectx, egl_window);
 
     assert(vc->gfx.esurface);
 }
@@ -367,12 +375,16 @@ void gd_egl_flush(DisplayChangeListener *dcl,
 
 void gtk_egl_init(DisplayGLMode mode)
 {
+#ifdef CONFIG_X11
     GdkDisplay *gdk_display = gdk_display_get_default();
     Display *x11_display = gdk_x11_display_get_xdisplay(gdk_display);
 
     if (qemu_egl_init_dpy_x11(x11_display, mode) < 0) {
         return;
     }
+#elif defined(GDK_WINDOWING_WIN32)
+    qemu_egl_init_dpy(GetDC(NULL), 0, mode);
+#endif
 
     display_opengl = 1;
 }

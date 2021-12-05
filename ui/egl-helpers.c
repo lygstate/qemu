@@ -419,7 +419,7 @@ void egl_dmabuf_create_fence(QemuDmaBuf *dmabuf)
 
 /* ---------------------------------------------------------------------- */
 
-EGLSurface qemu_egl_init_surface_x11(EGLContext ectx, EGLNativeWindowType win)
+EGLSurface qemu_egl_init_surface(EGLContext ectx, EGLNativeWindowType win)
 {
     EGLSurface esurface;
     EGLBoolean b;
@@ -494,18 +494,9 @@ int qemu_egl_init_dpy(EGLNativeDisplayType dpy,
                              EGLenum platform,
                              DisplayGLMode mode)
 {
-    static const EGLint conf_att_core[] = {
+    EGLint conf_att[] = {
         EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
         EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
-        EGL_RED_SIZE,   5,
-        EGL_GREEN_SIZE, 5,
-        EGL_BLUE_SIZE,  5,
-        EGL_ALPHA_SIZE, 0,
-        EGL_NONE,
-    };
-    static const EGLint conf_att_gles[] = {
-        EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
         EGL_RED_SIZE,   5,
         EGL_GREEN_SIZE, 5,
         EGL_BLUE_SIZE,  5,
@@ -516,6 +507,7 @@ int qemu_egl_init_dpy(EGLNativeDisplayType dpy,
     EGLBoolean b;
     EGLint n;
     bool gles = (mode == DISPLAYGL_MODE_ES);
+    bool surfaceless = platform == EGL_PLATFORM_SURFACELESS_MESA;
 
     qemu_egl_display = qemu_egl_get_display(dpy, platform);
     if (qemu_egl_display == EGL_NO_DISPLAY) {
@@ -529,6 +521,12 @@ int qemu_egl_init_dpy(EGLNativeDisplayType dpy,
         return -1;
     }
 
+    if (gles)
+      conf_att[3] = EGL_OPENGL_ES2_BIT;
+
+   if (surfaceless)
+      conf_att[1] = EGL_PBUFFER_BIT;
+
     b = eglBindAPI(gles ?  EGL_OPENGL_ES_API : EGL_OPENGL_API);
     if (b == EGL_FALSE) {
         error_report("egl: eglBindAPI failed (%s mode): %s",
@@ -537,7 +535,7 @@ int qemu_egl_init_dpy(EGLNativeDisplayType dpy,
     }
 
     b = eglChooseConfig(qemu_egl_display,
-                        gles ? conf_att_gles : conf_att_core,
+                        conf_att,
                         &qemu_egl_config, 1, &n);
     if (b == EGL_FALSE || n != 1) {
         error_report("egl: eglChooseConfig failed (%s mode): %s",

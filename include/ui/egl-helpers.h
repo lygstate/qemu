@@ -50,7 +50,7 @@ void egl_dmabuf_create_sync(QemuDmaBuf *dmabuf);
 void egl_dmabuf_create_fence(QemuDmaBuf *dmabuf);
 
 
-EGLSurface qemu_egl_init_surface_x11(EGLContext ectx, EGLNativeWindowType win);
+EGLSurface qemu_egl_init_surface(EGLContext ectx, EGLNativeWindowType win);
 
 #if defined(CONFIG_X11) || defined(CONFIG_GBM)
 

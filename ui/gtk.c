@@ -2505,10 +2505,8 @@ static void early_gtk_display_init(DisplayOptions *opts)
         } else
 #endif
         {
-#ifdef CONFIG_X11
             DisplayGLMode mode = opts->has_gl ? opts->gl : DISPLAYGL_MODE_ON;
             gtk_egl_init(mode);
-#endif
         }
 #endif
     }
