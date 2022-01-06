@@ -21,6 +21,7 @@ docker run -it --rm \
     -v $ROOT/libepoxy:/libepoxy \
     -v $ROOT/virglrenderer:/virglrenderer \
     -v $ROOT/kernel:/kernel \
+    -v $ROOT/gtk:/gtk \
     -v $ROOT/qemu:/qemu \
     -v $ROOT/image:/image \
     -p 2222:22 \

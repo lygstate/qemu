@@ -8,6 +8,7 @@ set -ex
 bash build-mesa.sh
 bash build-epoxy.sh
 bash build-virgl.sh
+bash build-gtk.sh
 bash build-qemu.sh
 
 bash run-qemu.sh
