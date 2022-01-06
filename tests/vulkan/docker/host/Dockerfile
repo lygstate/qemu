@@ -40,6 +40,8 @@ RUN apt-get install -yy llvm
 RUN apt-get install -yy mesa-utils x11-apps
 RUN apt-get install -yy libzstd-dev
 
+# Build GTK
+RUN apt-get install -y libgstreamer-plugins-bad1.0-dev libgirepository1.0-dev
 
 
 # Provide our own init script for kernel boot
@@ -67,6 +69,9 @@ RUN chmod +x "$DEST_DIR"/build-epoxy.sh
 
 COPY build-virgl.sh "$DEST_DIR"
 RUN chmod +x "$DEST_DIR"/build-virgl.sh
+
+COPY build-gtk.sh "$DEST_DIR"
+RUN chmod +x "$DEST_DIR"/build-gtk.sh
 
 COPY build-qemu.sh "$DEST_DIR"
 RUN chmod +x "$DEST_DIR"/build-qemu.sh
