@@ -54,12 +54,12 @@ else
     -initrd /image/rootfs.cpio.gz \
     -kernel /kernel/arch/x86_64/boot/bzImage \
     -append "root=/dev/sda3 nokaslr" \
-    -display gtk,gl=on,show-cursor=on \
     -usb -device usb-tablet \
     -object memory-backend-memfd,id=mem1,size=4G \
     -machine memory-backend=mem1 \
     -device virtio-vga-gl,context_init=true,blob=true,hostmem=1G \
     -vga none \
+    -display gtk,gl=on,show-cursor=on \
     -d guest_errors
     #-display sdl,gl=on \
     #-s -S \
