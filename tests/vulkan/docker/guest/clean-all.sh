@@ -1,0 +1,9 @@
+rm -rf $ROOT/drm/build/docker
+rm -rf $ROOT/libepoxy/build/docker
+rm -rf $ROOT/gtk/build/docker
+rm -rf $ROOT/mesa/build/docker
+rm -rf $ROOT/mesa/build/guest
+rm -rf $ROOT/qemu/build/docker
+rm -rf $ROOT/virglrenderer/build/docker
+rm -rf $ROOT/wayland-protocols/build/docker
+rm -rf $ROOT/wayland/build/docker
