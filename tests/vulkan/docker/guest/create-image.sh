@@ -3,13 +3,13 @@
 
 set -ex
 
-pushd /image
+pushd $ROOT/image
 
 IMG=ubuntu.qcow2
 
 if [ ! -f $IMG ]; then
-    ISO_NAME=ubuntu-21.04-desktop-amd64.iso
-    ISO=21.04/$ISO_NAME
+    ISO_NAME=ubuntu-21.10-desktop-amd64.iso
+    ISO=21.10/$ISO_NAME
     if [ ! -f $ISO_NAME ]; then
         wget https://releases.ubuntu.com/$ISO
     fi
