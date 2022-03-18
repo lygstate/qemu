@@ -3,7 +3,7 @@
 
 set -ex
 
-pushd /qemu
+pushd $ROOT/qemu
 mkdir -p build/docker
 pushd build/docker
 
@@ -14,10 +14,11 @@ if [ ! -f build.ninja ]; then
         --disable-werror \
         --enable-opengl \
         --enable-virglrenderer \
-        --enable-sdl \
-        --enable-gtk
+        --disable-sdl \
+        --disable-gtk \
+        --disable-debug-info
 fi
-make -j8 qemu-system-x86_64 && make install
+ninja qemu-system-x86_64 && ninja install
 
 popd
 popd

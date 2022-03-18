@@ -42,6 +42,11 @@ RUN apt-get install -yy libzstd-dev
 
 # Build GTK
 RUN apt-get install -y libgstreamer-plugins-bad1.0-dev libgirepository1.0-dev
+RUN apt-get install -y python3 python3-pip
+RUN pip3 install --upgrade meson
+RUN apt-get remove -yy llvm-12 llvm-12-runtime llvm-12-linker-tools llvm-12-tools llvm-12-dev llvm-12-doc llvm-12-examples
+RUN apt-get remove -yy libclang1-12 libclang-common-12-dev libclang-cpp12 libclang-cpp12-dev
+RUN apt-get install -y graphviz doxygen xmlto gdbserver
 
 
 # Provide our own init script for kernel boot
@@ -57,6 +62,18 @@ COPY x86_64.config /config
 WORKDIR /
 
 ENV DEST_DIR=/usr/local/bin
+
+COPY clean-all.sh "$DEST_DIR"
+RUN chmod +x "$DEST_DIR"/clean-all.sh
+
+COPY build-drm.sh "$DEST_DIR"
+RUN chmod +x "$DEST_DIR"/build-drm.sh
+
+COPY build-wayland-protocols.sh "$DEST_DIR"
+RUN chmod +x "$DEST_DIR"/build-wayland-protocols.sh
+
+COPY build-wayland.sh "$DEST_DIR"
+RUN chmod +x "$DEST_DIR"/build-wayland.sh
 
 COPY build-kernel.sh "$DEST_DIR"
 RUN chmod +x "$DEST_DIR"/build-kernel.sh
@@ -78,6 +95,12 @@ RUN chmod +x "$DEST_DIR"/build-qemu.sh
 
 COPY create-image.sh "$DEST_DIR"
 RUN chmod +x "$DEST_DIR"/create-image.sh
+
+COPY code.sh "$DEST_DIR"
+RUN chmod +x "$DEST_DIR"/code.sh
+
+COPY run-guest.sh "$DEST_DIR"
+RUN chmod +x "$DEST_DIR"/run-guest.sh
 
 COPY run-qemu.sh "$DEST_DIR"
 RUN chmod +x "$DEST_DIR"/run-qemu.sh
