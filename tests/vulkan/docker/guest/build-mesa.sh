@@ -11,7 +11,7 @@ if [ ! -f build/docker/build.ninja ]; then
     meson build/docker \
         -Dprefix=/usr \
         -Dgallium-drivers=swrast \
-        -Dbuildtype=debugoptimized \
+        -Dbuildtype=debug \
         -Dllvm=enabled \
         -Dglx=dri \
         -Degl=enabled \
@@ -23,7 +23,7 @@ else
     meson --reconfigure build/docker \
         -Dprefix=/usr \
         -Dgallium-drivers=swrast \
-        -Dbuildtype=debugoptimized \
+        -Dbuildtype=debug \
         -Dllvm=enabled \
         -Dglx=dri \
         -Degl=enabled \

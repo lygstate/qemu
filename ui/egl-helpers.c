@@ -20,6 +20,8 @@
 #include "ui/console.h"
 #include "ui/egl-helpers.h"
 
+#include <glib.h>
+
 EGLDisplay *qemu_egl_display;
 EGLConfig qemu_egl_config;
 DisplayGLMode qemu_egl_mode;
@@ -443,6 +445,59 @@ static EGLDisplay qemu_egl_get_display(EGLNativeDisplayType native,
     return dpy;
 }
 
+static void printf_config(EGLDisplay *display, EGLConfig *configs, int numConfigs)
+{
+    int i;
+    for (i = 0; i < numConfigs; ++i)
+    {
+        EGLint value;
+        error_report("Config #%d", i);
+        eglGetConfigAttrib(display, configs[i], EGL_BUFFER_SIZE, &value);
+        error_report("Buffer Size %d", value);
+        eglGetConfigAttrib(display, configs[i], EGL_SURFACE_TYPE, &value);
+        error_report("EGL_SURFACE_TYPE %d", value);
+        eglGetConfigAttrib(display, configs[i], EGL_RENDERABLE_TYPE, &value);
+        error_report("EGL_RENDERABLE_TYPE %d", value);
+        eglGetConfigAttrib(display, configs[i], EGL_RED_SIZE, &value);
+        error_report("Red Size %d", value);
+        eglGetConfigAttrib(display, configs[i], EGL_GREEN_SIZE, &value);
+        error_report("Green Size %d", value);
+        eglGetConfigAttrib(display, configs[i], EGL_BLUE_SIZE, &value);
+        error_report("Blue Size %d", value);
+        eglGetConfigAttrib(display, configs[i], EGL_ALPHA_SIZE, &value);
+        error_report("Alpha Size %d", value);
+        eglGetConfigAttrib(display, configs[i], EGL_CONFIG_CAVEAT, &value);
+        error_report("EGL_CONFIG_CAVEAT %d", value); // EGL_NONE EGL_SLOW_CONFIG
+        eglGetConfigAttrib(display, configs[i], EGL_CONFIG_ID, &value);
+        error_report("Config ID %d", value);
+
+        eglGetConfigAttrib(display, configs[i], EGL_DEPTH_SIZE, &value);
+        error_report("Depth size %d", value);
+
+        eglGetConfigAttrib(display, configs[i], EGL_MAX_PBUFFER_WIDTH, &value);
+        error_report("Max pbuffer width %d", value);
+        eglGetConfigAttrib(display, configs[i], EGL_MAX_PBUFFER_HEIGHT, &value);
+        error_report("Max pbuffer height %d", value);
+        eglGetConfigAttrib(display, configs[i], EGL_MAX_PBUFFER_PIXELS, &value);
+        error_report("Max pbuffer pixels %d", value);
+        eglGetConfigAttrib(display, configs[i], EGL_NATIVE_RENDERABLE, &value);
+        error_report("Native renderable %s", value ? "true" : "false");
+        eglGetConfigAttrib(display, configs[i], EGL_NATIVE_VISUAL_ID, &value);
+        error_report("Native visual ID %d", value);
+        eglGetConfigAttrib(display, configs[i], EGL_NATIVE_VISUAL_TYPE, &value);
+        error_report("Native visual type %d", value);
+        eglGetConfigAttrib(display, configs[i], EGL_SAMPLE_BUFFERS, &value);
+        error_report("Sample Buffers %d", value);
+        eglGetConfigAttrib(display, configs[i], EGL_SAMPLES, &value);
+        error_report("Samples %d", value);
+        eglGetConfigAttrib(display, configs[i], EGL_SURFACE_TYPE, &value);
+        error_report("Surface type %d", value);
+        eglGetConfigAttrib(display, configs[i], EGL_TRANSPARENT_TYPE, &value);
+        error_report("Transparent type %d", value);
+        error_report("--------------------------------------------------------------------------");
+    }
+}
+
 int qemu_egl_init_dpy(EGLNativeDisplayType dpy,
                       EGLenum platform,
                       DisplayGLMode mode)
@@ -488,6 +543,16 @@ int qemu_egl_init_dpy(EGLNativeDisplayType dpy,
         error_report("egl: eglBindAPI failed (%s mode)",
                      gles ? "gles" : "core");
         return -1;
+    }
+    {
+        EGLint numConfigs;
+        // first we call getConfigs with a NULL to see how many configs we have
+        eglGetConfigs(qemu_egl_display, NULL, 0, &numConfigs);
+        // now we create a buffer to store all our configs
+        EGLConfig *configs = g_new0(EGLConfig, numConfigs);
+        // and copy them into our buffer (don't forget to delete once done)
+        eglGetConfigs(qemu_egl_display, configs, numConfigs, &numConfigs);
+        printf_config(qemu_egl_display, configs, numConfigs);
     }
 
     b = eglChooseConfig(qemu_egl_display,

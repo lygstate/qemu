@@ -13,14 +13,14 @@ if [ ! -f build/docker/build.ninja ]; then
         -Dplatforms=egl \
         -Dvenus-experimental=true \
         -Dminigbm_allocation=false \
-        -Dbuildtype=debugoptimized
+        -Dbuildtype=debug
 else
     meson --reconfigure build/docker \
         -Dprefix=/usr \
         -Dplatforms=egl \
         -Dvenus-experimental=true \
         -Dminigbm_allocation=false \
-        -Dbuildtype=debugoptimized
+        -Dbuildtype=debug
 fi
 
 ninja -C build/docker install

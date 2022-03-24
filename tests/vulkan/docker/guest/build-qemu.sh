@@ -16,7 +16,7 @@ if [ ! -f build.ninja ]; then
         --enable-virglrenderer \
         --disable-sdl \
         --disable-gtk \
-        --disable-debug-info
+        --enable-debug
 fi
 ninja qemu-system-x86_64 && ninja install
 

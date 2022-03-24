@@ -3,7 +3,7 @@
 set -ex
 
 pushd $ROOT/qemu
-
+export EGL_LOG_LEVEL=debug
 # If the image has not been created yet, we create
 # it and start the ubuntu installation from cdrom
 if [ ! -f $IMG ]; then
@@ -26,7 +26,7 @@ else
   # handle SIGUSR1 noprint nostop
   # Uncomment to start QEMU with gdb
   # gdb --args \
-  # gdbserver 0.0.0.0:1235 \
+  gdbserver 0.0.0.0:1235 \
   build/docker/qemu-system-x86_64 \
     -enable-kvm \
     -M q35 \
