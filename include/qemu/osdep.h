@@ -218,9 +218,6 @@ void QEMU_ERROR("code path is reachable")
 #ifndef O_BINARY
 #define O_BINARY 0
 #endif
-#ifndef MAP_ANONYMOUS
-#define MAP_ANONYMOUS MAP_ANON
-#endif
 #ifndef MAP_FIXED_NOREPLACE
 #define MAP_FIXED_NOREPLACE 0
 #endif

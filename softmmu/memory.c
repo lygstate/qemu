@@ -1592,7 +1592,6 @@ void memory_region_init_resizeable_ram(MemoryRegion *mr,
     }
 }
 
-#ifdef CONFIG_POSIX
 void memory_region_init_ram_from_file(MemoryRegion *mr,
                                       Object *owner,
                                       const char *name,
@@ -1641,7 +1640,6 @@ void memory_region_init_ram_from_fd(MemoryRegion *mr,
         error_propagate(errp, err);
     }
 }
-#endif
 
 void memory_region_init_ram_ptr(MemoryRegion *mr,
                                 Object *owner,

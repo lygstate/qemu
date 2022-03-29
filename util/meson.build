@@ -10,14 +10,14 @@ endif
 util_ss.add(when: linux_io_uring, if_true: files('fdmon-io_uring.c'))
 util_ss.add(when: 'CONFIG_POSIX', if_true: files('compatfd.c'))
 util_ss.add(when: 'CONFIG_POSIX', if_true: files('event_notifier-posix.c'))
-util_ss.add(when: 'CONFIG_POSIX', if_true: files('mmap-alloc.c'))
+util_ss.add(files('mmap-alloc.c'))
 freebsd_dep = []
 if targetos == 'freebsd'
   freebsd_dep = util
 endif
 util_ss.add(when: 'CONFIG_POSIX', if_true: [files('oslib-posix.c'), freebsd_dep])
 util_ss.add(when: 'CONFIG_POSIX', if_true: files('qemu-thread-posix.c'))
-util_ss.add(when: 'CONFIG_POSIX', if_true: files('memfd.c'))
+util_ss.add(files('memfd.c', 'qemu-mman.c'))
 util_ss.add(when: 'CONFIG_WIN32', if_true: files('aio-win32.c'))
 util_ss.add(when: 'CONFIG_WIN32', if_true: files('event_notifier-win32.c'))
 util_ss.add(when: 'CONFIG_WIN32', if_true: files('oslib-win32.c'))
