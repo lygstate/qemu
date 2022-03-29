@@ -30,6 +30,7 @@
 #include "qapi/error.h"
 #include "qemu/memfd.h"
 #include "qemu/host-utils.h"
+#include "qemu-mman.h"
 
 #if defined CONFIG_LINUX && !defined CONFIG_MEMFD
 #include <sys/syscall.h>

@@ -21,6 +21,8 @@
 #include "qemu-common.h"
 #include "qapi/error.h"
 
+#include "util/qemu-mman.h"
+
 #include "qemu/cutils.h"
 #include "qemu/cacheflush.h"
 #include "qemu/madvise.h"
@@ -69,9 +71,7 @@
 #include "migration/vmstate.h"
 
 #include "qemu/range.h"
-#ifndef _WIN32
 #include "qemu/mmap-alloc.h"
-#endif
 
 #include "monitor/monitor.h"
 
@@ -1391,7 +1391,6 @@ long qemu_maxrampagesize(void)
 }
 #endif
 
-#ifdef CONFIG_POSIX
 static int64_t get_file_size(int fd)
 {
     int64_t size;
@@ -1608,7 +1607,6 @@ static void *file_ram_alloc(RAMBlock *block,
     block->fd = fd;
     return area;
 }
-#endif
 
 /* Allocate space within the ram_addr_t space that governs the
  * dirty bitmaps.
@@ -2048,7 +2046,6 @@ static void ram_block_add(RAMBlock *new_block, Error **errp)
     }
 }
 
-#ifdef CONFIG_POSIX
 RAMBlock *qemu_ram_alloc_from_fd(ram_addr_t size, MemoryRegion *mr,
                                  uint32_t ram_flags, int fd, off_t offset,
                                  bool readonly, Error **errp)
@@ -2137,7 +2134,6 @@ RAMBlock *qemu_ram_alloc_from_file(ram_addr_t size, MemoryRegion *mr,
 
     return block;
 }
-#endif
 
 static
 RAMBlock *qemu_ram_alloc_internal(ram_addr_t size, ram_addr_t max_size,

@@ -22,6 +22,7 @@
 #include "qemu/host-utils.h"
 #include "qemu/cutils.h"
 #include "qemu/error-report.h"
+#include "util/qemu-mman.h"
 
 #define HUGETLBFS_MAGIC       0x958458f6
 
@@ -209,6 +210,7 @@ static void *mmap_activate(void *ptr, size_t size, int fd,
 
     activated_ptr = mmap(ptr, size, prot, flags | map_sync_flags, fd,
                          map_offset);
+#ifdef CONFIG_POSIX
     if (activated_ptr == MAP_FAILED && map_sync_flags) {
         if (errno == ENOTSUP) {
             char *proc_link = g_strdup_printf("/proc/self/fd/%d", fd);
@@ -234,6 +236,7 @@ static void *mmap_activate(void *ptr, size_t size, int fd,
          */
         activated_ptr = mmap(ptr, size, prot, flags, fd, map_offset);
     }
+#endif
     return activated_ptr;
 }
 

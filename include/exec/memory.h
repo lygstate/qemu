@@ -1269,7 +1269,6 @@ void memory_region_init_resizeable_ram(MemoryRegion *mr,
                                                        uint64_t length,
                                                        void *host),
                                        Error **errp);
-#ifdef CONFIG_POSIX
 
 /**
  * memory_region_init_ram_from_file:  Initialize RAM memory region with a
@@ -1326,7 +1325,6 @@ void memory_region_init_ram_from_fd(MemoryRegion *mr,
                                     int fd,
                                     ram_addr_t offset,
                                     Error **errp);
-#endif
 
 /**
  * memory_region_init_ram_ptr:  Initialize RAM memory region from a
