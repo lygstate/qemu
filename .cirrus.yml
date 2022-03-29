@@ -18,6 +18,7 @@ windows_msys2_task:
       diffutils git grep make pkg-config sed
       mingw-w64-x86_64-python
       mingw-w64-x86_64-python-sphinx
+      mingw-w64-x86_64-python-sphinx_rtd_theme
       mingw-w64-x86_64-toolchain
       mingw-w64-x86_64-SDL2
       mingw-w64-x86_64-SDL2_image
