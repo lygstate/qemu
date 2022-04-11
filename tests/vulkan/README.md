@@ -28,6 +28,7 @@ scp -P 2222 install.tar.gz lygstate@127.0.0.1:/home/lygstate
 
 scp -P 2222 lygstate@127.0.0.1:/var/log/Xorg.0.log Xorg.0.log
 scp -P 2222 lygstate@127.0.0.1:/var/log/syslog syslog.txt
+scp -P 2222 lygstate@127.0.0.1:/usr/bin/glxinfo glxinfo
 
 ssh lygstate@127.0.0.1 -p 2222
 sudo truncate -s 0 /var/log/syslog
@@ -47,8 +48,15 @@ export WAYLAND_DISPLAY="wayland-0"
 
 xdpyinfo
 export GALLIUM_DRIVER=zink
+# host only
+export GALLIUM_DRIVER=virpipe
+# host+guest and in guest
+export GALLIUM_DRIVER=virgl
+
+virtio_gpu
+
 glxinfo | grep Device
-gdbserver :1235 glxinfo
+gdbserver :1234 glxinfo
 vulkaninfo
 glxgears
 vkcube

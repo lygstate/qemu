@@ -14,7 +14,8 @@ echo "add-auto-load-safe-path /qemu/.gdbinit" >> /root/.gdbinit
 
 cp /rootfs.cpio.gz $ROOT/image/rootfs.cpio.gz
 
-export DISPLAY_OPTIONS="-device virtio-vga-gl,context_init=true,blob=true,hostmem=1G 
+# context_init=true,blob=true,hostmem=1G for venus
+export DISPLAY_OPTIONS="-device virtio-vga-gl
 -object memory-backend-memfd,id=mem1,size=4G
 -machine memory-backend=mem1
 -vga none 
