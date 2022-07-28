@@ -1,0 +1,104 @@
+Refer to 
+https://wiki.qemu.org/Hosts/W32
+
+Proxy when necessary
+export http_proxy='socks5://127.0.0.1:7073'
+export https_proxy='socks5://127.0.0.1:7073'
+
+1. 更新MSYS2
+MSYS2
+pacman -Syu
+
+cd /e/CI-Cor-Ready/xemu/qemu.org
+
+# Search Packages
+https://packages.msys2.org/
+
+#Edit mirror
+# https://mirror.tuna.tsinghua.edu.cn/help/msys2/
+MSYS2 mingw64
+Open msys2.exe shell
+
+# Query GCC packages
+pacman -Q | grep 10.1.0
+
+
+Open mingw64.exe shell
+mkdir build-x64
+cd build-x64
+../configure --python=python3 --prefix=E:/CI-Cor-Ready/xemu/qemu.org-x64 --disable-gtk --disable-sdl --disable-virtfs --disable-werror \
+  --enable-capstone=system \
+  --target-list=x86_64-softmmu,i386-softmmu,ppc-softmmu \
+  --disable-hax --enable-whpx --enable-lzo --enable-vnc-jpeg --enable-vnc-png --enable-membarrier
+make -j8
+make install
+
+aarch64-softmmu alpha-softmmu
+arm-softmmu cris-softmmu hppa-softmmu i386-softmmu
+lm32-softmmu m68k-softmmu microblazeel-softmmu
+microblaze-softmmu mips64el-softmmu mips64-softmmu
+mipsel-softmmu mips-softmmu moxie-softmmu
+nios2-softmmu or1k-softmmu ppc64-softmmu ppc-softmmu
+riscv32-softmmu riscv64-softmmu s390x-softmmu
+sh4eb-softmmu sh4-softmmu sparc64-softmmu
+sparc-softmmu tricore-softmmu unicore32-softmmu
+x86_64-softmmu xtensaeb-softmmu xtensa-softmmu
+
+
+QEMU 4.x build
+
+export LC_ALL=C
+
+cd /e/CI-Cor-Ready/xemu/
+mkdir -p build-xemu-x64-ppc-debug
+cd build-xemu-x64-ppc-debug
+../xemu/configure --python=python3 --disable-gtk --disable-sdl --disable-virtfs --disable-werror \
+  --enable-capstone=system \
+  --target-list=ppc-softmmu \
+  --prefix=${MINGW_PREFIX} \
+  --bindir=${MINGW_PREFIX}/bin \
+  --datadir=${MINGW_PREFIX}/bin \
+  --firmwarepath=${MINGW_PREFIX}/etc/qemu \
+  --mandir=${MINGW_PREFIX}/share/qemu \
+  --docdir=${MINGW_PREFIX}/share/qemu \
+  --disable-stack-protector \
+  --enable-gnutls \
+  --enable-nettle \
+  --enable-vnc \
+  --enable-vnc-sasl \
+  --enable-vnc-jpeg \
+  --enable-vnc-png \
+  --enable-membarrier \
+  --disable-kvm \
+  --enable-hax \
+  --enable-whpx \
+  --disable-spice \
+  --enable-lzo \
+  --enable-snappy \
+  --enable-bzip2 \
+  --enable-vdi \
+  --enable-qcow1 \
+  --enable-tools \
+  --enable-libusb \
+  --enable-usb-redir \
+  --enable-libssh \
+  --disable-libnfs \
+  --enable-debug \
+  --enable-debug-tcg
+
+
+# Install GDB-GUI
+pacman -S mingw-w64-x86_64-python-pip
+# https://www.gdbgui.com/installation/#mingw-recommended
+python3 -m pip install pipx
+pipx install gdbgui
+
+
+
+
+../configure --python=python3 --enable-plugins --enable-modules
+
+
+../configure --python=python3
+
+make -j10 install DESTDIR=`cygpath $XEMU_DEV_DIR`/xemu-x64-ppc
