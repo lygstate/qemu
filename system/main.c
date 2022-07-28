@@ -25,6 +25,8 @@
 #include "qemu/osdep.h"
 #include "qemu-main.h"
 #include "sysemu/sysemu.h"
+#include "epoxy/common.h"
+#include <glib.h>
 
 #ifdef CONFIG_SDL
 #include <SDL.h>
@@ -33,7 +35,15 @@
 int qemu_default_main(void)
 {
     int status;
+#if 0
+    char *str = epoxy_module_path();
+    printf("epoxy_module_path:%s\n", str);
 
+    g_autofree gchar *opengl32_path = g_strdup_printf("%s/../opengl32.dll", str);
+    epoxy_set_gl_handle(epoxy_dlopen_handle(opengl32_path, false));
+    epoxy_set_egl_handle(epoxy_dlopen_handle("C:/work/xemu-opengl/libEGL.dll", false));
+    epoxy_set_gles2_handle(epoxy_dlopen_handle("C:/work/xemu-opengl/libGLESv2.dll", false));
+#endif
     status = qemu_main_loop();
     qemu_cleanup();
 
