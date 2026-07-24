@@ -89,6 +89,22 @@ bool target_s390x(const TargetInfo *ti)
     return ti->target_arch == SYS_EMU_TARGET_S390X;
 }
 
+bool target_base_riscv(const TargetInfo *ti)
+{
+    switch (ti->target_arch) {
+    case SYS_EMU_TARGET_RISCV32:
+    case SYS_EMU_TARGET_RISCV64:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool target_riscv32(const TargetInfo *ti)
+{
+    return ti->target_arch == SYS_EMU_TARGET_RISCV32;
+}
+
 bool target_riscv64(const TargetInfo *ti)
 {
     return ti->target_arch == SYS_EMU_TARGET_RISCV64;
