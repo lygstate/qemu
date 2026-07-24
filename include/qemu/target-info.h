@@ -102,6 +102,36 @@ bool target_ppc64(void);
 bool target_s390x(void);
 
 /**
+ * target_is_base_riscv:
+ * @ti: TargetInfo to inspect
+ *
+ * Returns whether @ti is RISC-V 32-bit or 64-bit.
+ */
+bool target_is_base_riscv(const TargetInfo *ti);
+
+/**
+ * target_base_riscv:
+ *
+ * Returns whether the target architecture is RISC-V 32-bit or 64-bit.
+ */
+bool target_base_riscv(void);
+
+/**
+ * target_is_riscv32:
+ * @ti: TargetInfo to inspect
+ *
+ * Returns whether @ti is RISC-V 32-bit.
+ */
+bool target_is_riscv32(const TargetInfo *ti);
+
+/**
+ * target_riscv32:
+ *
+ * Returns whether the target architecture is RISC-V 32-bit.
+ */
+bool target_riscv32(void);
+
+/**
  * target_is_riscv64:
  * @ti: TargetInfo to inspect
  *
