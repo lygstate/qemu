@@ -65,14 +65,39 @@ static void set_target_info(const TargetInfo *chosen)
     target_info_ptr = chosen;
 }
 
+static const char *target_endian_suffix(const TargetInfo *ti)
+{
+    return ti->endianness == ENDIAN_MODE_BIG ? "be" : "le";
+}
+
 static void list_targets_available(void)
 {
     printf("List of targets available:\n");
     g_autoptr(GSList) targets = object_class_get_list_sorted(TYPE_TARGET_INFO, false);
     for (GSList *elem = targets; elem; elem = elem->next) {
         const TargetInfo *ti = TARGET_INFO_CLASS(elem->data)->target_info;
-        printf("- %s\n", ti->target_name);
+        const char *end = target_endian_suffix(ti);
+
+        if (ti->is_default) {
+            printf("- %s (default %s)\n", ti->target_name, end);
+        } else {
+            printf("- %s-%s\n", ti->target_name, end);
+        }
     }
+}
+
+/* Match "aarch64", "aarch64-le", or "aarch64-be". Bare name selects is_default. */
+static bool target_info_matches_name(const TargetInfo *ti, const char *name)
+{
+    size_t len = strlen(ti->target_name);
+
+    if (!strcmp(name, ti->target_name)) {
+        return ti->is_default;
+    }
+    if (strncmp(name, ti->target_name, len) || name[len] != '-') {
+        return false;
+    }
+    return !strcmp(name + len + 1, target_endian_suffix(ti));
 }
 
 /* qemu-system-aarch64[.exe] -> aarch64; qemu-system[.exe] -> NULL. */
@@ -117,7 +142,7 @@ void target_info_qom_set_target(const char *name, Error **errp)
         }
         for (GSList *elem = targets; elem; elem = elem->next) {
             const TargetInfo *ti = TARGET_INFO_CLASS(elem->data)->target_info;
-            if (!strcmp(name, ti->target_name)) {
+            if (target_info_matches_name(ti, name)) {
                 set_target_info(ti);
                 return;
             }

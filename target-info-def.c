@@ -28,33 +28,78 @@ QEMU_BUILD_BUG_ON(offsetof(ArchCPU, env) != sizeof(CPUState));
 QEMU_BUILD_BUG_ON(TARGET_PAGE_BITS < TARGET_PAGE_BITS_MIN);
 #endif
 
-static const TargetInfo target_info_stub = {
-    .target_name = TARGET_NAME,
-    .target_arch = glue(SYS_EMU_TARGET_, TARGET_ARCH),
-    .long_bits = TARGET_LONG_BITS,
-    .cpu_type = CPU_RESOLVING_TYPE,
-    .endianness = TARGET_BIG_ENDIAN ? ENDIAN_MODE_BIG : ENDIAN_MODE_LITTLE,
 #ifdef TARGET_PAGE_BITS_VARY
-    .page_bits_vary = true,
 # ifdef TARGET_PAGE_BITS_LEGACY
+#  define TARGET_INFO_PAGE_BITS \
+    .page_bits_vary = true, \
     .page_bits_init = TARGET_PAGE_BITS_LEGACY,
+# else
+#  define TARGET_INFO_PAGE_BITS \
+    .page_bits_vary = true,
 # endif
 #else
-    .page_bits_vary = false,
+# define TARGET_INFO_PAGE_BITS \
+    .page_bits_vary = false, \
     .page_bits_init = TARGET_PAGE_BITS,
 #endif
-#ifdef CONFIG_CXL
-    .config_cxl = true,
+
+#ifndef CONFIG_USER_ONLY
+# ifdef CONFIG_CXL
+#  define TARGET_INFO_CONFIG_CXL .config_cxl = true,
+# else
+#  define TARGET_INFO_CONFIG_CXL
+# endif
+# ifdef CONFIG_DPCD
+#  define TARGET_INFO_CONFIG_DPCD .config_dpcd = true,
+# else
+#  define TARGET_INFO_CONFIG_DPCD
+# endif
+# ifdef CONFIG_MULTIPROCESS
+#  define TARGET_INFO_CONFIG_MULTIPROCESS .config_multiprocess = true,
+# else
+#  define TARGET_INFO_CONFIG_MULTIPROCESS
+# endif
+# ifdef CONFIG_NITRO
+#  define TARGET_INFO_CONFIG_NITRO .config_nitro = true,
+# else
+#  define TARGET_INFO_CONFIG_NITRO
+# endif
+# define TARGET_INFO_CONFIG \
+    TARGET_INFO_CONFIG_CXL \
+    TARGET_INFO_CONFIG_DPCD \
+    TARGET_INFO_CONFIG_MULTIPROCESS \
+    TARGET_INFO_CONFIG_NITRO
+#else
+# define TARGET_INFO_CONFIG
 #endif
-#ifdef CONFIG_DPCD
-    .config_dpcd = true,
-#endif
-#ifdef CONFIG_MULTIPROCESS
-    .config_multiprocess = true,
-#endif
-#ifdef CONFIG_NITRO
-    .config_nitro = true,
-#endif
+
+#define TARGET_INFO_COMMON                                                  \
+    .target_name = TARGET_NAME,                                             \
+    .target_arch = glue(SYS_EMU_TARGET_, TARGET_ARCH),                      \
+    .long_bits = TARGET_LONG_BITS,                                          \
+    .cpu_type = CPU_RESOLVING_TYPE,                                         \
+    TARGET_INFO_PAGE_BITS                                                   \
+    TARGET_INFO_CONFIG
+
+#ifdef CONFIG_USER_ONLY
+static const TargetInfo target_info_def = {
+    TARGET_INFO_COMMON
+    .endianness = TARGET_BIG_ENDIAN ? ENDIAN_MODE_BIG : ENDIAN_MODE_LITTLE,
 };
 
-target_info_init(target_info_stub)
+target_info_init(target_info_def)
+#else
+static const TargetInfo target_info_le = {
+    TARGET_INFO_COMMON
+    .endianness = ENDIAN_MODE_LITTLE,
+    .is_default = !TARGET_BIG_ENDIAN,
+};
+
+static const TargetInfo target_info_be = {
+    TARGET_INFO_COMMON
+    .endianness = ENDIAN_MODE_BIG,
+    .is_default = TARGET_BIG_ENDIAN,
+};
+
+target_info_init_le_be(target_info_le, target_info_be)
+#endif
