@@ -21,8 +21,6 @@ typedef struct TargetInfo {
     unsigned long_bits;
     /* runtime equivalent of CPU_RESOLVING_TYPE definition */
     const char *cpu_type;
-    /* QOM typename machines for this binary must implement */
-    const char *machine_typename;
     /* related to TARGET_BIG_ENDIAN definition */
     EndianMode endianness;
     /*
@@ -32,6 +30,13 @@ typedef struct TargetInfo {
     unsigned page_bits_init;
     /* runtime equivalent of TARGET_PAGE_BITS_VARY definition */
     bool page_bits_vary;
+
+    /* CONFIG_MULTIPROCESS */
+    bool config_multiprocess;
+    /* CONFIG_NITRO */
+    bool config_nitro;
+    /* CONFIG_XEN */
+    bool config_xen;
 } TargetInfo;
 
 /**

@@ -1,5 +1,5 @@
 /*
- * QEMU target info stubs (target specific)
+ * QEMU target info definition (target specific)
  *
  *  Copyright (c) Linaro
  *
@@ -14,6 +14,10 @@
 #include "cpu.h"
 #include "exec/cpu-defs.h"
 #include "exec/page-vary.h"
+#ifndef CONFIG_USER_ONLY
+#include CONFIG_DEVICES
+#endif
+#include CONFIG_TARGET
 
 /* Validate correct placement of CPUArchState. */
 QEMU_BUILD_BUG_ON(offsetof(ArchCPU, parent_obj) != 0);
@@ -24,12 +28,11 @@ QEMU_BUILD_BUG_ON(offsetof(ArchCPU, env) != sizeof(CPUState));
 QEMU_BUILD_BUG_ON(TARGET_PAGE_BITS < TARGET_PAGE_BITS_MIN);
 #endif
 
-static const TargetInfo target_info_stub = {
+static const TargetInfo target_info_def = {
     .target_name = TARGET_NAME,
     .target_arch = glue(SYS_EMU_TARGET_, TARGET_ARCH),
     .long_bits = TARGET_LONG_BITS,
     .cpu_type = CPU_RESOLVING_TYPE,
-    .machine_typename = TYPE_MACHINE,
     .endianness = TARGET_BIG_ENDIAN ? ENDIAN_MODE_BIG : ENDIAN_MODE_LITTLE,
 #ifdef TARGET_PAGE_BITS_VARY
     .page_bits_vary = true,
@@ -40,6 +43,24 @@ static const TargetInfo target_info_stub = {
     .page_bits_vary = false,
     .page_bits_init = TARGET_PAGE_BITS,
 #endif
+
+#ifndef CONFIG_USER_ONLY
+# ifdef CONFIG_MULTIPROCESS
+    .config_multiprocess = true,
+# else
+    .config_multiprocess = false,
+# endif
+# ifdef CONFIG_NITRO
+    .config_nitro = true,
+# else
+    .config_nitro = false,
+# endif
+# ifdef CONFIG_XEN
+    .config_xen = true,
+# else
+    .config_xen = false,
+# endif
+#endif
 };
 
-target_info_init(target_info_stub)
+target_info_init(target_info_def)

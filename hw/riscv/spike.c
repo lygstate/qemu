@@ -34,7 +34,6 @@
 #include "hw/riscv/boot.h"
 #include "hw/riscv/fdt-common.h"
 #include "hw/riscv/numa.h"
-#include "hw/riscv/machines-qom.h"
 #include "hw/char/riscv_htif.h"
 #include "hw/intc/riscv_aclint.h"
 #include "chardev/char.h"
@@ -262,6 +261,7 @@ static void spike_machine_instance_init(Object *obj)
 
 static void spike_machine_class_init(ObjectClass *oc, const void *data)
 {
+    TARGET_SPECIFIC_CLASS(oc)->is_available = target_base_riscv;
     MachineClass *mc = MACHINE_CLASS(oc);
 
     mc->desc = "RISC-V Spike board";
@@ -291,7 +291,7 @@ static const TypeInfo spike_machine_typeinfo = {
     .class_init = spike_machine_class_init,
     .instance_init = spike_machine_instance_init,
     .instance_size = sizeof(SpikeState),
-    .interfaces = riscv32_64_machine_interfaces,
+    .interfaces = type_target_specific,
 };
 
 static void spike_machine_init_register_types(void)

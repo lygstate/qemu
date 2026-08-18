@@ -12,29 +12,53 @@
 #include "qemu/target-info-impl.h"
 #include "qemu/target-info-init.h"
 #include "qemu/target-info-qom.h"
-#include "hw/arm/machines-qom.h"
-#include "hw/riscv/machines-qom.h"
+#include "hw/core/boards.h"
+
+const InterfaceInfo type_target_specific[] = {
+    { TYPE_TARGET_SPECIFIC },
+    { }
+};
 
 static const TypeInfo target_info_types[] = {
     {
-        .name           = TYPE_TARGET_ARM_MACHINE,
+        .name           = TYPE_TARGET_SPECIFIC,
         .parent         = TYPE_INTERFACE,
-    },
-    {
-        .name           = TYPE_TARGET_AARCH64_MACHINE,
-        .parent         = TYPE_INTERFACE,
-    },
-    {
-        .name           = TYPE_TARGET_RISCV32_MACHINE,
-        .parent         = TYPE_INTERFACE,
-    },
-    {
-        .name           = TYPE_TARGET_RISCV64_MACHINE,
-        .parent         = TYPE_INTERFACE,
+        .class_size     = sizeof(TargetSpecificClass),
     },
 };
 
 DEFINE_TYPES(target_info_types)
+
+static GSList *filter_types_available(GSList *types)
+{
+    GSList **link = &types;
+
+    while (*link) {
+        ObjectClass *oc = (*link)->data;
+        TargetSpecificClass *tsc = (TargetSpecificClass *)
+            object_class_dynamic_cast(oc, TYPE_TARGET_SPECIFIC);
+
+        if (tsc && !tsc->is_available) {
+            error_setg(&error_fatal,
+                       "%s is target specific, but does not "
+                       "implement interface", object_class_get_name(oc));
+        }
+        if (tsc && !tsc->is_available()) {
+            *link = g_slist_delete_link(*link, *link);
+        } else {
+            link = &(*link)->next;
+        }
+    }
+
+    return types;
+}
+
+GSList *get_machine_types_available(void)
+{
+    GSList *machines = object_class_get_list_sorted(TYPE_MACHINE, false);
+
+    return filter_types_available(machines);
+}
 
 static void target_info_qom_class_init(ObjectClass *oc, const void * data)
 {

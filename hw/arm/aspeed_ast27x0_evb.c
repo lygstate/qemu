@@ -8,7 +8,6 @@
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
-#include "hw/arm/machines-qom.h"
 #include "hw/arm/aspeed.h"
 #include "hw/arm/aspeed_soc.h"
 #include "hw/sensor/tmp105.h"
@@ -31,6 +30,7 @@ static void ast2700_evb_i2c_init(AspeedMachineState *bmc)
 static void aspeed_machine_ast2700a1_evb_class_init(ObjectClass *oc,
                                                     const void *data)
 {
+    TARGET_SPECIFIC_CLASS(oc)->is_available = target_aarch64;
     MachineClass *mc = MACHINE_CLASS(oc);
     AspeedMachineClass *amc = ASPEED_MACHINE_CLASS(oc);
 
@@ -52,6 +52,7 @@ static void aspeed_machine_ast2700a1_evb_class_init(ObjectClass *oc,
 static void aspeed_machine_ast2700a2_evb_class_init(ObjectClass *oc,
                                                     const void *data)
 {
+    TARGET_SPECIFIC_CLASS(oc)->is_available = target_aarch64;
     MachineClass *mc = MACHINE_CLASS(oc);
     AspeedMachineClass *amc = ASPEED_MACHINE_CLASS(oc);
 
@@ -76,13 +77,13 @@ static const TypeInfo aspeed_ast27x0_evb_types[] = {
         .name          = MACHINE_TYPE_NAME("ast2700a1-evb"),
         .parent        = TYPE_ASPEED_MACHINE,
         .class_init    = aspeed_machine_ast2700a1_evb_class_init,
-        .interfaces    = aarch64_machine_interfaces,
+        .interfaces    = type_target_specific,
     },
     {
         .name          = MACHINE_TYPE_NAME("ast2700a2-evb"),
         .parent        = TYPE_ASPEED_MACHINE,
         .class_init    = aspeed_machine_ast2700a2_evb_class_init,
-        .interfaces    = aarch64_machine_interfaces,
+        .interfaces    = type_target_specific,
     }
 };
 

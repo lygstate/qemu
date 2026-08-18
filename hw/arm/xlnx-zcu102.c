@@ -19,7 +19,6 @@
 #include "qapi/error.h"
 #include "hw/arm/xlnx-zynqmp.h"
 #include "hw/arm/boot.h"
-#include "hw/arm/machines-qom.h"
 #include "hw/core/boards.h"
 #include "qemu/error-report.h"
 #include "qemu/log.h"
@@ -269,6 +268,7 @@ static void xlnx_zcu102_machine_instance_init(Object *obj)
 
 static void xlnx_zcu102_machine_class_init(ObjectClass *oc, const void *data)
 {
+    TARGET_SPECIFIC_CLASS(oc)->is_available = target_aarch64;
     MachineClass *mc = MACHINE_CLASS(oc);
 
     mc->desc = "Xilinx ZynqMP ZCU102 board with 4xA53s and 2xR5Fs based on " \
@@ -303,7 +303,7 @@ static const TypeInfo xlnx_zcu102_machine_init_typeinfo = {
     .class_init = xlnx_zcu102_machine_class_init,
     .instance_init = xlnx_zcu102_machine_instance_init,
     .instance_size = sizeof(XlnxZCU102),
-    .interfaces = aarch64_machine_interfaces,
+    .interfaces = type_target_specific,
 };
 
 static void xlnx_zcu102_machine_init_register_types(void)

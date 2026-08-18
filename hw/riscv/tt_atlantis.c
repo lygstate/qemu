@@ -20,7 +20,6 @@
 
 #include "hw/riscv/boot.h"
 #include "hw/riscv/fdt-common.h"
-#include "hw/riscv/machines-qom.h"
 #include "hw/riscv/riscv_hart.h"
 
 #include "hw/char/serial-mm.h"
@@ -590,6 +589,7 @@ static void tt_atlantis_machine_init(MachineState *machine)
 
 static void tt_atlantis_machine_class_init(ObjectClass *oc, const void *data)
 {
+    TARGET_SPECIFIC_CLASS(oc)->is_available = target_riscv64;
     MachineClass *mc = MACHINE_CLASS(oc);
 
     mc->desc = "Tenstorrent Atlantis RISC-V SoC (Experimental)";
@@ -609,7 +609,7 @@ static const TypeInfo tt_atlantis_types[] = {
         .parent     = TYPE_MACHINE,
         .class_init = tt_atlantis_machine_class_init,
         .instance_size = sizeof(TTAtlantisState),
-        .interfaces = riscv64_machine_interfaces,
+        .interfaces = type_target_specific,
     },
 };
 

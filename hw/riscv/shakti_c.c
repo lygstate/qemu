@@ -19,7 +19,6 @@
 #include "qemu/osdep.h"
 #include "hw/core/boards.h"
 #include "hw/riscv/shakti_c.h"
-#include "hw/riscv/machines-qom.h"
 #include "qapi/error.h"
 #include "qemu/error-report.h"
 #include "hw/intc/sifive_plic.h"
@@ -78,6 +77,7 @@ static void shakti_c_machine_instance_init(Object *obj)
 
 static void shakti_c_machine_class_init(ObjectClass *klass, const void *data)
 {
+    TARGET_SPECIFIC_CLASS(klass)->is_available = target_riscv64;
     MachineClass *mc = MACHINE_CLASS(klass);
     static const char * const valid_cpu_types[] = {
         RISCV_CPU_TYPE_NAME("shakti-c"),
@@ -98,7 +98,7 @@ static const TypeInfo shakti_c_machine_type_info = {
     .class_init = shakti_c_machine_class_init,
     .instance_init = shakti_c_machine_instance_init,
     .instance_size = sizeof(ShaktiCMachineState),
-    .interfaces = riscv64_machine_interfaces,
+    .interfaces = type_target_specific,
 };
 
 static void shakti_c_machine_type_info_register(void)
