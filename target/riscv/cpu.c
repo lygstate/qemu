@@ -29,6 +29,7 @@
 #include "qapi/error.h"
 #include "qapi/visitor.h"
 #include "qemu/error-report.h"
+#include "qemu/target-info.h"
 #include "qemu/timer.h"
 #include "hw/core/qdev-properties.h"
 #include "hw/core/qdev-prop-internal.h"
@@ -1316,6 +1317,13 @@ static void riscv_cpu_realize(DeviceState *dev, Error **errp)
     RISCVCPUClass *mcc = RISCV_CPU_GET_CLASS(dev);
     Error *local_err = NULL;
 
+    if (cpu->cfg.big_endian != target_big_endian()) {
+        error_setg(errp,
+                   "CPU big-endian=%s does not match selected target endian",
+                   cpu->cfg.big_endian ? "on" : "off");
+        return;
+    }
+
     cpu_common_realize(cs, &local_err);
     if (local_err != NULL) {
         error_propagate(errp, local_err);
@@ -1496,6 +1504,8 @@ static void riscv_cpu_init(Object *obj)
     RISCVCPUClass *mcc = RISCV_CPU_GET_CLASS(obj);
     RISCVCPU *cpu = RISCV_CPU(obj);
     CPURISCVState *env = &cpu->env;
+
+    cpu->cfg.big_endian = target_big_endian();
 
     env->misa_mxl = mcc->def->misa_mxl_max;
 
