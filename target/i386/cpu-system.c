@@ -242,7 +242,7 @@ out:
     return ret;
 }
 
-TARGET_INFO_CPU_OP(CPU_RESOLVING_TYPE, query_cpu_model_expansion,
+TARGET_INFO_CPU_OP(QEMU_ARCH_I386, query_cpu_model_expansion,
                    x86_query_cpu_model_expansion);
 
 void cpu_clear_apic_feature(CPUX86State *env)

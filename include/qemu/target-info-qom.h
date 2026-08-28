@@ -10,6 +10,7 @@
 #define QEMU_TARGET_INFO_QOM_H
 
 #include "qemu/target-info-impl.h"
+#include "qemu/base-arch-defs.h"
 #include "qapi/error.h"
 #include "qom/object.h"
 
@@ -31,23 +32,25 @@ typedef struct TargetCpuOps {
 
 /**
  * target_info_register_cpu_op:
- * @cpu_type: CPU_RESOLVING_TYPE of the registering architecture
+ * @arch_bitmask: QEMU_ARCH_* bitmask of SysEmuTarget slots to fill
  * @offset: offsetof(TargetCpuOps, member) for the slot being filled
  * @impl: handler or ops table stored at that offset
  *
  * Combined binaries merge one member at a time so QMP, dump, and
  * semihosting (or split QMP files) can register independently.
- * MODULE_INIT_QOM runs after target_info_qom_set_target(), so only
- * the selected cpu_type is stored.
+ * Stores into every map[SysEmuTarget] bit set in @arch_bitmask
+ * (QEMU_ARCH_ARM fills ARM and AARCH64). Lookup is
+ * map[target_arch()].
  */
-void target_info_register_cpu_op(const char *cpu_type, size_t offset,
+void target_info_register_cpu_op(uint32_t arch_bitmask, size_t offset,
                                  void *impl);
 const TargetCpuOps *target_info_cpu_ops(void);
 
-#define TARGET_INFO_CPU_OP(cpu_type, member, impl)                            \
+#define TARGET_INFO_CPU_OP(arch_bitmask, member, impl)                        \
 static void glue(target_info_cpu_op_, impl)(void)                             \
 {                                                                             \
-    target_info_register_cpu_op((cpu_type), offsetof(TargetCpuOps, member),   \
+    target_info_register_cpu_op((arch_bitmask),                               \
+                                offsetof(TargetCpuOps, member),               \
                                 (void *)&(impl));                             \
 }                                                                             \
 type_init(glue(target_info_cpu_op_, impl))

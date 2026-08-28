@@ -57,4 +57,4 @@ static const CPUSemihostingOps riscv_semihosting_ops = {
     .has_synccache = riscv_common_semi_has_synccache,
 };
 
-TARGET_INFO_CPU_OP(CPU_RESOLVING_TYPE, semihosting, riscv_semihosting_ops);
+TARGET_INFO_CPU_OP(QEMU_ARCH_RISCV, semihosting, riscv_semihosting_ops);

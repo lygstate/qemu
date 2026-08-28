@@ -75,5 +75,5 @@ static CpuDefinitionInfoList *ppc_query_cpu_definitions(Error **errp)
     return cpu_list;
 }
 
-TARGET_INFO_CPU_OP(CPU_RESOLVING_TYPE, query_cpu_definitions,
+TARGET_INFO_CPU_OP(QEMU_ARCH_PPC, query_cpu_definitions,
                    ppc_query_cpu_definitions);

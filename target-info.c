@@ -127,32 +127,42 @@ bool target_config_xen(void)
     return target_info()->config_xen;
 }
 
-static TargetCpuOps target_cpu_ops;
+static TargetCpuOps target_cpu_ops[SYS_EMU_TARGET__MAX];
 
-void target_info_register_cpu_op(const char *cpu_type, size_t offset,
-                                 void *impl)
+static void target_cpu_ops_store(SysEmuTarget arch, size_t offset, void *impl)
 {
-    const TargetInfo *ti = target_info();
     void **slot;
 
-    g_assert(ti);
-    g_assert(offset + sizeof(void *) <= sizeof(TargetCpuOps));
-    g_assert((offset % sizeof(void *)) == 0);
-
-    if (strcmp(cpu_type, ti->cpu_type)) {
-        return;
-    }
-
-    slot = (void **)((char *)&target_cpu_ops + offset);
-    if (*slot) {
-        error_report("TargetCpuOps already registered for type '%s' (offset %zu)",
-                     cpu_type, offset);
+    g_assert((unsigned)arch < SYS_EMU_TARGET__MAX);
+    slot = (void **)((char *)&target_cpu_ops[arch] + offset);
+    if (*slot && *slot != impl) {
+        error_report("TargetCpuOps already registered for %s (offset %zu)",
+                     SysEmuTarget_str(arch), offset);
         return;
     }
     *slot = impl;
 }
 
+void target_info_register_cpu_op(uint32_t arch_bitmask, size_t offset,
+                                 void *impl)
+{
+    int i;
+
+    g_assert(offset + sizeof(void *) <= sizeof(TargetCpuOps));
+    g_assert((offset % sizeof(void *)) == 0);
+    g_assert(arch_bitmask);
+
+    for (i = 0; i < SYS_EMU_TARGET__MAX; i++) {
+        if (arch_bitmask & (1UL << i)) {
+            target_cpu_ops_store(i, offset, impl);
+        }
+    }
+}
+
 const TargetCpuOps *target_info_cpu_ops(void)
 {
-    return &target_cpu_ops;
+    SysEmuTarget arch = target_arch();
+
+    g_assert((unsigned)arch < SYS_EMU_TARGET__MAX);
+    return &target_cpu_ops[arch];
 }

@@ -497,5 +497,5 @@ static ssize_t s390_get_note_size(int class, int machine, int nr_cpus)
     return (elf_note_size) * nr_cpus;
 }
 
-TARGET_INFO_CPU_OP(CPU_RESOLVING_TYPE, get_dump_info, s390_get_dump_info);
-TARGET_INFO_CPU_OP(CPU_RESOLVING_TYPE, get_note_size, s390_get_note_size);
+TARGET_INFO_CPU_OP(QEMU_ARCH_S390X, get_dump_info, s390_get_dump_info);
+TARGET_INFO_CPU_OP(QEMU_ARCH_S390X, get_note_size, s390_get_note_size);

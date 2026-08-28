@@ -461,5 +461,5 @@ static ssize_t arm_get_note_size(int class, int machine, int nr_cpus)
     return note_size * nr_cpus;
 }
 
-TARGET_INFO_CPU_OP(CPU_RESOLVING_TYPE, get_dump_info, arm_get_dump_info);
-TARGET_INFO_CPU_OP(CPU_RESOLVING_TYPE, get_note_size, arm_get_note_size);
+TARGET_INFO_CPU_OP(QEMU_ARCH_ARM, get_dump_info, arm_get_dump_info);
+TARGET_INFO_CPU_OP(QEMU_ARCH_ARM, get_note_size, arm_get_note_size);

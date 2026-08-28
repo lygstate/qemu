@@ -228,7 +228,7 @@ riscv_query_cpu_model_expansion(CpuModelExpansionType type,
     return expansion_info;
 }
 
-TARGET_INFO_CPU_OP(CPU_RESOLVING_TYPE, query_cpu_definitions,
+TARGET_INFO_CPU_OP(QEMU_ARCH_RISCV, query_cpu_definitions,
                    riscv_query_cpu_definitions);
-TARGET_INFO_CPU_OP(CPU_RESOLVING_TYPE, query_cpu_model_expansion,
+TARGET_INFO_CPU_OP(QEMU_ARCH_RISCV, query_cpu_model_expansion,
                    riscv_query_cpu_model_expansion);

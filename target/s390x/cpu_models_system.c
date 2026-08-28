@@ -437,7 +437,7 @@ void apply_cpu_model(const S390CPUModel *model, Error **errp)
     }
 }
 
-TARGET_INFO_CPU_OP(CPU_RESOLVING_TYPE, query_cpu_definitions,
+TARGET_INFO_CPU_OP(QEMU_ARCH_S390X, query_cpu_definitions,
                    s390_query_cpu_definitions);
-TARGET_INFO_CPU_OP(CPU_RESOLVING_TYPE, query_cpu_model_expansion,
+TARGET_INFO_CPU_OP(QEMU_ARCH_S390X, query_cpu_model_expansion,
                    s390_query_cpu_model_expansion);

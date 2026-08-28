@@ -66,4 +66,4 @@ static const CPUSemihostingOps arm_semihosting_ops = {
     .has_synccache = arm_common_semi_has_synccache,
 };
 
-TARGET_INFO_CPU_OP(CPU_RESOLVING_TYPE, semihosting, arm_semihosting_ops);
+TARGET_INFO_CPU_OP(QEMU_ARCH_ARM, semihosting, arm_semihosting_ops);

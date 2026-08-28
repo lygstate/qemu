@@ -315,5 +315,5 @@ int ppc32_cpu_write_elf32_note(WriteCoreDumpFunction f, CPUState *cs,
     return ppc_write_all_elf_notes("CORE", f, cpu, cpuid, s);
 }
 
-TARGET_INFO_CPU_OP(CPU_RESOLVING_TYPE, get_dump_info, ppc_get_dump_info);
-TARGET_INFO_CPU_OP(CPU_RESOLVING_TYPE, get_note_size, ppc_get_note_size);
+TARGET_INFO_CPU_OP(QEMU_ARCH_PPC, get_dump_info, ppc_get_dump_info);
+TARGET_INFO_CPU_OP(QEMU_ARCH_PPC, get_note_size, ppc_get_note_size);

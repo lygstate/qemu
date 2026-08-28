@@ -164,5 +164,5 @@ static ssize_t loongarch_get_note_size(int class, int machine, int nr_cpus)
     return note_size * nr_cpus;
 }
 
-TARGET_INFO_CPU_OP(CPU_RESOLVING_TYPE, get_dump_info, loongarch_get_dump_info);
-TARGET_INFO_CPU_OP(CPU_RESOLVING_TYPE, get_note_size, loongarch_get_note_size);
+TARGET_INFO_CPU_OP(QEMU_ARCH_LOONGARCH, get_dump_info, loongarch_get_dump_info);
+TARGET_INFO_CPU_OP(QEMU_ARCH_LOONGARCH, get_note_size, loongarch_get_note_size);

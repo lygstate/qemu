@@ -201,5 +201,5 @@ static ssize_t riscv_get_note_size(int class, int machine, int nr_cpus)
     return note_size * nr_cpus;
 }
 
-TARGET_INFO_CPU_OP(CPU_RESOLVING_TYPE, get_dump_info, riscv_get_dump_info);
-TARGET_INFO_CPU_OP(CPU_RESOLVING_TYPE, get_note_size, riscv_get_note_size);
+TARGET_INFO_CPU_OP(QEMU_ARCH_RISCV, get_dump_info, riscv_get_dump_info);
+TARGET_INFO_CPU_OP(QEMU_ARCH_RISCV, get_note_size, riscv_get_note_size);
