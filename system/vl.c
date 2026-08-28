@@ -1689,8 +1689,20 @@ static MachineClass *select_machine(QDict *qdict, Error **errp)
 {
     ERRP_GUARD();
     const char *machine_type = qdict_get_try_str(qdict, "type");
-    g_autoptr(GSList) machines = get_machine_types_available();
+    g_autoptr(GSList) machines = NULL;
     MachineClass *machine_class = NULL;
+
+    if (target_unspecified() &&
+        (!machine_type || strcmp(machine_type, "none") != 0)) {
+        error_setg(errp, "starting a machine without a selected target "
+                   "is not supported yet");
+        error_append_hint(errp,
+                          "Use -target ? to list targets, -M help to list "
+                          "machines, or -M none\n");
+        return NULL;
+    }
+
+    machines = get_machine_types_available();
 
     if (machine_type) {
         machine_class = find_machine(machine_type, machines);

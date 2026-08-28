@@ -9,8 +9,7 @@
 #ifndef QEMU_TARGET_INFO_IMPL_H
 #define QEMU_TARGET_INFO_IMPL_H
 
-#include "qapi/qapi-types-common.h"
-#include "qapi/qapi-types-machine.h"
+#include "qemu/target-info-qapi.h"
 
 typedef struct TargetInfo {
     /* runtime equivalent of TARGET_NAME definition */

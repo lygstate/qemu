@@ -10,6 +10,7 @@
 #include "qemu/help_option.h"
 #include "qapi/error.h"
 #include "qom/object.h"
+#include "qemu/target-info.h"
 #include "qemu/target-info-impl.h"
 #include "qemu/target-info-init.h"
 #include "qemu/target-info-qom.h"
@@ -44,7 +45,7 @@ static GSList *filter_types_available(GSList *types)
                        "%s is target specific, but does not "
                        "implement interface", object_class_get_name(oc));
         }
-        if (tsc && !tsc->is_available()) {
+        if (!target_unspecified() && tsc && !tsc->is_available()) {
             *link = g_slist_delete_link(*link, *link);
         } else {
             link = &(*link)->next;
@@ -82,6 +83,21 @@ static const TypeInfo target_info_parent_type = {
 DEFINE_TARGET_INFO_TYPE(target_info_parent_type)
 
 static const TargetInfo *target_info_ptr;
+
+/*
+ * Fallback when -target is omitted and argv[0] is qemu-system (no
+ * arch suffix). qemu-system-* always gets a name from argv[0]
+ * (qemu-system-aarch64 -> aarch64), so it never selects this.
+ */
+static const TargetInfo target_info_unspecified = {
+    .target_name = "unspecified",
+    .target_arch = SYS_EMU_TARGET_UNSPECIFIED,
+    .long_bits = 64,
+    .cpu_type = "",
+    .endianness = ENDIAN_MODE_LITTLE,
+    .page_bits_init = 12,
+    .page_bits_vary = true,
+};
 
 const TargetInfo *target_info(void)
 {
@@ -179,6 +195,6 @@ void target_info_qom_set_target(const char *name, Error **errp)
         return;
     }
 
-    error_setg(errp, "no target specified, "
-               "use -target ? to list available targets");
+    /* Not reached for qemu-system-*: name came from the argv[0] suffix. */
+    set_target_info(&target_info_unspecified);
 }

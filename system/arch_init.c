@@ -24,9 +24,13 @@
 #include "qemu/osdep.h"
 #include "qemu/base-arch-defs.h"
 #include "qemu/bitops.h"
+#include "qemu/target-info.h"
 #include "qemu/target-info-qapi.h"
 
 bool qemu_arch_available(uint32_t arch_bitmask)
 {
+    if (target_unspecified()) {
+        return true;
+    }
     return extract32(arch_bitmask, target_arch(), 1);
 }
