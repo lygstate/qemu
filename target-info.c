@@ -127,7 +127,11 @@ bool target_config_xen(void)
     return target_info()->config_xen;
 }
 
-static TargetCpuOps target_cpu_ops[SYS_EMU_TARGET__MAX];
+/*
+ * SYS_EMU_TARGET_UNSPECIFIED is SYS_EMU_TARGET__MAX, so +1 makes
+ * that sentinel a valid index. Registration still fills 0 .. MAX-1.
+ */
+static TargetCpuOps target_cpu_ops[SYS_EMU_TARGET__MAX + 1];
 
 static void target_cpu_ops_store(SysEmuTarget arch, size_t offset, void *impl)
 {
@@ -163,6 +167,6 @@ const TargetCpuOps *target_info_cpu_ops(void)
 {
     SysEmuTarget arch = target_arch();
 
-    g_assert((unsigned)arch < SYS_EMU_TARGET__MAX);
+    g_assert((unsigned)arch <= SYS_EMU_TARGET__MAX);
     return &target_cpu_ops[arch];
 }
