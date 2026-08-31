@@ -28,5 +28,8 @@
 
 bool qemu_arch_available(uint32_t arch_bitmask)
 {
+    if (target_arch() == SYS_EMU_TARGET_NONE) {
+        return true;
+    }
     return extract32(arch_bitmask, target_arch(), 1);
 }
