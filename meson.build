@@ -4512,13 +4512,14 @@ single_binary_link_args = emulator_link_args
 single_binary_link_args += enable_modules ? ['@block.syms', '@qemu.syms'] : []
 
 if single_binary_available
-  executable('qemu-system',
-             sources: [single_binary_crates, files('system/main.c')],
-             dependencies: single_binary_deps,
-             objects: single_binary_objects,
-             link_depends: [block_syms, qemu_syms],
-             link_args: single_binary_link_args,
-             build_by_default: false)
+  qemu_system = executable('qemu-system',
+                           sources: [single_binary_crates, files('system/main.c')],
+                           dependencies: single_binary_deps,
+                           objects: single_binary_objects,
+                           link_depends: [block_syms, qemu_syms],
+                           link_args: single_binary_link_args,
+                           build_by_default: false)
+  emulators += {'qemu-system': qemu_system}
 else
   error_str = f'''qemu-system only support targets:
 @single_binary_supported_targets@
