@@ -10,6 +10,7 @@
 #define QEMU_TARGET_INFO_QOM_H
 
 #include "qemu/target-info-impl.h"
+#include "qapi/error.h"
 #include "qom/object.h"
 
 #define TYPE_TARGET_INFO "target-info"
@@ -25,7 +26,12 @@ typedef struct TargetInfoQomClass {
 
 OBJECT_DECLARE_TYPE(TargetInfoQom, TargetInfoQomClass, TARGET_INFO)
 
-void target_info_qom_set_target(void);
+/*
+ * Identify target: first from option, then from argv[0].
+ * This happens even before handling --help option, because it may contain
+ * entries that are target specific.
+ */
+void target_info_qom_set_target(const char *name, Error **errp);
 
 /**
  * target_specific_target_names:
