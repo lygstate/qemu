@@ -165,8 +165,14 @@ CurrentMachineParams *qmp_query_current_machine(Error **errp)
 
 QemuTargetInfo *qmp_query_target(Error **errp)
 {
-    QemuTargetInfo *info = g_malloc0(sizeof(*info));
+    QemuTargetInfo *info;
 
+    if (target_unspecified()) {
+        error_setg(errp, "query-target requires a selected target");
+        return NULL;
+    }
+
+    info = g_malloc0(sizeof(*info));
     info->arch = target_arch();
 
     return info;
