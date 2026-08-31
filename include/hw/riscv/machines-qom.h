@@ -10,6 +10,7 @@
 #define HW_RISCV_MACHINES_QOM_H
 
 #include "hw/core/boards.h"
+#include "qemu/target-info.h"
 
 /*
  * Helper macros for defining machines available in qemu-system-riscv32,
@@ -17,15 +18,18 @@
  */
 
 #define DEFINE_MACHINE_RISCV32(namestr, machine_initfn) \
-        DEFINE_MACHINE_WITH_INTERFACE_ARRAY(namestr, machine_initfn, \
-                                            NULL)
+        DEFINE_MACHINE_EXTENDED(namestr, MACHINE, MachineState, \
+                                machine_initfn, false, target_riscv32, \
+                                NULL)
 
 #define DEFINE_MACHINE_RISCV64(namestr, machine_initfn) \
-        DEFINE_MACHINE_WITH_INTERFACE_ARRAY(namestr, machine_initfn, \
-                                            NULL)
+        DEFINE_MACHINE_EXTENDED(namestr, MACHINE, MachineState, \
+                                machine_initfn, false, target_riscv64, \
+                                NULL)
 
 #define DEFINE_MACHINE_RISCV32_64(namestr, machine_initfn) \
-        DEFINE_MACHINE_WITH_INTERFACE_ARRAY(namestr, machine_initfn, \
-                                            NULL)
+        DEFINE_MACHINE_EXTENDED(namestr, MACHINE, MachineState, \
+                                machine_initfn, false, target_base_riscv, \
+                                NULL)
 
 #endif
