@@ -92,6 +92,16 @@ void target_info_qom_set_target(const char *name, Error **errp);
  */
 GSList *get_machine_types_available(void);
 
+/**
+ * target_specific_target_names:
+ * @oc: QOM class, usually a machine type
+ *
+ * Returns: comma-separated target_name list for which
+ * TYPE_TARGET_SPECIFIC is_available() is true, or NULL.
+ * Caller g_free()s.
+ */
+char *target_specific_target_names(ObjectClass *oc);
+
 extern const InterfaceInfo type_target_specific[];
 
 #endif /* QEMU_TARGET_INFO_QOM_H */

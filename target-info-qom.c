@@ -109,6 +109,54 @@ static void set_target_info(const TargetInfo *chosen)
     target_info_ptr = chosen;
 }
 
+char *target_specific_target_names(ObjectClass *oc)
+{
+    TargetSpecificClass *tsc;
+    const TargetInfo *saved;
+    g_autoptr(GSList) targets = NULL;
+    g_autoptr(GPtrArray) names = NULL;
+
+    tsc = (TargetSpecificClass *)
+        object_class_dynamic_cast(oc, TYPE_TARGET_SPECIFIC);
+    if (!tsc || !tsc->is_available) {
+        return NULL;
+    }
+
+    saved = target_info();
+    targets = object_class_get_list_sorted(TYPE_TARGET_INFO, false);
+    names = g_ptr_array_new();
+
+    for (GSList *elem = targets; elem; elem = elem->next) {
+        const TargetInfo *ti = TARGET_INFO_CLASS(elem->data)->target_info;
+        bool seen = false;
+        guint i;
+
+        for (i = 0; i < names->len; i++) {
+            if (!strcmp(names->pdata[i], ti->target_name)) {
+                seen = true;
+                break;
+            }
+        }
+        if (seen) {
+            continue;
+        }
+
+        set_target_info(ti);
+        if (tsc->is_available()) {
+            g_ptr_array_add(names, (gpointer)ti->target_name);
+        }
+    }
+
+    set_target_info(saved);
+
+    if (!names->len) {
+        return NULL;
+    }
+
+    g_ptr_array_add(names, NULL);
+    return g_strjoinv(",", (char **)names->pdata);
+}
+
 static const char *target_endian_suffix(const TargetInfo *ti)
 {
     return ti->endianness == ENDIAN_MODE_BIG ? "be" : "le";

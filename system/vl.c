@@ -1571,6 +1571,14 @@ static gint machine_class_cmp(gconstpointer a, gconstpointer b, gpointer d)
     return strcmp(mc2->name, mc1->name);
 }
 
+static char *machine_help_qualify(const char *name, const char *targets)
+{
+    if (!targets) {
+        return g_strdup(name);
+    }
+    return g_strdup_printf("%s(%s)", name, targets);
+}
+
 static void machine_help_func(const QDict *qdict)
 {
     g_autoptr(GSList) machines = NULL;
@@ -1590,10 +1598,20 @@ static void machine_help_func(const QDict *qdict)
     machines = g_slist_sort_with_data(machines, machine_class_cmp, NULL);
     for (el = machines; el; el = el->next) {
         MachineClass *mc = el->data;
-        if (mc->alias) {
-            printf("%-20s %s (alias of %s)\n", mc->alias, mc->desc, mc->name);
+        g_autofree char *targets = NULL;
+        g_autofree char *name_shown = NULL;
+
+        if (target_unspecified()) {
+            targets = target_specific_target_names(OBJECT_CLASS(mc));
         }
-        printf("%-20s %s%s%s\n", mc->name, mc->desc,
+        name_shown = machine_help_qualify(mc->name, targets);
+        if (mc->alias) {
+            g_autofree char *alias_shown = machine_help_qualify(mc->alias,
+                                                               targets);
+            printf("%-20s %s (alias of %s)\n", alias_shown, mc->desc,
+                   name_shown);
+        }
+        printf("%-20s %s%s%s\n", name_shown, mc->desc,
                mc->is_default ? " (default)" : "",
                mc->deprecation_reason ? " (deprecated)" : "");
     }
