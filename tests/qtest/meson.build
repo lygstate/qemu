@@ -26,6 +26,7 @@ qtests_generic = [
   'qmp-test',
   'qmp-cmd-test',
   'qom-test',
+  'accel-cpu-qom-test',
 ]
 if have_hmp
   qtests_generic += [
@@ -520,3 +521,19 @@ foreach dir : target_dirs
                 (slow_qtests.has_key(test) ? ['slow'] : []))
   endforeach
 endforeach
+
+if is_variable('qemu_system') and qtest_executables.has_key('accel-cpu-qom-test')
+  qtest_env_sb = environment()
+  qtest_env_sb.set('G_TEST_DBUS_DAEMON',
+                   meson.project_source_root() / 'tests/dbus-daemon.sh')
+  qtest_env_sb.set('QTEST_QEMU_BINARY', './qemu-system')
+  qtest_env_sb.set('PYTHON', python.full_path())
+  test('qtest-single-binary/accel-cpu-qom-test',
+       qtest_executables['accel-cpu-qom-test'],
+       depends: [qemu_system, emulator_modules],
+       env: qtest_env_sb,
+       args: ['--tap', '-k'],
+       protocol: 'tap',
+       timeout: 60,
+       suite: ['qtest', 'qtest-single-binary'])
+endif
