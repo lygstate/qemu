@@ -10,6 +10,7 @@
 #define HW_ARM_MACHINES_QOM_H
 
 #include "hw/core/boards.h"
+#include "qemu/target-info.h"
 
 /*
  * A machine defined with the DEFINE_MACHINE_ARM() macro will be
@@ -19,10 +20,12 @@
  * the qemu-system-aarch64 binary.
  */
 #define DEFINE_MACHINE_ARM(namestr, machine_initfn) \
-        DEFINE_MACHINE_WITH_INTERFACE_ARRAY(namestr, machine_initfn, \
-                                            NULL)
+        DEFINE_MACHINE_EXTENDED(namestr, MACHINE, MachineState, \
+                                machine_initfn, false, target_base_arm, \
+                                NULL)
 #define DEFINE_MACHINE_AARCH64(namestr, machine_initfn) \
-        DEFINE_MACHINE_WITH_INTERFACE_ARRAY(namestr, machine_initfn, \
-                                            NULL)
+        DEFINE_MACHINE_EXTENDED(namestr, MACHINE, MachineState, \
+                                machine_initfn, false, target_aarch64, \
+                                NULL)
 
 #endif
