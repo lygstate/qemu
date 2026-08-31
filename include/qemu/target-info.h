@@ -24,14 +24,6 @@ const char *target_name(void);
 unsigned target_long_bits(void);
 
 /**
- * target_machine_typename:
- *
- * Returns: Name of the QOM interface implemented by machines
- *          usable on this target binary.
- */
-const char *target_machine_typename(void);
-
-/**
  * target_cpu_type:
  *
  * Returns: target CPU base QOM type name (i.e. TYPE_X86_CPU).
@@ -49,6 +41,34 @@ const char *target_cpu_type(void);
  * well what you are doing!
  */
 bool target_big_endian(void);
+
+/**
+ * target_config_cxl:
+ *
+ * Returns true if target defines CONFIG_CXL.
+ */
+bool target_config_cxl(void);
+
+/**
+ * target_config_dpcd:
+ *
+ * Returns true if target defines CONFIG_DPCD.
+ */
+bool target_config_dpcd(void);
+
+/**
+ * target_config_multiprocess:
+ *
+ * Returns true if target defines CONFIG_MULTIPROCESS.
+ */
+bool target_config_multiprocess(void);
+
+/**
+ * target_config_nitro:
+ *
+ * Returns true if target defines CONFIG_NITRO.
+ */
+bool target_config_nitro(void);
 
 /**
  * target_base_arm:
@@ -70,6 +90,13 @@ bool target_arm(void);
  * Returns whether the target architecture is Aarch64.
  */
 bool target_aarch64(void);
+
+/**
+ * target_microblaze:
+ *
+ * Returns whether the target architecture is Microblaze.
+ */
+bool target_microblaze(void);
 
 /**
  * target_base_ppc:

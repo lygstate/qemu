@@ -32,11 +32,6 @@ const char *target_cpu_type(void)
     return target_info()->cpu_type;
 }
 
-const char *target_machine_typename(void)
-{
-    return target_info()->machine_typename;
-}
-
 EndianMode target_endian_mode(void)
 {
     return target_info()->endianness;
@@ -45,6 +40,26 @@ EndianMode target_endian_mode(void)
 bool target_big_endian(void)
 {
     return target_endian_mode() == ENDIAN_MODE_BIG;
+}
+
+bool target_config_cxl(void)
+{
+    return target_info()->config_cxl;
+}
+
+bool target_config_dpcd(void)
+{
+    return target_info()->config_dpcd;
+}
+
+bool target_config_multiprocess(void)
+{
+    return target_info()->config_multiprocess;
+}
+
+bool target_config_nitro(void)
+{
+    return target_info()->config_nitro;
 }
 
 bool target_base_arm(void)
@@ -67,6 +82,12 @@ bool target_aarch64(void)
 {
     return target_arch() == SYS_EMU_TARGET_AARCH64;
 }
+
+bool target_microblaze(void)
+{
+    return target_arch() == SYS_EMU_TARGET_MICROBLAZE;
+}
+
 
 bool target_base_ppc(void)
 {

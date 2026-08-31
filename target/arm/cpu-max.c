@@ -108,9 +108,9 @@ static void cpu_max_initfn(Object *obj)
 
     if (tcg_enabled()) {
         if (!aarch64_enabled) {
-            aarch32_max_tcg_init(cpu);
+            aarch32_max_v8_tcg_initfn(obj);
         } else {
-            aarch64_max_tcg_initfn(obj);
+            aarch64_max_v9_tcg_initfn(obj);
         }
         return;
     }
@@ -127,7 +127,7 @@ static const ARMCPUInfo arm_max_cpu = {
 
 static void arm_max_cpu_register_types(void)
 {
-    arm_cpu_register(&arm_max_cpu);
+    arm_cpu_register(&arm_max_cpu, target_base_arm);
 }
 
 type_init(arm_max_cpu_register_types)
