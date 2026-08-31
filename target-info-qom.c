@@ -7,10 +7,13 @@
  */
 
 #include "qemu/osdep.h"
+#include "qemu/help_option.h"
 #include "qapi/error.h"
 #include "qom/object.h"
+#include "qemu/target-info.h"
 #include "qemu/target-info-impl.h"
 #include "qemu/target-info-init.h"
+#include "qemu/target-info-qapi.h"
 #include "qemu/target-info-qom.h"
 #include "hw/arm/machines-qom.h"
 #include "hw/riscv/machines-qom.h"
@@ -35,16 +38,83 @@ static const TypeInfo target_info_parent_type = {
 
 DEFINE_TARGET_INFO_TYPE(target_info_parent_type)
 
-void target_info_qom_set_target(void)
+/*
+ * Fallback when -target is omitted and argv[0] is qemu-system (no
+ * arch suffix). qemu-system-* always gets a name from argv[0]
+ * (qemu-system-aarch64 -> aarch64), so it never selects this.
+ */
+static const TargetInfo target_info_unspecified = {
+    .target_name = "unspecified",
+    .target_arch = SYS_EMU_TARGET_UNSPECIFIED,
+    .long_bits = 64,
+    .cpu_type = "",
+    .endianness = ENDIAN_MODE_LITTLE,
+    .page_bits_init = 12,
+    .page_bits_vary = true,
+};
+
+static void list_targets_available(void)
+{
+    printf("List of targets available:\n");
+    g_autoptr(GSList) targets = object_class_get_list_sorted(TYPE_TARGET_INFO, false);
+    for (GSList *elem = targets; elem; elem = elem->next) {
+        const TargetInfo *ti = TARGET_INFO_CLASS(elem->data)->target_info;
+        printf("- %s\n", ti->target_name);
+    }
+}
+
+/* qemu-system-aarch64[.exe] -> aarch64; qemu-system[.exe] -> NULL. */
+static const char *target_from_argv0(char *base)
+{
+    if (g_str_has_prefix(base, "qemu-system-")) {
+        return base + strlen("qemu-system-");
+    }
+    return NULL;
+}
+
+void target_info_qom_set_target(const char *name, Error **errp)
 {
     g_autoptr(GSList) targets = object_class_get_list(TYPE_TARGET_INFO, false);
 
     size_t num_found = g_slist_length(targets);
-    if (num_found != 1) {
-        error_setg(&error_fatal, num_found == 0 ?
-                                 "no target-info is available" :
-                                 "more than one target-info is available");
+    g_autofree char *prg_base = NULL;
+
+    if (num_found == 0) {
+        error_setg(errp, "no target-info is available");
+        return;
     }
 
-    target_info_update(TARGET_INFO_CLASS(targets->data)->target_info);
+    if (!name) {
+        const char *prg = g_get_prgname();
+        if (prg && prg[0]) {
+            char *dot;
+
+            prg_base = g_path_get_basename(prg);
+            dot = strrchr(prg_base, '.');
+            if (dot && g_ascii_strcasecmp(dot, ".exe") == 0) {
+                *dot = '\0';
+            }
+            name = target_from_argv0(prg_base);
+        }
+    }
+
+    if (name) {
+        if (is_help_option(name)) {
+            list_targets_available();
+            exit(0);
+        }
+        for (GSList *elem = targets; elem; elem = elem->next) {
+            const TargetInfo *ti = TARGET_INFO_CLASS(elem->data)->target_info;
+            if (!strcmp(name, ti->target_name)) {
+                target_info_update(ti);
+                return;
+            }
+        }
+        error_setg(errp, "target '%s' is not available, "
+                   "use -target ? to list available targets", name);
+        return;
+    }
+
+    /* Not reached for qemu-system-*: name came from the argv[0] suffix. */
+    target_info_update(&target_info_unspecified);
 }
