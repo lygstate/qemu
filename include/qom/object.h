@@ -121,9 +121,9 @@ typedef void (ObjectFree)(void *obj);
  * typedef TypeIsAvailable:
  *
  * Returns whether a type is available for the selected TargetInfo.
- * Invoked at registration and again when listing which targets a type
- * matches. Typical implementations are target_*() and
- * target_config_*().
+ * Invoked at registration (unless type_set_skip_is_available()) and
+ * again when listing which targets a type matches. Typical
+ * implementations are target_*() and target_config_*().
  */
 typedef bool (TypeIsAvailable)(void);
 
@@ -480,7 +480,8 @@ struct Object
  *   @class_base_init. This can be useful when building dynamic
  *   classes.
  * @is_available: callback invoked at registration time, to dynamically check if
- *   this type should be available or not.
+ *   this type should be available or not. Skipped when
+ *   type_set_skip_is_available() is true (no TargetInfo selected).
  * @interfaces: The list of interfaces associated with this type.  This
  *   should point to a static array that's terminated with a zero filled
  *   element.
@@ -990,6 +991,16 @@ const char *object_get_typename(const Object *obj);
  * Returns: the new #Type.
  */
 Type type_register_static(const TypeInfo *info);
+
+/**
+ * type_set_skip_is_available:
+ * @skip: Whether to ignore TypeInfo.is_available at registration
+ *
+ * Combined qemu-system with no selected TargetInfo registers the
+ * union of types so -M help can list them. Call before types with
+ * is_available are registered (MODULE_INIT_QOM).
+ */
+void type_set_skip_is_available(bool skip);
 
 /**
  * type_register_static_array:

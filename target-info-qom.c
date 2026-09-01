@@ -63,6 +63,14 @@ const TargetInfo *target_info(void)
 static void set_target_info(const TargetInfo *chosen)
 {
     target_info_ptr = chosen;
+    /*
+     * Combined qemu-system with no -target: do not filter types at
+     * registration so -M help can list the union. Real TargetInfo
+     * selections honor TypeInfo.is_available again.
+     */
+    type_set_skip_is_available(chosen &&
+                               chosen->target_arch ==
+                               SYS_EMU_TARGET_UNSPECIFIED);
 }
 
 char *target_specific_target_names(ObjectClass *oc)

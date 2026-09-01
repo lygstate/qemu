@@ -84,6 +84,9 @@ static GHashTable *type_table;
 
 static bool enumerating_types;
 
+/* Ignore TypeInfo.is_available at registration (unspecified target). */
+static bool type_skip_is_available;
+
 static void type_table_add(TypeImpl *ti)
 {
     assert(!enumerating_types);
@@ -165,7 +168,8 @@ static TypeImpl *type_register_internal(const TypeInfo *info)
         abort();
     }
 
-    if (info->is_available && !info->is_available()) {
+    if (!type_skip_is_available &&
+        info->is_available && !info->is_available()) {
         return NULL;
     }
 
@@ -173,6 +177,11 @@ static TypeImpl *type_register_internal(const TypeInfo *info)
 
     type_table_add(ti);
     return ti;
+}
+
+void type_set_skip_is_available(bool skip)
+{
+    type_skip_is_available = skip;
 }
 
 TypeImpl *type_register_static(const TypeInfo *info)
