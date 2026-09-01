@@ -38,8 +38,6 @@ static const TypeInfo target_info_parent_type = {
 
 DEFINE_TARGET_INFO_TYPE(target_info_parent_type)
 
-static const TargetInfo *target_info_ptr;
-
 /*
  * Fallback when -target is omitted and argv[0] is qemu-system (no
  * arch suffix). qemu-system-* always gets a name from argv[0]
@@ -55,28 +53,9 @@ static const TargetInfo target_info_unspecified = {
     .page_bits_vary = true,
 };
 
-const TargetInfo *target_info(void)
-{
-    return target_info_ptr;
-}
-
-static void set_target_info(const TargetInfo *chosen)
-{
-    target_info_ptr = chosen;
-    /*
-     * Combined qemu-system with no -target: do not filter types at
-     * registration so -M help can list the union. Real TargetInfo
-     * selections honor TypeInfo.is_available again.
-     */
-    type_set_skip_is_available(chosen &&
-                               chosen->target_arch ==
-                               SYS_EMU_TARGET_UNSPECIFIED);
-}
-
 char *target_specific_target_names(ObjectClass *oc)
 {
     TypeIsAvailable *is_available;
-    const TargetInfo *saved;
     g_autoptr(GSList) targets = NULL;
     g_autoptr(GPtrArray) names = NULL;
 
@@ -85,7 +64,6 @@ char *target_specific_target_names(ObjectClass *oc)
         return NULL;
     }
 
-    saved = target_info();
     targets = object_class_get_list_sorted(TYPE_TARGET_INFO, false);
     names = g_ptr_array_new();
 
@@ -104,13 +82,10 @@ char *target_specific_target_names(ObjectClass *oc)
             continue;
         }
 
-        set_target_info(ti);
-        if (is_available()) {
+        if (is_available(ti)) {
             g_ptr_array_add(names, (gpointer)ti->target_name);
         }
     }
-
-    set_target_info(saved);
 
     if (!names->len) {
         return NULL;
@@ -198,7 +173,7 @@ void target_info_qom_set_target(const char *name, Error **errp)
         for (GSList *elem = targets; elem; elem = elem->next) {
             const TargetInfo *ti = TARGET_INFO_CLASS(elem->data)->target_info;
             if (target_info_matches_name(ti, name)) {
-                set_target_info(ti);
+                target_info_update(ti);
                 return;
             }
         }
@@ -208,5 +183,5 @@ void target_info_qom_set_target(const char *name, Error **errp)
     }
 
     /* Not reached for qemu-system-*: name came from the argv[0] suffix. */
-    set_target_info(&target_info_unspecified);
+    target_info_update(&target_info_unspecified);
 }

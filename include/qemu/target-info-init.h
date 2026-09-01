@@ -23,14 +23,15 @@ module_init(do_qemu_init_target_info, MODULE_INIT_TARGET_INFO)
 #ifdef CONFIG_USER_ONLY
 
 /*
- * User mode does not support multiple targets in the same binary, so just
- * define target_info().
+ * User mode does not support multiple targets in the same binary.
+ * Install the sole TargetInfo before MODULE_INIT_QOM.
  */
-#define target_info_init(ti_var)        \
-const TargetInfo *target_info(void)     \
-{                                       \
-    return &ti_var;                     \
-}
+#define target_info_init(ti_var)                                        \
+static void do_qemu_init_target_info(void)                              \
+{                                                                       \
+    target_info_update(&ti_var);                                        \
+}                                                                       \
+module_init(do_qemu_init_target_info, MODULE_INIT_TARGET_INFO)
 
 #else /* CONFIG_USER_ONLY */
 

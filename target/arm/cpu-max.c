@@ -94,7 +94,7 @@ void aarch64_aa32_a57_init(ARMCPU *cpu, bool aarch64_enabled)
 static void cpu_max_initfn(Object *obj)
 {
     ARMCPU *cpu = ARM_CPU(obj);
-    const bool aarch64_enabled = target_aarch64();
+    const bool aarch64_enabled = target_aarch64(target_info());
 
     if (hwaccel_enabled()) {
         assert(aarch64_enabled);

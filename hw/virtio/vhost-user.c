@@ -2631,7 +2631,7 @@ static int vhost_user_backend_init(struct vhost_dev *dev, void *opaque,
                 return -EINVAL;
             }
 
-            const uint64_t vhost_user_max_ram_slots = target_base_ppc() ?
+            const uint64_t vhost_user_max_ram_slots = target_base_ppc(target_info()) ?
                 SPAPR_MAX_RAM_SLOTS : VHOST_USER_MAX_RAM_SLOTS;
             u->user->memory_slots = MIN(ram_slots, vhost_user_max_ram_slots);
         }

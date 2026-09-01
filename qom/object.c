@@ -15,6 +15,8 @@
 #include "qom/compat-properties.h"
 #include "qom/object.h"
 #include "qom/object_interfaces.h"
+#include "qemu/target-info-impl.h"
+#include "qemu/target-info-qapi.h"
 #include "qemu/cutils.h"
 #include "qemu/memalign.h"
 #include "qapi/visitor.h"
@@ -86,6 +88,24 @@ static bool enumerating_types;
 
 /* Ignore TypeInfo.is_available at registration (unspecified target). */
 static bool type_skip_is_available;
+static const TargetInfo *target_info_ptr;
+
+const TargetInfo *target_info(void)
+{
+    return target_info_ptr;
+}
+
+void target_info_update(const TargetInfo *ti)
+{
+    target_info_ptr = ti;
+    /*
+     * Combined qemu-system with no -target: do not filter types at
+     * registration so -M help can list the union. Real TargetInfo
+     * selections honor TypeInfo.is_available again.
+     */
+    type_skip_is_available = ti &&
+                             ti->target_arch == SYS_EMU_TARGET_UNSPECIFIED;
+}
 
 static void type_table_add(TypeImpl *ti)
 {
@@ -169,7 +189,7 @@ static TypeImpl *type_register_internal(const TypeInfo *info)
     }
 
     if (!type_skip_is_available &&
-        info->is_available && !info->is_available()) {
+        info->is_available && !info->is_available(target_info())) {
         return NULL;
     }
 
@@ -177,11 +197,6 @@ static TypeImpl *type_register_internal(const TypeInfo *info)
 
     type_table_add(ti);
     return ti;
-}
-
-void type_set_skip_is_available(bool skip)
-{
-    type_skip_is_available = skip;
 }
 
 TypeImpl *type_register_static(const TypeInfo *info)

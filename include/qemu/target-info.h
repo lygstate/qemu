@@ -9,6 +9,25 @@
 #ifndef QEMU_TARGET_INFO_H
 #define QEMU_TARGET_INFO_H
 
+typedef struct TargetInfo TargetInfo;
+
+/**
+ * target_info:
+ *
+ * Returns: The selected TargetInfo.
+ */
+const TargetInfo *target_info(void);
+
+/**
+ * target_info_update:
+ * @ti: TargetInfo to select
+ *
+ * Sets the TargetInfo returned by target_info(). Combined qemu-system
+ * with SYS_EMU_TARGET_UNSPECIFIED also skips TypeInfo.is_available at
+ * registration.
+ */
+void target_info_update(const TargetInfo *ti);
+
 /**
  * target_name:
  *
@@ -44,107 +63,122 @@ bool target_big_endian(void);
 
 /**
  * target_config_cxl:
+ * @ti: TargetInfo to test.
  *
- * Returns true if target defines CONFIG_CXL.
+ * Returns true if @ti defines CONFIG_CXL.
  */
-bool target_config_cxl(void);
+bool target_config_cxl(const TargetInfo *ti);
 
 /**
  * target_config_dpcd:
+ * @ti: TargetInfo to test.
  *
- * Returns true if target defines CONFIG_DPCD.
+ * Returns true if @ti defines CONFIG_DPCD.
  */
-bool target_config_dpcd(void);
+bool target_config_dpcd(const TargetInfo *ti);
 
 /**
  * target_config_multiprocess:
+ * @ti: TargetInfo to test.
  *
- * Returns true if target defines CONFIG_MULTIPROCESS.
+ * Returns true if @ti defines CONFIG_MULTIPROCESS.
  */
-bool target_config_multiprocess(void);
+bool target_config_multiprocess(const TargetInfo *ti);
 
 /**
  * target_config_nitro:
+ * @ti: TargetInfo to test.
  *
- * Returns true if target defines CONFIG_NITRO.
+ * Returns true if @ti defines CONFIG_NITRO.
  */
-bool target_config_nitro(void);
+bool target_config_nitro(const TargetInfo *ti);
 
 /**
  * target_base_arm:
+ * @ti: TargetInfo to test.
  *
- * Returns whether the target architecture is ARM or Aarch64.
+ * Returns whether @ti is ARM or AArch64.
  */
-bool target_base_arm(void);
+bool target_base_arm(const TargetInfo *ti);
 
 /**
  * target_arm:
+ * @ti: TargetInfo to test.
  *
- * Returns whether the target architecture is ARM (32-bit, not Aarch64).
+ * Returns whether @ti is ARM (32-bit, not AArch64).
  */
-bool target_arm(void);
+bool target_arm(const TargetInfo *ti);
 
 /**
  * target_aarch64:
+ * @ti: TargetInfo to test.
  *
- * Returns whether the target architecture is Aarch64.
+ * Returns whether @ti is AArch64.
  */
-bool target_aarch64(void);
+bool target_aarch64(const TargetInfo *ti);
 
 /**
  * target_microblaze:
+ * @ti: TargetInfo to test.
  *
- * Returns whether the target architecture is Microblaze.
+ * Returns whether @ti is Microblaze.
  */
-bool target_microblaze(void);
+bool target_microblaze(const TargetInfo *ti);
 
 /**
  * target_base_ppc:
+ * @ti: TargetInfo to test.
  *
- * Returns whether the target architecture is PowerPC 32-bit or 64-bit.
+ * Returns whether @ti is PowerPC 32-bit or 64-bit.
  */
-bool target_base_ppc(void);
+bool target_base_ppc(const TargetInfo *ti);
 
 /**
  * target_ppc:
+ * @ti: TargetInfo to test.
  *
- * Returns whether the target architecture is PowerPC 32-bit.
+ * Returns whether @ti is PowerPC 32-bit.
  */
-bool target_ppc(void);
+bool target_ppc(const TargetInfo *ti);
 
 /**
  * target_ppc64:
+ * @ti: TargetInfo to test.
  *
- * Returns whether the target architecture is PowerPC 64-bit.
+ * Returns whether @ti is PowerPC 64-bit.
  */
-bool target_ppc64(void);
+bool target_ppc64(const TargetInfo *ti);
 
 /**
  * target_s390x:
+ * @ti: TargetInfo to test.
  *
- * Returns whether the target architecture is S390x.
+ * Returns whether @ti is S390x.
  */
-bool target_s390x(void);
+bool target_s390x(const TargetInfo *ti);
 
 /**
  * target_base_riscv:
+ * @ti: TargetInfo to test.
  *
- * Returns whether the target architecture is RISC-V 32-bit or 64-bit.
+ * Returns whether @ti is RISC-V 32-bit or 64-bit.
  */
-bool target_base_riscv(void);
+bool target_base_riscv(const TargetInfo *ti);
 
 /**
  * target_riscv32:
+ * @ti: TargetInfo to test.
  *
- * Returns whether the target architecture is RISC-V 32-bit.
+ * Returns whether @ti is RISC-V 32-bit.
  */
-bool target_riscv32(void);
+bool target_riscv32(const TargetInfo *ti);
 
 /**
  * target_riscv64:
+ * @ti: TargetInfo to test.
  *
- * Returns whether the target architecture is RISC-V 64-bit.
+ * Returns whether @ti is RISC-V 64-bit.
  */
-bool target_riscv64(void);
+bool target_riscv64(const TargetInfo *ti);
 
 #endif

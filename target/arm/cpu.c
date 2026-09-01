@@ -2670,7 +2670,7 @@ static void cpu_register_class_init(ObjectClass *oc, const void *data)
     }
 }
 
-void arm_cpu_register(const ARMCPUInfo *info, bool (*is_available)(void))
+void arm_cpu_register(const ARMCPUInfo *info, TypeIsAvailable *is_available)
 {
     TypeInfo type_info = {
         .parent = TYPE_ARM_CPU,

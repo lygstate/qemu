@@ -2886,7 +2886,7 @@ void pci_qdev_property_add_specifics(DeviceClass *dc)
     ObjectClass *oc = OBJECT_CLASS(dc);
 
     /* The loadparm property is only supported on s390x */
-    if (target_s390x()) {
+    if (target_s390x(target_info())) {
         object_class_property_add_str(oc, "loadparm",
                                       pci_qdev_property_get_loadparm,
                                       pci_qdev_property_set_loadparm);

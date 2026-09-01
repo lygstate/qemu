@@ -80,7 +80,7 @@ void target_info_qom_set_target(const char *name, Error **errp);
  * @oc: QOM class, usually a machine type
  *
  * Returns: comma-separated target_name list for which
- * TypeInfo.is_available() is true, or NULL.
+ * TypeInfo.is_available(ti) is true, or NULL.
  * Caller g_free()s.
  */
 char *target_specific_target_names(ObjectClass *oc);
