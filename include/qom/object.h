@@ -117,6 +117,36 @@ typedef void (ObjectUnparent)(Object *obj);
  */
 typedef void (ObjectFree)(void *obj);
 
+typedef struct TargetInfo TargetInfo;
+
+/**
+ * target_info:
+ *
+ * Returns: The selected TargetInfo.
+ */
+const TargetInfo *target_info(void);
+
+/**
+ * target_info_update:
+ * @ti: TargetInfo to select
+ *
+ * Sets the TargetInfo returned by target_info(). Combined qemu-system
+ * with SYS_EMU_TARGET_UNSPECIFIED also skips TypeInfo.is_available at
+ * registration.
+ */
+void target_info_update(const TargetInfo *ti);
+
+/**
+ * typedef TypeIsAvailable:
+ * @ti: TargetInfo to test.
+ *
+ * Returns whether a type is available for @ti. Invoked at registration
+ * with target_info() unless the selected target is unspecified, and
+ * again when listing which targets a type matches. Typical
+ * implementations are target_*() and target_config_*().
+ */
+typedef bool (TypeIsAvailable)(const TargetInfo *ti);
+
 #define OBJECT_CLASS_CAST_CACHE 4
 
 /**
@@ -469,8 +499,11 @@ struct Object
  * @class_data: Data to pass to the @class_init,
  *   @class_base_init. This can be useful when building dynamic
  *   classes.
- * @is_available: callback invoked at registration time, to dynamically check if
- *   this type should be available or not.
+ * @is_available: callback invoked at registration time with
+ *   target_info(), to dynamically check if this type should be
+ *   available. Skipped when the selected TargetInfo is unspecified
+ *   (combined qemu-system with no -target). Listing code may call it
+ *   with a specific TargetInfo.
  * @interfaces: The list of interfaces associated with this type.  This
  *   should point to a static array that's terminated with a zero filled
  *   element.
@@ -493,7 +526,7 @@ struct TypeInfo
     void (*class_base_init)(ObjectClass *klass, const void *data);
     const void *class_data;
 
-    bool (*is_available)(void);
+    TypeIsAvailable *is_available;
     const InterfaceInfo *interfaces;
 };
 
@@ -1065,6 +1098,15 @@ ObjectClass *object_class_get_parent(ObjectClass *klass);
  * Returns: The QOM typename for @klass.
  */
 const char *object_class_get_name(ObjectClass *klass);
+
+/**
+ * object_class_get_is_available:
+ * @klass: The class to obtain TypeInfo.is_available for.
+ *
+ * Returns: The availability callback, or %NULL if the type is always
+ * available.
+ */
+TypeIsAvailable *object_class_get_is_available(ObjectClass *klass);
 
 /**
  * object_class_is_abstract:

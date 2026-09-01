@@ -9,10 +9,12 @@
 #ifndef QEMU_TARGET_INFO_IMPL_H
 #define QEMU_TARGET_INFO_IMPL_H
 
+#include "qemu/target-info.h"
+#include "qom/object.h"
 #include "qapi/qapi-types-common.h"
 #include "qapi/qapi-types-machine.h"
 
-typedef struct TargetInfo {
+struct TargetInfo {
     /* runtime equivalent of TARGET_NAME definition */
     const char *target_name;
     /* related to TARGET_ARCH definition */
@@ -39,13 +41,6 @@ typedef struct TargetInfo {
     bool config_multiprocess;
     /* CONFIG_NITRO */
     bool config_nitro;
-} TargetInfo;
-
-/**
- * target_info:
- *
- * Returns: The TargetInfo structure definition for this target binary.
- */
-const TargetInfo *target_info(void);
+};
 
 #endif

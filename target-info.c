@@ -42,29 +42,29 @@ bool target_big_endian(void)
     return target_endian_mode() == ENDIAN_MODE_BIG;
 }
 
-bool target_config_cxl(void)
+bool target_config_cxl(const TargetInfo *ti)
 {
-    return target_info()->config_cxl;
+    return ti->config_cxl;
 }
 
-bool target_config_dpcd(void)
+bool target_config_dpcd(const TargetInfo *ti)
 {
-    return target_info()->config_dpcd;
+    return ti->config_dpcd;
 }
 
-bool target_config_multiprocess(void)
+bool target_config_multiprocess(const TargetInfo *ti)
 {
-    return target_info()->config_multiprocess;
+    return ti->config_multiprocess;
 }
 
-bool target_config_nitro(void)
+bool target_config_nitro(const TargetInfo *ti)
 {
-    return target_info()->config_nitro;
+    return ti->config_nitro;
 }
 
-bool target_base_arm(void)
+bool target_base_arm(const TargetInfo *ti)
 {
-    switch (target_arch()) {
+    switch (ti->target_arch) {
     case SYS_EMU_TARGET_ARM:
     case SYS_EMU_TARGET_AARCH64:
         return true;
@@ -73,25 +73,26 @@ bool target_base_arm(void)
     }
 }
 
-bool target_arm(void)
+bool target_arm(const TargetInfo *ti)
 {
-    return target_arch() == SYS_EMU_TARGET_ARM;
+    return ti->target_arch == SYS_EMU_TARGET_ARM;
 }
 
-bool target_aarch64(void)
+bool target_aarch64(const TargetInfo *ti)
 {
-    return target_arch() == SYS_EMU_TARGET_AARCH64;
+    return ti->target_arch == SYS_EMU_TARGET_AARCH64;
 }
 
-bool target_microblaze(void)
+bool target_microblaze(const TargetInfo *ti)
 {
-    return target_arch() == SYS_EMU_TARGET_MICROBLAZE;
+    return ti->target_arch ==
+           SYS_EMU_TARGET_MICROBLAZE;
 }
 
 
-bool target_base_ppc(void)
+bool target_base_ppc(const TargetInfo *ti)
 {
-    switch (target_arch()) {
+    switch (ti->target_arch) {
     case SYS_EMU_TARGET_PPC:
     case SYS_EMU_TARGET_PPC64:
         return true;
@@ -100,24 +101,24 @@ bool target_base_ppc(void)
     }
 }
 
-bool target_ppc(void)
+bool target_ppc(const TargetInfo *ti)
 {
-    return target_arch() == SYS_EMU_TARGET_PPC;
+    return ti->target_arch == SYS_EMU_TARGET_PPC;
 }
 
-bool target_ppc64(void)
+bool target_ppc64(const TargetInfo *ti)
 {
-    return target_arch() == SYS_EMU_TARGET_PPC64;
+    return ti->target_arch == SYS_EMU_TARGET_PPC64;
 }
 
-bool target_s390x(void)
+bool target_s390x(const TargetInfo *ti)
 {
-    return target_arch() == SYS_EMU_TARGET_S390X;
+    return ti->target_arch == SYS_EMU_TARGET_S390X;
 }
 
-bool target_base_riscv(void)
+bool target_base_riscv(const TargetInfo *ti)
 {
-    switch (target_arch()) {
+    switch (ti->target_arch) {
     case SYS_EMU_TARGET_RISCV32:
     case SYS_EMU_TARGET_RISCV64:
         return true;
@@ -126,12 +127,12 @@ bool target_base_riscv(void)
     }
 }
 
-bool target_riscv32(void)
+bool target_riscv32(const TargetInfo *ti)
 {
-    return target_arch() == SYS_EMU_TARGET_RISCV32;
+    return ti->target_arch == SYS_EMU_TARGET_RISCV32;
 }
 
-bool target_riscv64(void)
+bool target_riscv64(const TargetInfo *ti)
 {
-    return target_arch() == SYS_EMU_TARGET_RISCV64;
+    return ti->target_arch == SYS_EMU_TARGET_RISCV64;
 }

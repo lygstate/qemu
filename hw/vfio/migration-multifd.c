@@ -54,7 +54,7 @@ bool vfio_load_config_after_iter(VFIODevice *vbasedev)
      * See commit d329f5032e17 ("vfio: Move the saving of the config space to
      * the right place in VFIO migration").
      */
-    return target_base_arm();
+    return target_base_arm(target_info());
 }
 
 /* type safety */

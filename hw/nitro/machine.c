@@ -98,7 +98,7 @@ static char *build_eif(const char *kernel_data, gsize kernel_size,
     hdr = (EifHeader) {
         .magic = EIF_MAGIC,
         .version = cpu_to_be16(4),
-        .flags = cpu_to_be16(target_aarch64() ? EIF_HDR_ARCH_ARM64 : 0),
+        .flags = cpu_to_be16(target_aarch64(target_info()) ? EIF_HDR_ARCH_ARM64 : 0),
     };
 
     g_byte_array_append(buf, (const uint8_t *)&hdr, sizeof(hdr));

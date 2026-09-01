@@ -12,6 +12,8 @@
 #include "qapi/qapi-types-common.h"
 #include "qapi/qapi-types-machine.h"
 
+#define SYS_EMU_TARGET_UNSPECIFIED SYS_EMU_TARGET__MAX
+
 /**
  * target_arch:
  *
