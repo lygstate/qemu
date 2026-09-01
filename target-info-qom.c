@@ -53,6 +53,48 @@ static const TargetInfo target_info_unspecified = {
     .page_bits_vary = true,
 };
 
+char *target_specific_target_names(ObjectClass *oc)
+{
+    TypeIsAvailable *is_available;
+    g_autoptr(GSList) targets = NULL;
+    g_autoptr(GPtrArray) names = NULL;
+
+    is_available = object_class_get_is_available(oc);
+    if (!is_available) {
+        return NULL;
+    }
+
+    targets = object_class_get_list_sorted(TYPE_TARGET_INFO, false);
+    names = g_ptr_array_new();
+
+    for (GSList *elem = targets; elem; elem = elem->next) {
+        const TargetInfo *ti = TARGET_INFO_CLASS(elem->data)->target_info;
+        bool seen = false;
+        guint i;
+
+        for (i = 0; i < names->len; i++) {
+            if (!strcmp(names->pdata[i], ti->target_name)) {
+                seen = true;
+                break;
+            }
+        }
+        if (seen) {
+            continue;
+        }
+
+        if (is_available(ti)) {
+            g_ptr_array_add(names, (gpointer)ti->target_name);
+        }
+    }
+
+    if (!names->len) {
+        return NULL;
+    }
+
+    g_ptr_array_add(names, NULL);
+    return g_strjoinv(",", (char **)names->pdata);
+}
+
 static void list_targets_available(void)
 {
     printf("List of targets available:\n");
