@@ -117,6 +117,16 @@ typedef void (ObjectUnparent)(Object *obj);
  */
 typedef void (ObjectFree)(void *obj);
 
+/**
+ * typedef TypeIsAvailable:
+ *
+ * Returns whether a type is available for the selected TargetInfo.
+ * Invoked at registration and again when listing which targets a type
+ * matches. Typical implementations are target_*() and
+ * target_config_*().
+ */
+typedef bool (TypeIsAvailable)(void);
+
 #define OBJECT_CLASS_CAST_CACHE 4
 
 /**
@@ -493,7 +503,7 @@ struct TypeInfo
     void (*class_base_init)(ObjectClass *klass, const void *data);
     const void *class_data;
 
-    bool (*is_available)(void);
+    TypeIsAvailable *is_available;
     const InterfaceInfo *interfaces;
 };
 
@@ -1065,6 +1075,15 @@ ObjectClass *object_class_get_parent(ObjectClass *klass);
  * Returns: The QOM typename for @klass.
  */
 const char *object_class_get_name(ObjectClass *klass);
+
+/**
+ * object_class_get_is_available:
+ * @klass: The class to obtain TypeInfo.is_available for.
+ *
+ * Returns: The availability callback, or %NULL if the type is always
+ * available.
+ */
+TypeIsAvailable *object_class_get_is_available(ObjectClass *klass);
 
 /**
  * object_class_is_abstract:

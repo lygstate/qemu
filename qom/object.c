@@ -61,6 +61,7 @@ struct TypeImpl
     void (*class_base_init)(ObjectClass *klass, const void *data);
 
     const void *class_data;
+    TypeIsAvailable *is_available;
 
     void (*instance_init)(Object *obj);
     void (*instance_post_init)(Object *obj);
@@ -116,6 +117,7 @@ static TypeImpl *type_new(const TypeInfo *info)
     ti->class_init = info->class_init;
     ti->class_base_init = info->class_base_init;
     ti->class_data = info->class_data;
+    ti->is_available = info->is_available;
 
     ti->instance_init = info->instance_init;
     ti->instance_post_init = info->instance_post_init;
@@ -1147,6 +1149,11 @@ bool object_class_is_abstract(ObjectClass *klass)
 const char *object_class_get_name(ObjectClass *klass)
 {
     return klass->type->name;
+}
+
+TypeIsAvailable *object_class_get_is_available(ObjectClass *klass)
+{
+    return klass->type->is_available;
 }
 
 ObjectClass *object_class_by_name(const char *typename)
