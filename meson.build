@@ -4421,6 +4421,12 @@ single_binary_supported_targets = [
   'riscv64-softmmu',
 ]
 
+# Endian siblings of riscv32/riscv64: TargetInfo only in qemu-system.
+single_binary_target_info_only = [
+  'riscv32-be-softmmu',
+  'riscv64-be-softmmu',
+]
+
 emulators = {}
 foreach target : target_dirs
   config_target = config_target_mak[target]
@@ -4596,6 +4602,9 @@ foreach target : target_dirs
       single_binary_deps += arch_deps
       single_binary_deps += target_stubs
       single_binary_crates += main_rs
+      single_binary_available = true
+    elif target in single_binary_target_info_only
+      single_binary_target_info_objects += lib.extract_objects(target_info_src)
       single_binary_available = true
     endif
     execs = [{
