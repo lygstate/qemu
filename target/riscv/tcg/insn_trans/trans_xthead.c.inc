@@ -190,7 +190,7 @@ static bool gen_th_ff0(DisasContext *ctx, arg_th_ff0 *a, DisasExtend ext)
     TCGv t = tcg_temp_new();
 
     tcg_gen_not_tl(t, src1);
-    if (olen != TARGET_LONG_BITS) {
+    if (olen != 64) {
         if (olen == 32) {
             gen_clzw(dest, t);
         } else {

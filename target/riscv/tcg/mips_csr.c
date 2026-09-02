@@ -56,42 +56,42 @@ static RISCVException any(CPURISCVState *env, int csrno)
 }
 
 static RISCVException read_mipstvec(CPURISCVState *env, int csrno,
-                                    target_ulong *val)
+                                    uint64_t *val)
 {
     *val = mips_csr_state.tvec;
     return RISCV_EXCP_NONE;
 }
 
 static RISCVException write_mipstvec(CPURISCVState *env, int csrno,
-                                     target_ulong val, uintptr_t ra)
+                                     uint64_t val, uintptr_t ra)
 {
     mips_csr_state.tvec = val;
     return RISCV_EXCP_NONE;
 }
 
 static RISCVException read_mipsconfig(CPURISCVState *env, int csrno,
-                                      target_ulong *val)
+                                      uint64_t *val)
 {
     *val = mips_csr_state.config[csrno - CSR_MIPSCONFIG0];
     return RISCV_EXCP_NONE;
 }
 
 static RISCVException write_mipsconfig(CPURISCVState *env, int csrno,
-                                       target_ulong val, uintptr_t ra)
+                                       uint64_t val, uintptr_t ra)
 {
     mips_csr_state.config[csrno - CSR_MIPSCONFIG0] = val;
     return RISCV_EXCP_NONE;
 }
 
 static RISCVException read_mipspmacfg(CPURISCVState *env, int csrno,
-                                      target_ulong *val)
+                                      uint64_t *val)
 {
     *val = mips_csr_state.pmacfg[csrno - CSR_MIPSPMACFG0];
     return RISCV_EXCP_NONE;
 }
 
 static RISCVException write_mipspmacfg(CPURISCVState *env, int csrno,
-                                       target_ulong val, uintptr_t ra)
+                                       uint64_t val, uintptr_t ra)
 {
     mips_csr_state.pmacfg[csrno - CSR_MIPSPMACFG0] = val;
     return RISCV_EXCP_NONE;

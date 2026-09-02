@@ -21,11 +21,11 @@
 #include "cpu.h"
 #include "exec/helper-proto.h"
 
-target_ulong HELPER(divu_i128)(CPURISCVState *env,
-                               target_ulong ul, target_ulong uh,
-                               target_ulong vl, target_ulong vh)
+uint64_t HELPER(divu_i128)(CPURISCVState *env,
+                               uint64_t ul, uint64_t uh,
+                               uint64_t vl, uint64_t vh)
 {
-    target_ulong ql, qh;
+    uint64_t ql, qh;
     Int128 q;
 
     if (vl == 0 && vh == 0) { /* Handle special behavior on div by zero */
@@ -41,11 +41,11 @@ target_ulong HELPER(divu_i128)(CPURISCVState *env,
     return ql;
 }
 
-target_ulong HELPER(remu_i128)(CPURISCVState *env,
-                               target_ulong ul, target_ulong uh,
-                               target_ulong vl, target_ulong vh)
+uint64_t HELPER(remu_i128)(CPURISCVState *env,
+                               uint64_t ul, uint64_t uh,
+                               uint64_t vl, uint64_t vh)
 {
-    target_ulong rl, rh;
+    uint64_t rl, rh;
     Int128 r;
 
     if (vl == 0 && vh == 0) {
@@ -61,17 +61,17 @@ target_ulong HELPER(remu_i128)(CPURISCVState *env,
     return rl;
 }
 
-target_ulong HELPER(divs_i128)(CPURISCVState *env,
-                               target_ulong ul, target_ulong uh,
-                               target_ulong vl, target_ulong vh)
+uint64_t HELPER(divs_i128)(CPURISCVState *env,
+                               uint64_t ul, uint64_t uh,
+                               uint64_t vl, uint64_t vh)
 {
-    target_ulong qh, ql;
+    uint64_t qh, ql;
     Int128 q;
 
     if (vl == 0 && vh == 0) { /* Div by zero check */
         ql = ~0x0;
         qh = ~0x0;
-    } else if (uh == (1ULL << (TARGET_LONG_BITS - 1)) && ul == 0 &&
+    } else if (uh == (1ULL << 63) && ul == 0 &&
                vh == ~0x0 && vl == ~0x0) {
         /* Signed div overflow check (-2**127 / -1) */
         ql = ul;
@@ -86,11 +86,11 @@ target_ulong HELPER(divs_i128)(CPURISCVState *env,
     return ql;
 }
 
-target_ulong HELPER(rems_i128)(CPURISCVState *env,
-                               target_ulong ul, target_ulong uh,
-                               target_ulong vl, target_ulong vh)
+uint64_t HELPER(rems_i128)(CPURISCVState *env,
+                               uint64_t ul, uint64_t uh,
+                               uint64_t vl, uint64_t vh)
 {
-    target_ulong rh, rl;
+    uint64_t rh, rl;
     Int128 r;
 
     if (vl == 0 && vh == 0) {

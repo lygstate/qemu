@@ -21,7 +21,9 @@
 #include "qemu/bitops.h"
 #include "cpu.h"
 #include "exec/memop.h"
-#include "accel/tcg/cpu-ldst.h"
+#include "accel/tcg/cpu-ldst-common.h"
+
+typedef uint64_t abi_ptr;
 #include "accel/tcg/probe.h"
 #include "exec/page-protection.h"
 #include "exec/helper-proto.h"
@@ -33,10 +35,10 @@
 #include "vector_internals.h"
 #include <math.h>
 
-static target_ulong vtype_reserved(CPURISCVState *env, target_ulong vtype)
+static uint64_t vtype_reserved(CPURISCVState *env, uint64_t vtype)
 {
     int xlen = riscv_cpu_xlen(env);
-    target_ulong reserved = 0;
+    uint64_t reserved = 0;
 
     if (riscv_cpu_cfg(env)->ext_zvfbfa) {
         reserved = vtype & MAKE_64BIT_MASK(R_VTYPE_RESERVED_SHIFT,
@@ -58,8 +60,8 @@ static inline void reset_ill_vtype(CPURISCVState *env)
     env->vstart = 0;
 }
 
-target_ulong HELPER(vsetvl)(CPURISCVState *env, target_ulong s1,
-                            target_ulong s2, target_ulong x0)
+uint64_t HELPER(vsetvl)(CPURISCVState *env, uint64_t s1,
+                            uint64_t s2, uint64_t x0)
 {
     int vlmax, vl;
     RISCVCPU *cpu = env_archcpu(env);
@@ -161,12 +163,12 @@ static inline uint32_t vext_max_elems(uint32_t desc, uint32_t log2_esz)
  * provided the function will call probe_access_flags instead, use nonfault
  * and update host and flags.
  */
-static void probe_pages(CPURISCVState *env, target_ulong addr, target_ulong len,
+static void probe_pages(CPURISCVState *env, uint64_t addr, uint64_t len,
                         uintptr_t ra, MMUAccessType access_type, int mmu_index,
                         void **host, int *flags, bool nonfault)
 {
-    target_ulong pagelen = -(addr | TARGET_PAGE_MASK);
-    target_ulong curlen = MIN(pagelen, len);
+    uint64_t pagelen = -(addr | TARGET_PAGE_MASK);
+    uint64_t curlen = MIN(pagelen, len);
 
     if (flags != NULL) {
         *flags = probe_access_flags(env, adjust_addr(env, addr), curlen,
@@ -274,7 +276,7 @@ GEN_VEXT_HOST_ST_ELEM(ste_d, uint64_t, H8, stq_le)
 
 static inline QEMU_ALWAYS_INLINE void
 vext_continuous_ldst_tlb(CPURISCVState *env, vext_ldst_elem_fn_tlb *ldst_tlb,
-                       void *vd, uint32_t evl, target_ulong addr,
+                       void *vd, uint32_t evl, uint64_t addr,
                        uint32_t reg_start, uintptr_t ra, uint32_t esz,
                        bool is_load)
 {
@@ -332,7 +334,7 @@ static void vext_set_tail_elems_1s(uint32_t vl, void *vd,
  * stride: access vector element from strided memory
  */
 static void
-vext_ldst_stride(void *vd, void *v0, target_ulong base, target_ulong stride,
+vext_ldst_stride(void *vd, void *v0, uint64_t base, uint64_t stride,
                  CPURISCVState *env, uint32_t desc, uint32_t vm,
                  vext_ldst_elem_fn_tlb *ldst_elem, uint32_t log2_esz,
                  uintptr_t ra)
@@ -355,7 +357,7 @@ vext_ldst_stride(void *vd, void *v0, target_ulong base, target_ulong stride,
                 k++;
                 continue;
             }
-            target_ulong addr = base + stride * i + (k << log2_esz);
+            uint64_t addr = base + stride * i + (k << log2_esz);
             ldst_elem(env, adjust_addr(env, addr), i + k * max_elems, vd, ra);
             k++;
         }
@@ -366,8 +368,8 @@ vext_ldst_stride(void *vd, void *v0, target_ulong base, target_ulong stride,
 }
 
 #define GEN_VEXT_LD_STRIDE(NAME, ETYPE, LOAD_FN)                        \
-void HELPER(NAME)(void *vd, void * v0, target_ulong base,               \
-                  target_ulong stride, CPURISCVState *env,              \
+void HELPER(NAME)(void *vd, void * v0, uint64_t base,               \
+                  uint64_t stride, CPURISCVState *env,              \
                   uint32_t desc)                                        \
 {                                                                       \
     uint32_t vm = vext_vm(desc);                                        \
@@ -381,8 +383,8 @@ GEN_VEXT_LD_STRIDE(vlse32_v, int32_t, lde_w_tlb)
 GEN_VEXT_LD_STRIDE(vlse64_v, int64_t, lde_d_tlb)
 
 #define GEN_VEXT_ST_STRIDE(NAME, ETYPE, STORE_FN)                       \
-void HELPER(NAME)(void *vd, void *v0, target_ulong base,                \
-                  target_ulong stride, CPURISCVState *env,              \
+void HELPER(NAME)(void *vd, void *v0, uint64_t base,                \
+                  uint64_t stride, CPURISCVState *env,              \
                   uint32_t desc)                                        \
 {                                                                       \
     uint32_t vm = vext_vm(desc);                                        \
@@ -401,7 +403,7 @@ GEN_VEXT_ST_STRIDE(vsse64_v, int64_t, ste_d_tlb)
 
 /* unmasked unit-stride load and store operation */
 static inline QEMU_ALWAYS_INLINE void
-vext_page_ldst_us(CPURISCVState *env, void *vd, target_ulong addr,
+vext_page_ldst_us(CPURISCVState *env, void *vd, uint64_t addr,
                   uint32_t elems, uint32_t nf, uint32_t max_elems,
                   uint32_t log2_esz, bool is_load, int mmu_index,
                   vext_ldst_elem_fn_tlb *ldst_tlb,
@@ -468,13 +470,13 @@ vext_page_ldst_us(CPURISCVState *env, void *vd, target_ulong addr,
 }
 
 static inline QEMU_ALWAYS_INLINE void
-vext_ldst_us(void *vd, target_ulong base, CPURISCVState *env, uint32_t desc,
+vext_ldst_us(void *vd, uint64_t base, CPURISCVState *env, uint32_t desc,
              vext_ldst_elem_fn_tlb *ldst_tlb,
              vext_ldst_elem_fn_host *ldst_host, uint32_t log2_esz,
              uint32_t evl, uintptr_t ra, bool is_load)
 {
     uint32_t k;
-    target_ulong page_split, elems, addr;
+    uint64_t page_split, elems, addr;
     uint32_t nf = vext_nf(desc);
     uint32_t max_elems = vext_max_elems(desc, log2_esz);
     uint32_t esz = 1 << log2_esz;
@@ -545,7 +547,7 @@ vext_ldst_us(void *vd, target_ulong base, CPURISCVState *env, uint32_t desc,
  */
 
 #define GEN_VEXT_LD_US(NAME, ETYPE, LOAD_FN_TLB, LOAD_FN_HOST)      \
-void HELPER(NAME##_mask)(void *vd, void *v0, target_ulong base,     \
+void HELPER(NAME##_mask)(void *vd, void *v0, uint64_t base,     \
                          CPURISCVState *env, uint32_t desc)         \
 {                                                                   \
     uint32_t stride = vext_nf(desc) << ctzl(sizeof(ETYPE));         \
@@ -553,7 +555,7 @@ void HELPER(NAME##_mask)(void *vd, void *v0, target_ulong base,     \
                      LOAD_FN_TLB, ctzl(sizeof(ETYPE)), GETPC());    \
 }                                                                   \
                                                                     \
-void HELPER(NAME)(void *vd, void *v0, target_ulong base,            \
+void HELPER(NAME)(void *vd, void *v0, uint64_t base,            \
                   CPURISCVState *env, uint32_t desc)                \
 {                                                                   \
     vext_ldst_us(vd, base, env, desc, LOAD_FN_TLB, LOAD_FN_HOST,    \
@@ -566,7 +568,7 @@ GEN_VEXT_LD_US(vle32_v, int32_t, lde_w_tlb, lde_w_host)
 GEN_VEXT_LD_US(vle64_v, int64_t, lde_d_tlb, lde_d_host)
 
 #define GEN_VEXT_ST_US(NAME, ETYPE, STORE_FN_TLB, STORE_FN_HOST)         \
-void HELPER(NAME##_mask)(void *vd, void *v0, target_ulong base,          \
+void HELPER(NAME##_mask)(void *vd, void *v0, uint64_t base,          \
                          CPURISCVState *env, uint32_t desc)              \
 {                                                                        \
     uint32_t stride = vext_nf(desc) << ctzl(sizeof(ETYPE));              \
@@ -574,7 +576,7 @@ void HELPER(NAME##_mask)(void *vd, void *v0, target_ulong base,          \
                      STORE_FN_TLB, ctzl(sizeof(ETYPE)), GETPC());        \
 }                                                                        \
                                                                          \
-void HELPER(NAME)(void *vd, void *v0, target_ulong base,                 \
+void HELPER(NAME)(void *vd, void *v0, uint64_t base,                 \
                   CPURISCVState *env, uint32_t desc)                     \
 {                                                                        \
     vext_ldst_us(vd, base, env, desc, STORE_FN_TLB, STORE_FN_HOST,       \
@@ -589,7 +591,7 @@ GEN_VEXT_ST_US(vse64_v, int64_t, ste_d_tlb, ste_d_host)
 /*
  * unit stride mask load and store, EEW = 1
  */
-void HELPER(vlm_v)(void *vd, void *v0, target_ulong base,
+void HELPER(vlm_v)(void *vd, void *v0, uint64_t base,
                     CPURISCVState *env, uint32_t desc)
 {
     /* evl = ceil(vl/8) */
@@ -598,7 +600,7 @@ void HELPER(vlm_v)(void *vd, void *v0, target_ulong base,
                  0, evl, GETPC(), true);
 }
 
-void HELPER(vsm_v)(void *vd, void *v0, target_ulong base,
+void HELPER(vsm_v)(void *vd, void *v0, uint64_t base,
                     CPURISCVState *env, uint32_t desc)
 {
     /* evl = ceil(vl/8) */
@@ -610,11 +612,11 @@ void HELPER(vsm_v)(void *vd, void *v0, target_ulong base,
 /*
  * index: access vector element from indexed memory
  */
-typedef target_ulong vext_get_index_addr(target_ulong base,
+typedef uint64_t vext_get_index_addr(uint64_t base,
         uint32_t idx, void *vs2);
 
 #define GEN_VEXT_GET_INDEX_ADDR(NAME, ETYPE, H)        \
-static target_ulong NAME(target_ulong base,            \
+static uint64_t NAME(uint64_t base,            \
                          uint32_t idx, void *vs2)      \
 {                                                      \
     return (base + *((ETYPE *)vs2 + H(idx)));          \
@@ -626,7 +628,7 @@ GEN_VEXT_GET_INDEX_ADDR(idx_w, uint32_t, H4)
 GEN_VEXT_GET_INDEX_ADDR(idx_d, uint64_t, H8)
 
 static inline void
-vext_ldst_index(void *vd, void *v0, target_ulong base,
+vext_ldst_index(void *vd, void *v0, uint64_t base,
                 void *vs2, CPURISCVState *env, uint32_t desc,
                 vext_get_index_addr get_index_addr,
                 vext_ldst_elem_fn_tlb *ldst_elem,
@@ -663,7 +665,7 @@ vext_ldst_index(void *vd, void *v0, target_ulong base,
 }
 
 #define GEN_VEXT_LD_INDEX(NAME, ETYPE, INDEX_FN, LOAD_FN)                  \
-void HELPER(NAME)(void *vd, void *v0, target_ulong base,                   \
+void HELPER(NAME)(void *vd, void *v0, uint64_t base,                   \
                   void *vs2, CPURISCVState *env, uint32_t desc)            \
 {                                                                          \
     vext_ldst_index(vd, v0, base, vs2, env, desc, INDEX_FN,                \
@@ -688,7 +690,7 @@ GEN_VEXT_LD_INDEX(vlxei64_32_v, int32_t, idx_d, lde_w_tlb)
 GEN_VEXT_LD_INDEX(vlxei64_64_v, int64_t, idx_d, lde_d_tlb)
 
 #define GEN_VEXT_ST_INDEX(NAME, ETYPE, INDEX_FN, STORE_FN)       \
-void HELPER(NAME)(void *vd, void *v0, target_ulong base,         \
+void HELPER(NAME)(void *vd, void *v0, uint64_t base,         \
                   void *vs2, CPURISCVState *env, uint32_t desc)  \
 {                                                                \
     vext_ldst_index(vd, v0, base, vs2, env, desc, INDEX_FN,      \
@@ -717,7 +719,7 @@ GEN_VEXT_ST_INDEX(vsxei64_64_v, int64_t, idx_d, ste_d_tlb)
  * unit-stride fault-only-fisrt load instructions
  */
 static inline void
-vext_ldff(void *vd, void *v0, target_ulong base, CPURISCVState *env,
+vext_ldff(void *vd, void *v0, uint64_t base, CPURISCVState *env,
           uint32_t desc, vext_ldst_elem_fn_tlb *ldst_tlb,
           vext_ldst_elem_fn_host *ldst_host, uint32_t log2_esz, uintptr_t ra)
 {
@@ -728,7 +730,7 @@ vext_ldff(void *vd, void *v0, target_ulong base, CPURISCVState *env,
     uint32_t esz = 1 << log2_esz;
     uint32_t msize = nf * esz;
     uint32_t vma = vext_vma(desc);
-    target_ulong addr, addr_i, offset, remain, page_split, elems;
+    uint64_t addr, addr_i, offset, remain, page_split, elems;
     int mmu_index = riscv_env_mmu_index(env, false);
     int flags;
     void *host;
@@ -847,7 +849,7 @@ ProbeSuccess:
 }
 
 #define GEN_VEXT_LDFF(NAME, ETYPE, LOAD_FN_TLB, LOAD_FN_HOST)   \
-void HELPER(NAME)(void *vd, void *v0, target_ulong base,        \
+void HELPER(NAME)(void *vd, void *v0, uint64_t base,        \
                   CPURISCVState *env, uint32_t desc)            \
 {                                                               \
     vext_ldff(vd, v0, base, env, desc, LOAD_FN_TLB,             \
@@ -873,12 +875,12 @@ GEN_VEXT_LDFF(vle64ff_v, int64_t, lde_d_tlb, lde_d_host)
  * load and store whole register instructions
  */
 static inline QEMU_ALWAYS_INLINE void
-vext_ldst_whole(void *vd, target_ulong base, CPURISCVState *env, uint32_t desc,
+vext_ldst_whole(void *vd, uint64_t base, CPURISCVState *env, uint32_t desc,
                 vext_ldst_elem_fn_tlb *ldst_tlb,
                 vext_ldst_elem_fn_host *ldst_host, uint32_t log2_esz,
                 uintptr_t ra, bool is_load)
 {
-    target_ulong page_split, elems, addr;
+    uint64_t page_split, elems, addr;
     uint32_t nf = vext_nf(desc);
     uint32_t vlenb = riscv_cpu_cfg(env)->vlenb;
     uint32_t max_elems = vlenb >> log2_esz;
@@ -923,7 +925,7 @@ vext_ldst_whole(void *vd, target_ulong base, CPURISCVState *env, uint32_t desc,
 }
 
 #define GEN_VEXT_LD_WHOLE(NAME, ETYPE, LOAD_FN_TLB, LOAD_FN_HOST)   \
-void HELPER(NAME)(void *vd, target_ulong base, CPURISCVState *env,  \
+void HELPER(NAME)(void *vd, uint64_t base, CPURISCVState *env,  \
                   uint32_t desc)                                    \
 {                                                                   \
     vext_ldst_whole(vd, base, env, desc, LOAD_FN_TLB, LOAD_FN_HOST, \
@@ -948,7 +950,7 @@ GEN_VEXT_LD_WHOLE(vl8re32_v, int32_t, lde_w_tlb, lde_w_host)
 GEN_VEXT_LD_WHOLE(vl8re64_v, int64_t, lde_d_tlb, lde_d_host)
 
 #define GEN_VEXT_ST_WHOLE(NAME, ETYPE, STORE_FN_TLB, STORE_FN_HOST)     \
-void HELPER(NAME)(void *vd, target_ulong base, CPURISCVState *env,      \
+void HELPER(NAME)(void *vd, uint64_t base, CPURISCVState *env,      \
                   uint32_t desc)                                        \
 {                                                                       \
     vext_ldst_whole(vd, base, env, desc, STORE_FN_TLB, STORE_FN_HOST,   \
@@ -1228,7 +1230,7 @@ GEN_VEXT_VADC_VVM(vsbc_vvm_w, uint32_t, H4, DO_VSBC)
 GEN_VEXT_VADC_VVM(vsbc_vvm_d, uint64_t, H8, DO_VSBC)
 
 #define GEN_VEXT_VADC_VXM(NAME, ETYPE, H, DO_OP)                         \
-void HELPER(NAME)(void *vd, void *v0, target_ulong s1, void *vs2,        \
+void HELPER(NAME)(void *vd, void *v0, uint64_t s1, void *vs2,        \
                   CPURISCVState *env, uint32_t desc)                     \
 {                                                                        \
     uint32_t vl = env->vl;                                               \
@@ -1243,7 +1245,7 @@ void HELPER(NAME)(void *vd, void *v0, target_ulong s1, void *vs2,        \
         ETYPE s2 = *((ETYPE *)vs2 + H(i));                               \
         ETYPE carry = vext_elem_mask(v0, i);                             \
                                                                          \
-        *((ETYPE *)vd + H(i)) = DO_OP(s2, (ETYPE)(target_long)s1, carry);\
+        *((ETYPE *)vd + H(i)) = DO_OP(s2, (ETYPE)(int64_t)s1, carry);\
     }                                                                    \
     env->vstart = 0;                                                     \
     /* set tail elements to 1s */                                        \
@@ -1305,7 +1307,7 @@ GEN_VEXT_VMADC_VVM(vmsbc_vvm_w, uint32_t, H4, DO_MSBC)
 GEN_VEXT_VMADC_VVM(vmsbc_vvm_d, uint64_t, H8, DO_MSBC)
 
 #define GEN_VEXT_VMADC_VXM(NAME, ETYPE, H, DO_OP)               \
-void HELPER(NAME)(void *vd, void *v0, target_ulong s1,          \
+void HELPER(NAME)(void *vd, void *v0, uint64_t s1,          \
                   void *vs2, CPURISCVState *env, uint32_t desc) \
 {                                                               \
     uint32_t vl = env->vl;                                      \
@@ -1320,7 +1322,7 @@ void HELPER(NAME)(void *vd, void *v0, target_ulong s1,          \
         ETYPE s2 = *((ETYPE *)vs2 + H(i));                      \
         ETYPE carry = !vm && vext_elem_mask(v0, i);             \
         vext_set_elem_mask(vd, i,                               \
-                DO_OP(s2, (ETYPE)(target_long)s1, carry));      \
+                DO_OP(s2, (ETYPE)(int64_t)s1, carry));      \
     }                                                           \
     env->vstart = 0;                                            \
     /*
@@ -1448,7 +1450,7 @@ GEN_VEXT_SHIFT_VV(vsra_vv_d, uint64_t, int64_t, H8, H8, DO_SRL, 0x3f)
  * generate the helpers for shift instructions with one vector and one scalar
  */
 #define GEN_VEXT_SHIFT_VX(NAME, TD, TS2, HD, HS2, OP, MASK) \
-void HELPER(NAME)(void *vd, void *v0, target_ulong s1,      \
+void HELPER(NAME)(void *vd, void *v0, uint64_t s1,      \
                   void *vs2, CPURISCVState *env,            \
                   uint32_t desc)                            \
 {                                                           \
@@ -1582,7 +1584,7 @@ GEN_VEXT_CMP_VV(vmsle_vv_w, int32_t, H4, DO_MSLE)
 GEN_VEXT_CMP_VV(vmsle_vv_d, int64_t, H8, DO_MSLE)
 
 #define GEN_VEXT_CMP_VX(NAME, ETYPE, H, DO_OP)                      \
-void HELPER(NAME)(void *vd, void *v0, target_ulong s1, void *vs2,   \
+void HELPER(NAME)(void *vd, void *v0, uint64_t s1, void *vs2,   \
                   CPURISCVState *env, uint32_t desc)                \
 {                                                                   \
     uint32_t vm = vext_vm(desc);                                    \
@@ -1604,7 +1606,7 @@ void HELPER(NAME)(void *vd, void *v0, target_ulong s1, void *vs2,   \
             continue;                                               \
         }                                                           \
         vext_set_elem_mask(vd, i,                                   \
-                DO_OP(s2, (ETYPE)(target_long)s1));                 \
+                DO_OP(s2, (ETYPE)(int64_t)s1));                 \
     }                                                               \
     env->vstart = 0;                                                \
     /*
@@ -2045,7 +2047,7 @@ GEN_VEXT_VV(vnmsub_vv_w, 4)
 GEN_VEXT_VV(vnmsub_vv_d, 8)
 
 #define OPIVX3(NAME, TD, T1, T2, TX1, TX2, HD, HS2, OP)             \
-static void do_##NAME(void *vd, target_long s1, void *vs2, int i)   \
+static void do_##NAME(void *vd, int64_t s1, void *vs2, int i)   \
 {                                                                   \
     TX2 s2 = *((T2 *)vs2 + HS2(i));                                 \
     TD d = *((TD *)vd + HD(i));                                     \
@@ -2227,7 +2229,7 @@ GEN_VEXT_VMERGE_VV(vmerge_vvm_w, int32_t, H4)
 GEN_VEXT_VMERGE_VV(vmerge_vvm_d, int64_t, H8)
 
 #define GEN_VEXT_VMERGE_VX(NAME, ETYPE, H)                           \
-void HELPER(NAME)(void *vd, void *v0, target_ulong s1,               \
+void HELPER(NAME)(void *vd, void *v0, uint64_t s1,               \
                   void *vs2, CPURISCVState *env, uint32_t desc)      \
 {                                                                    \
     uint32_t vl = env->vl;                                           \
@@ -2241,7 +2243,7 @@ void HELPER(NAME)(void *vd, void *v0, target_ulong s1,               \
     for (i = env->vstart; i < vl; i++) {                             \
         ETYPE s2 = *((ETYPE *)vs2 + H(i));                           \
         ETYPE d = (!vext_elem_mask(v0, i) ? s2 :                     \
-                   (ETYPE)(target_long)s1);                          \
+                   (ETYPE)(int64_t)s1);                          \
         *((ETYPE *)vd + H(i)) = d;                                   \
     }                                                                \
     env->vstart = 0;                                                 \
@@ -2392,12 +2394,12 @@ GEN_VEXT_VV_RM(vsaddu_vv_h, 2)
 GEN_VEXT_VV_RM(vsaddu_vv_w, 4)
 GEN_VEXT_VV_RM(vsaddu_vv_d, 8)
 
-typedef void opivx2_rm_fn(void *vd, target_long s1, void *vs2, int i,
+typedef void opivx2_rm_fn(void *vd, int64_t s1, void *vs2, int i,
                           CPURISCVState *env, uint8_t vxrm);
 
 #define OPIVX2_RM(NAME, TD, T1, T2, TX1, TX2, HD, HS2, OP)          \
 static inline void                                                  \
-do_##NAME(void *vd, target_long s1, void *vs2, int i,               \
+do_##NAME(void *vd, int64_t s1, void *vs2, int i,               \
           CPURISCVState *env, uint8_t vxrm)                         \
 {                                                                   \
     TX2 s2 = *((T2 *)vs2 + HS2(i));                                 \
@@ -2405,7 +2407,7 @@ do_##NAME(void *vd, target_long s1, void *vs2, int i,               \
 }
 
 static inline void
-vext_vx_rm_1(void *vd, void *v0, target_long s1, void *vs2,
+vext_vx_rm_1(void *vd, void *v0, int64_t s1, void *vs2,
              CPURISCVState *env,
              uint32_t vl, uint32_t vm, uint8_t vxrm,
              opivx2_rm_fn *fn, uint32_t vma, uint32_t esz)
@@ -2422,7 +2424,7 @@ vext_vx_rm_1(void *vd, void *v0, target_long s1, void *vs2,
 }
 
 static inline void
-vext_vx_rm_2(void *vd, void *v0, target_long s1, void *vs2,
+vext_vx_rm_2(void *vd, void *v0, int64_t s1, void *vs2,
              CPURISCVState *env,
              uint32_t desc,
              opivx2_rm_fn *fn, uint32_t esz)
@@ -2459,7 +2461,7 @@ vext_vx_rm_2(void *vd, void *v0, target_long s1, void *vs2,
 
 /* generate helpers for fixed point instructions with OPIVX format */
 #define GEN_VEXT_VX_RM(NAME, ESZ)                         \
-void HELPER(NAME)(void *vd, void *v0, target_ulong s1,    \
+void HELPER(NAME)(void *vd, void *v0, uint64_t s1,    \
                   void *vs2, CPURISCVState *env,          \
                   uint32_t desc)                          \
 {                                                         \
@@ -4847,7 +4849,7 @@ GEN_VEXT_CMP_VF(vmfge_vf_w, uint32_t, H4, vmfge32)
 GEN_VEXT_CMP_VF(vmfge_vf_d, uint64_t, H8, vmfge64)
 
 /* Vector Floating-Point Classify Instruction */
-target_ulong fclass_h_bf16(uint64_t frs1)
+uint64_t fclass_h_bf16(uint64_t frs1)
 {
     bfloat16 f = frs1;
     bool sign = bfloat16_is_neg(f);
@@ -4866,7 +4868,7 @@ target_ulong fclass_h_bf16(uint64_t frs1)
     }
 }
 
-target_ulong fclass_h(uint64_t frs1)
+uint64_t fclass_h(uint64_t frs1)
 {
     float16 f = frs1;
     bool sign = float16_is_neg(f);
@@ -4885,7 +4887,7 @@ target_ulong fclass_h(uint64_t frs1)
     }
 }
 
-target_ulong fclass_s(uint64_t frs1)
+uint64_t fclass_s(uint64_t frs1)
 {
     float32 f = frs1;
     bool sign = float32_is_neg(f);
@@ -4904,7 +4906,7 @@ target_ulong fclass_s(uint64_t frs1)
     }
 }
 
-target_ulong fclass_d(uint64_t frs1)
+uint64_t fclass_d(uint64_t frs1)
 {
     float64 f = frs1;
     bool sign = float64_is_neg(f);
@@ -5325,10 +5327,10 @@ GEN_VEXT_MASK_VV(vmorn_mm, DO_ORNOT)
 GEN_VEXT_MASK_VV(vmxnor_mm, DO_XNOR)
 
 /* Vector count population in mask vcpop */
-target_ulong HELPER(vcpop_m)(void *v0, void *vs2, CPURISCVState *env,
+uint64_t HELPER(vcpop_m)(void *v0, void *vs2, CPURISCVState *env,
                              uint32_t desc)
 {
-    target_ulong cnt = 0;
+    uint64_t cnt = 0;
     uint32_t vm = vext_vm(desc);
     uint32_t vl = env->vl;
     int i;
@@ -5345,7 +5347,7 @@ target_ulong HELPER(vcpop_m)(void *v0, void *vs2, CPURISCVState *env,
 }
 
 /* vfirst find-first-set mask bit */
-target_ulong HELPER(vfirst_m)(void *v0, void *vs2, CPURISCVState *env,
+uint64_t HELPER(vfirst_m)(void *v0, void *vs2, CPURISCVState *env,
                               uint32_t desc)
 {
     uint32_t vm = vext_vm(desc);
@@ -5515,7 +5517,7 @@ GEN_VEXT_VID_V(vid_v_d, uint64_t, H8)
 
 /* Vector Slide Instructions */
 #define GEN_VEXT_VSLIDEUP_VX(NAME, ETYPE, H)                              \
-void HELPER(NAME)(void *vd, void *v0, target_ulong s1, void *vs2,         \
+void HELPER(NAME)(void *vd, void *v0, uint64_t s1, void *vs2,         \
                   CPURISCVState *env, uint32_t desc)                      \
 {                                                                         \
     uint32_t vm = vext_vm(desc);                                          \
@@ -5524,7 +5526,7 @@ void HELPER(NAME)(void *vd, void *v0, target_ulong s1, void *vs2,         \
     uint32_t total_elems = vext_get_total_elems(env, desc, esz);          \
     uint32_t vta = vext_vta(desc);                                        \
     uint32_t vma = vext_vma(desc);                                        \
-    target_ulong offset = s1, i_min, i;                                   \
+    uint64_t offset = s1, i_min, i;                                   \
                                                                           \
     VSTART_CHECK_EARLY_EXIT(env, vl);                                     \
                                                                           \
@@ -5549,7 +5551,7 @@ GEN_VEXT_VSLIDEUP_VX(vslideup_vx_w, uint32_t, H4)
 GEN_VEXT_VSLIDEUP_VX(vslideup_vx_d, uint64_t, H8)
 
 #define GEN_VEXT_VSLIDEDOWN_VX(NAME, ETYPE, H)                            \
-void HELPER(NAME)(void *vd, void *v0, target_ulong s1, void *vs2,         \
+void HELPER(NAME)(void *vd, void *v0, uint64_t s1, void *vs2,         \
                   CPURISCVState *env, uint32_t desc)                      \
 {                                                                         \
     uint32_t vlmax = vext_max_elems(desc, ctzl(sizeof(ETYPE)));           \
@@ -5559,7 +5561,7 @@ void HELPER(NAME)(void *vd, void *v0, target_ulong s1, void *vs2,         \
     uint32_t total_elems = vext_get_total_elems(env, desc, esz);          \
     uint32_t vta = vext_vta(desc);                                        \
     uint32_t vma = vext_vma(desc);                                        \
-    target_ulong i_max, i_min, i;                                         \
+    uint64_t i_max, i_min, i;                                         \
                                                                           \
     VSTART_CHECK_EARLY_EXIT(env, vl);                                     \
                                                                           \
@@ -5767,7 +5769,7 @@ GEN_VEXT_VRGATHER_VV(vrgatherei16_vv_w, uint16_t, uint32_t, H2, H4)
 GEN_VEXT_VRGATHER_VV(vrgatherei16_vv_d, uint16_t, uint64_t, H2, H8)
 
 #define GEN_VEXT_VRGATHER_VX(NAME, ETYPE, H)                              \
-void HELPER(NAME)(void *vd, void *v0, target_ulong s1, void *vs2,         \
+void HELPER(NAME)(void *vd, void *v0, uint64_t s1, void *vs2,         \
                   CPURISCVState *env, uint32_t desc)                      \
 {                                                                         \
     uint32_t vlmax = vext_max_elems(desc, ctzl(sizeof(ETYPE)));           \

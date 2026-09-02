@@ -3,6 +3,8 @@
 #ifndef TARGET_RISCV_CPU_BITS_H
 #define TARGET_RISCV_CPU_BITS_H
 
+#include "qemu/target-info.h"
+
 #define get_field(reg, mask) (((reg) & \
                  (uint64_t)(mask)) / ((mask) & ~((mask) << 1)))
 #define set_field(reg, mask, val) (((reg) & ~(uint64_t)(mask)) | \
@@ -812,7 +814,7 @@ typedef enum RISCVException {
 #define IRQ_PMU_OVF                        13
 #define IRQ_LOCAL_MAX                      64
 /* -1 is due to bit zero of hgeip and hgeie being ROZ. */
-#define IRQ_LOCAL_GUEST_MAX                (TARGET_LONG_BITS - 1)
+#define IRQ_LOCAL_GUEST_MAX                (target_long_bits() - 1)
 
 /* RNMI causes */
 #define RNMI_MAX                           16
