@@ -97,10 +97,10 @@ FIELD(VDATA, NF, 7, 4)
 FIELD(VDATA, WD, 7, 1)
 
 /* float point classify helpers */
-target_ulong fclass_h_bf16(uint64_t frs1);
-target_ulong fclass_h(uint64_t frs1);
-target_ulong fclass_s(uint64_t frs1);
-target_ulong fclass_d(uint64_t frs1);
+uint64_t fclass_h_bf16(uint64_t frs1);
+uint64_t fclass_h(uint64_t frs1);
+uint64_t fclass_s(uint64_t frs1);
+uint64_t fclass_d(uint64_t frs1);
 
 #ifndef CONFIG_USER_ONLY
 extern const VMStateDescription vmstate_riscv_cpu;
@@ -184,9 +184,10 @@ static inline float16 check_nanbox_bf16(CPURISCVState *env, uint64_t f)
     }
 }
 
-static inline target_ulong get_xepc_mask(CPURISCVState *env)
+static inline uint64_t get_xepc_mask(CPURISCVState *env)
 {
     RISCVCPU *cpu = env_archcpu(env);
+    uint64_t mask = MAKE_64BIT_MASK(0, MIN(riscv_cpu_mxl_bits(env), 64));
 
     /*
      * When IALIGN=32, both low bits must be zero.
@@ -195,9 +196,9 @@ static inline target_ulong get_xepc_mask(CPURISCVState *env)
     if (riscv_has_ext(env, RVC) || cpu->cfg.ext_zca ||
         cpu->cfg.ext_zcb || cpu->cfg.ext_zcd || cpu->cfg.ext_zce ||
         cpu->cfg.ext_zcf || cpu->cfg.ext_zcmp || cpu->cfg.ext_zcmt) {
-        return ~(target_ulong)1;
+        return mask & ~1ull;
     } else {
-        return ~(target_ulong)3;
+        return mask & ~3ull;
     }
 }
 
@@ -207,8 +208,8 @@ bool riscv_cpu_has_work(CPUState *cs);
 #endif
 
 /* Zjpm addr masking routine */
-static inline target_ulong adjust_addr_body(CPURISCVState *env,
-                                            target_ulong addr,
+static inline uint64_t adjust_addr_body(CPURISCVState *env,
+                                            uint64_t addr,
                                             bool is_virt_addr)
 {
     RISCVPmPmm pmm = PMM_FIELD_DISABLED;
@@ -238,7 +239,7 @@ static inline target_ulong adjust_addr_body(CPURISCVState *env,
 
     /* sign/zero extend masked address by N-1 bit */
     if (signext) {
-        addr = (target_long)addr >> pmlen;
+        addr = (int64_t)addr >> pmlen;
     } else {
         addr = addr >> pmlen;
     }
@@ -246,14 +247,14 @@ static inline target_ulong adjust_addr_body(CPURISCVState *env,
     return addr;
 }
 
-static inline target_ulong adjust_addr(CPURISCVState *env,
-                                       target_ulong addr)
+static inline uint64_t adjust_addr(CPURISCVState *env,
+                                       uint64_t addr)
 {
     return adjust_addr_body(env, addr, false);
 }
 
-static inline target_ulong adjust_addr_virt(CPURISCVState *env,
-                                            target_ulong addr)
+static inline uint64_t adjust_addr_virt(CPURISCVState *env,
+                                            uint64_t addr)
 {
     return adjust_addr_body(env, addr, true);
 }

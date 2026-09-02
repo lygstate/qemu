@@ -20,9 +20,10 @@
 #include "cpu.h"
 #include "internals.h"
 #include "exec/helper-proto.h"
-#include "accel/tcg/cpu-ldst.h"
+#include "accel/tcg/cpu-ldst-common.h"
+#include "accel/tcg/cpu-mmu-index.h"
 
-target_ulong HELPER(cm_jalt)(CPURISCVState *env, uint32_t index)
+uint64_t HELPER(cm_jalt)(CPURISCVState *env, uint32_t index)
 {
     unsigned mmu_index = cpu_mmu_index(env_cpu(env), true);
     MemOp endian = mo_endian_env(env);
@@ -35,12 +36,12 @@ target_ulong HELPER(cm_jalt)(CPURISCVState *env, uint32_t index)
     }
 #endif
 
-    target_ulong target;
-    target_ulong val = env->jvt;
+    uint64_t target;
+    uint64_t val = env->jvt;
     int xlen = riscv_cpu_xlen(env);
     uint8_t mode = get_field(val, JVT_MODE);
-    target_ulong base = val & JVT_BASE;
-    target_ulong t0;
+    uint64_t base = val & JVT_BASE;
+    uint64_t t0;
 
     if (mode != 0) {
         riscv_raise_exception(env, RISCV_EXCP_ILLEGAL_INST, 0);

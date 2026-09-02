@@ -230,7 +230,7 @@ static void riscv_restore_state_to_opc(CPUState *cs,
     RISCVCPU *cpu = RISCV_CPU(cs);
     CPURISCVState *env = &cpu->env;
     RISCVMXL xl = FIELD_EX32(tb->flags, TB_FLAGS, XL);
-    target_ulong pc;
+    uint64_t pc;
 
     if (tb_cflags(tb) & CF_PCREL) {
         pc = (env->pc & TARGET_PAGE_MASK) | data[0];
@@ -1337,7 +1337,7 @@ static bool riscv_tcg_cpu_realize(CPUState *cs, Error **errp)
 }
 
 typedef struct RISCVCPUMisaExtConfig {
-    target_ulong misa_bit;
+    uint64_t misa_bit;
     bool enabled;
 } RISCVCPUMisaExtConfig;
 
@@ -1345,7 +1345,7 @@ static void cpu_set_misa_ext_cfg(Object *obj, Visitor *v, const char *name,
                                  void *opaque, Error **errp)
 {
     const RISCVCPUMisaExtConfig *misa_ext_cfg = opaque;
-    target_ulong misa_bit = misa_ext_cfg->misa_bit;
+    uint64_t misa_bit = misa_ext_cfg->misa_bit;
     RISCVCPU *cpu = RISCV_CPU(obj);
     CPURISCVState *env = &cpu->env;
     bool vendor_cpu = riscv_cpu_is_vendor(obj);
@@ -1387,7 +1387,7 @@ static void cpu_get_misa_ext_cfg(Object *obj, Visitor *v, const char *name,
                                  void *opaque, Error **errp)
 {
     const RISCVCPUMisaExtConfig *misa_ext_cfg = opaque;
-    target_ulong misa_bit = misa_ext_cfg->misa_bit;
+    uint64_t misa_bit = misa_ext_cfg->misa_bit;
     RISCVCPU *cpu = RISCV_CPU(obj);
     CPURISCVState *env = &cpu->env;
     bool value;

@@ -56,7 +56,7 @@
 
 static void gen_clz(TCGv ret, TCGv arg1)
 {
-    tcg_gen_clzi_tl(ret, arg1, TARGET_LONG_BITS);
+    tcg_gen_clzi_tl(ret, arg1, target_long_bits());
 }
 
 static void gen_clzw(TCGv ret, TCGv arg1)
@@ -74,7 +74,7 @@ static bool trans_clz(DisasContext *ctx, arg_clz *a)
 
 static void gen_ctz(TCGv ret, TCGv arg1)
 {
-    tcg_gen_ctzi_tl(ret, arg1, TARGET_LONG_BITS);
+    tcg_gen_ctzi_tl(ret, arg1, target_long_bits());
 }
 
 static void gen_ctzw(TCGv ret, TCGv arg1)
@@ -253,7 +253,7 @@ static bool trans_ror(DisasContext *ctx, arg_ror *a)
     return gen_shift_per_ol(ctx, a, EXT_NONE, tcg_gen_rotr_tl, gen_rorw, NULL);
 }
 
-static void gen_roriw(TCGv ret, TCGv arg1, target_long shamt)
+static void gen_roriw(TCGv ret, TCGv arg1, int64_t shamt)
 {
     TCGv_i32 t1 = tcg_temp_new_i32();
 
@@ -460,9 +460,10 @@ static bool trans_add_uw(DisasContext *ctx, arg_add_uw *a)
     return gen_arith(ctx, a, EXT_NONE, gen_add_uw, NULL);
 }
 
-static void gen_slli_uw(TCGv dest, TCGv src, target_long shamt)
+static void gen_slli_uw(TCGv dest, TCGv src, int64_t shamt)
 {
-    tcg_gen_deposit_z_tl(dest, src, shamt, MIN(32, TARGET_LONG_BITS - shamt));
+    tcg_gen_deposit_z_tl(dest, src, shamt,
+                         MIN(32, (int)target_long_bits() - shamt));
 }
 
 static bool trans_slli_uw(DisasContext *ctx, arg_slli_uw *a)
@@ -499,8 +500,8 @@ static bool trans_clmulr(DisasContext *ctx, arg_clmulh *a)
 static void gen_pack(TCGv ret, TCGv src1, TCGv src2)
 {
     tcg_gen_deposit_tl(ret, src1, src2,
-                       TARGET_LONG_BITS / 2,
-                       TARGET_LONG_BITS / 2);
+                       target_long_bits() / 2,
+                       target_long_bits() / 2);
 }
 
 static void gen_packh(TCGv ret, TCGv src1, TCGv src2)
@@ -508,7 +509,7 @@ static void gen_packh(TCGv ret, TCGv src1, TCGv src2)
     TCGv t = tcg_temp_new();
 
     tcg_gen_ext8u_tl(t, src2);
-    tcg_gen_deposit_tl(ret, src1, t, 8, TARGET_LONG_BITS - 8);
+    tcg_gen_deposit_tl(ret, src1, t, 8, target_long_bits() - 8);
 }
 
 static void gen_packw(TCGv ret, TCGv src1, TCGv src2)
@@ -516,7 +517,7 @@ static void gen_packw(TCGv ret, TCGv src1, TCGv src2)
     TCGv t = tcg_temp_new();
 
     tcg_gen_ext16s_tl(t, src2);
-    tcg_gen_deposit_tl(ret, src1, t, 16, TARGET_LONG_BITS - 16);
+    tcg_gen_deposit_tl(ret, src1, t, 16, target_long_bits() - 16);
 }
 
 static bool trans_brev8(DisasContext *ctx, arg_brev8 *a)

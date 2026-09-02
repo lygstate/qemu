@@ -33,9 +33,9 @@ static bool trans_ecall(DisasContext *ctx, arg_ecall *a)
 
 static bool trans_ebreak(DisasContext *ctx, arg_ebreak *a)
 {
-    target_ulong    ebreak_addr = ctx->base.pc_next;
-    target_ulong    pre_addr = ebreak_addr - 4;
-    target_ulong    post_addr = ebreak_addr + 4;
+    uint64_t    ebreak_addr = ctx->base.pc_next;
+    uint64_t    pre_addr = ebreak_addr - 4;
+    uint64_t    post_addr = ebreak_addr + 4;
     uint32_t pre    = 0;
     uint32_t ebreak = 0;
     uint32_t post   = 0;

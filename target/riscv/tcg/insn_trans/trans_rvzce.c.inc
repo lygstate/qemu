@@ -113,7 +113,7 @@ static bool trans_c_sh(DisasContext *ctx, arg_c_sh *a)
 #define X_S1    9
 #define X_Sn    16
 
-static uint32_t decode_push_pop_list(DisasContext *ctx, target_ulong rlist)
+static uint32_t decode_push_pop_list(DisasContext *ctx, uint64_t rlist)
 {
     uint32_t reg_bitmap = 0;
 
@@ -177,7 +177,7 @@ static bool gen_pop(DisasContext *ctx, arg_cmpp *a, bool ret, bool ret_val)
 
     MemOp memop = get_ol(ctx) == MXL_RV32 ? MO_UL : MO_UQ;
     int reg_size = memop_size(memop);
-    target_ulong stack_adj = ROUND_UP(ctpop32(reg_bitmap) * reg_size, 16) +
+    uint64_t stack_adj = ROUND_UP(ctpop32(reg_bitmap) * reg_size, 16) +
                              a->spimm;
     TCGv sp = dest_gpr(ctx, xSP);
     TCGv addr = tcg_temp_new();
@@ -231,7 +231,7 @@ static bool trans_cm_push(DisasContext *ctx, arg_cm_push *a)
 
     MemOp memop = get_ol(ctx) == MXL_RV32 ? MO_UL : MO_UQ;
     int reg_size = memop_size(memop);
-    target_ulong stack_adj = ROUND_UP(ctpop32(reg_bitmap) * reg_size, 16) +
+    uint64_t stack_adj = ROUND_UP(ctpop32(reg_bitmap) * reg_size, 16) +
                              a->spimm;
     TCGv sp = dest_gpr(ctx, xSP);
     TCGv addr = tcg_temp_new();

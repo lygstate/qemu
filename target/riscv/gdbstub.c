@@ -171,7 +171,7 @@ static int riscv_gdb_get_csr(CPUState *cs, GByteArray *buf, int n)
     CPURISCVState *env = &cpu->env;
 
     if (n < CSR_TABLE_SIZE) {
-        target_ulong val = 0;
+        uint64_t val = 0;
         int result;
 
         result = riscv_csrrw_debug(env, n, &val, 0, 0);

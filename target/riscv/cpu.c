@@ -547,13 +547,13 @@ static void set_satp_mode_default_map(RISCVCPU *cpu)
 #endif
 
 /* Used by csr.c and the KVM driver */
-target_ulong riscv_new_csr_seed(target_ulong new_value,
-                                target_ulong write_mask)
+uint64_t riscv_new_csr_seed(uint64_t new_value,
+                                uint64_t write_mask)
 {
     uint16_t random_v;
     Error *random_e = NULL;
     int random_r;
-    target_ulong rval;
+    uint64_t rval;
 
     random_r = qemu_guest_getrandom(&random_v, 2, &random_e);
     if (unlikely(random_r < 0)) {
@@ -618,7 +618,7 @@ char *riscv_cpu_get_name(RISCVCPU *cpu)
 static void riscv_dump_csr(CPURISCVState *env, int csrno, FILE *f)
 {
 #ifdef CONFIG_TCG
-    target_ulong val = 0;
+    uint64_t val = 0;
     RISCVException res = riscv_csrrw_debug(env, csrno, &val, 0, 0);
 
     /*
@@ -626,7 +626,7 @@ static void riscv_dump_csr(CPURISCVState *env, int csrno, FILE *f)
      * to do the filtering of the registers that are present.
      */
     if (res == RISCV_EXCP_NONE) {
-        qemu_fprintf(f, " %-13s " TARGET_FMT_lx "\n",
+        qemu_fprintf(f, " %-13s %016" PRIx64 "\n",
                      csr_ops[csrno].name, val);
     }
 #endif
@@ -1592,18 +1592,42 @@ static const MISAExtInfo misa_ext_info_arr[] = {
     MISA_EXT_INFO(RVB, "b", "Bit manipulation (Zba_Zbb_Zbs)")
 };
 
+static void riscv_cpu_apply_target_misa_mxl(RISCVCPUClass *mcc)
+{
+    if (!target_riscv32(target_info())) {
+        return;
+    }
+
+    switch (mcc->def->misa_mxl_max) {
+    case MXL_RV64:
+    case MXL_RV128:
+        mcc->def->misa_mxl_max = MXL_RV32;
+        break;
+    case MXL_RV32:
+        break;
+    default:
+        return;
+    }
+
+    if (mcc->def->cfg.max_satp_mode >= 0 &&
+        !valid_vm_1_10_32[mcc->def->cfg.max_satp_mode]) {
+        mcc->def->cfg.max_satp_mode = VM_1_10_SV32;
+    }
+}
+
 static void riscv_cpu_validate_misa_mxl(RISCVCPUClass *mcc)
 {
     CPUClass *cc = CPU_CLASS(mcc);
 
     /* Validate that MISA_MXL is set properly. */
     switch (mcc->def->misa_mxl_max) {
-#ifdef TARGET_RISCV64
     case MXL_RV64:
     case MXL_RV128:
+        if (target_riscv32(target_info())) {
+            g_assert_not_reached();
+        }
         cc->gdb_core_xml_file = "riscv-64bit-cpu.xml";
         break;
-#endif
     case MXL_RV32:
         cc->gdb_core_xml_file = "riscv-32bit-cpu.xml";
         break;
@@ -3144,6 +3168,7 @@ static void riscv_cpu_class_base_init(ObjectClass *c, const void *data)
     }
 
     if (!object_class_is_abstract(c)) {
+        riscv_cpu_apply_target_misa_mxl(mcc);
         riscv_cpu_validate_misa_mxl(mcc);
     }
 }
@@ -3245,6 +3270,20 @@ void riscv_isa_write_fdt(RISCVCPU *cpu, void *fdt, char *nodename)
         .name = (type_name),                                \
         .parent = (parent_type_name),                       \
         .abstract = true,                                   \
+        .is_available = target_base_riscv,                  \
+        .class_data = &(const RISCVCPUDef) {                \
+             .priv_spec = RISCV_PROFILE_ATTR_UNUSED,        \
+             .vext_spec = RISCV_PROFILE_ATTR_UNUSED,        \
+             .cfg.max_satp_mode = -1,                       \
+             __VA_ARGS__                                    \
+        },                                                  \
+    }
+
+#define DEFINE_RISCV_CPU_AVAIL(type_name, parent_type_name, avail, ...) \
+    {                                                       \
+        .name = (type_name),                                \
+        .parent = (parent_type_name),                       \
+        .is_available = (avail),                            \
         .class_data = &(const RISCVCPUDef) {                \
              .priv_spec = RISCV_PROFILE_ATTR_UNUSED,        \
              .vext_spec = RISCV_PROFILE_ATTR_UNUSED,        \
@@ -3254,19 +3293,36 @@ void riscv_isa_write_fdt(RISCVCPU *cpu, void *fdt, char *nodename)
     }
 
 #define DEFINE_RISCV_CPU(type_name, parent_type_name, ...)  \
-    {                                                       \
-        .name = (type_name),                                \
-        .parent = (parent_type_name),                       \
-        .class_data = &(const RISCVCPUDef) {                \
-             .priv_spec = RISCV_PROFILE_ATTR_UNUSED,        \
-             .vext_spec = RISCV_PROFILE_ATTR_UNUSED,        \
-             .cfg.max_satp_mode = -1,                       \
-             __VA_ARGS__                                    \
-        },                                                  \
-    }
+    DEFINE_RISCV_CPU_AVAIL(type_name, parent_type_name,     \
+                           target_base_riscv, __VA_ARGS__)
+
+#define DEFINE_RISCV64_CPU(type_name, parent_type_name, ...) \
+    DEFINE_RISCV_CPU_AVAIL(type_name, parent_type_name,     \
+                           target_riscv64, __VA_ARGS__)
+
+/*
+ * Original:
+ *   #if defined(TARGET_RISCV32) || \
+ *       (defined(TARGET_RISCV64) && !defined(CONFIG_USER_ONLY))
+ *
+ * RV32 models on every riscv32 binary, and on system riscv64
+ * (-cpu rv32 / e31 / ibex). Not linux-user riscv64.
+ */
+static bool riscv32_or_system64(const TargetInfo *ti)
+{
+#ifdef CONFIG_USER_ONLY
+    return target_riscv32(ti);
+#else
+    return target_base_riscv(ti);
+#endif
+}
+
+#define DEFINE_RISCV32_OR_SYSTEM64_CPU(type_name, parent_type_name, ...) \
+    DEFINE_RISCV_CPU_AVAIL(type_name, parent_type_name,     \
+                           riscv32_or_system64, __VA_ARGS__)
 
 #define DEFINE_PROFILE_CPU(type_name, parent_type_name, profile_)    \
-    DEFINE_RISCV_CPU(type_name, parent_type_name,             \
+    DEFINE_RISCV64_CPU(type_name, parent_type_name,             \
         .profile = &(profile_))
 
 static void riscv_cpu_instance_finalize(Object *obj)
@@ -3292,6 +3348,7 @@ static const TypeInfo riscv_cpu_type_infos[] = {
         .class_size = sizeof(RISCVCPUClass),
         .class_init = riscv_cpu_common_class_init,
         .class_base_init = riscv_cpu_class_base_init,
+        .is_available = target_base_riscv,
     },
 
     DEFINE_ABSTRACT_RISCV_CPU(TYPE_RISCV_DYNAMIC_CPU, TYPE_RISCV_CPU,
@@ -3320,21 +3377,12 @@ static const TypeInfo riscv_cpu_type_infos[] = {
          * only MBARE will be available if the user doesn't enable
          * a mode manually (see riscv_cpu_satp_mode_finalize()).
          */
-#ifdef TARGET_RISCV32
-        .cfg.max_satp_mode = VM_1_10_SV32,
-#else
         .cfg.max_satp_mode = VM_1_10_SV57,
-#endif
     ),
 
     DEFINE_RISCV_CPU(TYPE_RISCV_CPU_MAX, TYPE_RISCV_DYNAMIC_CPU,
-#if defined(TARGET_RISCV32)
-        .misa_mxl_max = MXL_RV32,
-        .cfg.max_satp_mode = VM_1_10_SV32,
-#elif defined(TARGET_RISCV64)
         .misa_mxl_max = MXL_RV64,
         .cfg.max_satp_mode = VM_1_10_SV57,
-#endif
     ),
 
     DEFINE_ABSTRACT_RISCV_CPU(TYPE_RISCV_CPU_SIFIVE_E, TYPE_RISCV_VENDOR_CPU,
@@ -3359,9 +3407,7 @@ static const TypeInfo riscv_cpu_type_infos[] = {
         .cfg.pmp_regions = 8
     ),
 
-#if defined(TARGET_RISCV32) || \
-    (defined(TARGET_RISCV64) && !defined(CONFIG_USER_ONLY))
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_BASE32, TYPE_RISCV_DYNAMIC_CPU,
+    DEFINE_RISCV32_OR_SYSTEM64_CPU(TYPE_RISCV_CPU_BASE32, TYPE_RISCV_DYNAMIC_CPU,
         .cfg.max_satp_mode = VM_1_10_SV32,
         .misa_mxl_max = MXL_RV32,
 
@@ -3387,7 +3433,7 @@ static const TypeInfo riscv_cpu_type_infos[] = {
         .cfg.ext_svvptc = true,
     ),
 
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_IBEX, TYPE_RISCV_VENDOR_CPU,
+    DEFINE_RISCV32_OR_SYSTEM64_CPU(TYPE_RISCV_CPU_IBEX, TYPE_RISCV_VENDOR_CPU,
         .misa_mxl_max = MXL_RV32,
         .misa_ext = RVI | RVM | RVC | RVU,
         .priv_spec = PRIV_VERSION_1_12_0,
@@ -3404,37 +3450,35 @@ static const TypeInfo riscv_cpu_type_infos[] = {
         .cfg.ext_xlrbr = true
     ),
 
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_SIFIVE_E31, TYPE_RISCV_CPU_SIFIVE_E,
+    DEFINE_RISCV32_OR_SYSTEM64_CPU(TYPE_RISCV_CPU_SIFIVE_E31, TYPE_RISCV_CPU_SIFIVE_E,
         .misa_mxl_max = MXL_RV32
     ),
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_SIFIVE_E34, TYPE_RISCV_CPU_SIFIVE_E,
+    DEFINE_RISCV32_OR_SYSTEM64_CPU(TYPE_RISCV_CPU_SIFIVE_E34, TYPE_RISCV_CPU_SIFIVE_E,
         .misa_mxl_max = MXL_RV32,
         .misa_ext = RVF,  /* IMAFCU */
     ),
 
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_SIFIVE_U34, TYPE_RISCV_CPU_SIFIVE_U,
+    DEFINE_RISCV32_OR_SYSTEM64_CPU(TYPE_RISCV_CPU_SIFIVE_U34, TYPE_RISCV_CPU_SIFIVE_U,
         .misa_mxl_max = MXL_RV32,
     ),
 
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_RV32I, TYPE_RISCV_BARE_CPU,
+    DEFINE_RISCV32_OR_SYSTEM64_CPU(TYPE_RISCV_CPU_RV32I, TYPE_RISCV_BARE_CPU,
         .misa_mxl_max = MXL_RV32,
         .misa_ext = RVI
     ),
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_RV32E, TYPE_RISCV_BARE_CPU,
+    DEFINE_RISCV32_OR_SYSTEM64_CPU(TYPE_RISCV_CPU_RV32E, TYPE_RISCV_BARE_CPU,
         .misa_mxl_max = MXL_RV32,
         .misa_ext = RVE
     ),
-#endif
 
-#if (defined(TARGET_RISCV64) && !defined(CONFIG_USER_ONLY))
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_MAX32, TYPE_RISCV_DYNAMIC_CPU,
+#ifndef CONFIG_USER_ONLY
+    DEFINE_RISCV64_CPU(TYPE_RISCV_CPU_MAX32, TYPE_RISCV_DYNAMIC_CPU,
         .cfg.max_satp_mode = VM_1_10_SV32,
         .misa_mxl_max = MXL_RV32,
     ),
 #endif
 
-#if defined(TARGET_RISCV64)
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_BASE64, TYPE_RISCV_DYNAMIC_CPU,
+    DEFINE_RISCV64_CPU(TYPE_RISCV_CPU_BASE64, TYPE_RISCV_DYNAMIC_CPU,
         .cfg.max_satp_mode = VM_1_10_SV57,
         .misa_mxl_max = MXL_RV64,
 
@@ -3460,19 +3504,19 @@ static const TypeInfo riscv_cpu_type_infos[] = {
         .cfg.ext_svvptc = true,
     ),
 
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_SIFIVE_E51, TYPE_RISCV_CPU_SIFIVE_E,
+    DEFINE_RISCV64_CPU(TYPE_RISCV_CPU_SIFIVE_E51, TYPE_RISCV_CPU_SIFIVE_E,
         .misa_mxl_max = MXL_RV64
     ),
 
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_SIFIVE_U54, TYPE_RISCV_CPU_SIFIVE_U,
+    DEFINE_RISCV64_CPU(TYPE_RISCV_CPU_SIFIVE_U54, TYPE_RISCV_CPU_SIFIVE_U,
         .misa_mxl_max = MXL_RV64,
     ),
 
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_SHAKTI_C, TYPE_RISCV_CPU_SIFIVE_U,
+    DEFINE_RISCV64_CPU(TYPE_RISCV_CPU_SHAKTI_C, TYPE_RISCV_CPU_SIFIVE_U,
         .misa_mxl_max = MXL_RV64,
     ),
 
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_THEAD_C906, TYPE_RISCV_VENDOR_CPU,
+    DEFINE_RISCV64_CPU(TYPE_RISCV_CPU_THEAD_C906, TYPE_RISCV_VENDOR_CPU,
         .misa_mxl_max = MXL_RV64,
         .misa_ext = RVG | RVC | RVS | RVU,
         .priv_spec = PRIV_VERSION_1_11_0,
@@ -3500,7 +3544,7 @@ static const TypeInfo riscv_cpu_type_infos[] = {
 #endif
     ),
 
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_THEAD_C908, TYPE_RISCV_VENDOR_CPU,
+    DEFINE_RISCV64_CPU(TYPE_RISCV_CPU_THEAD_C908, TYPE_RISCV_VENDOR_CPU,
         .misa_mxl_max = MXL_RV64,
         .misa_ext = RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU,
         .priv_spec = PRIV_VERSION_1_12_0,
@@ -3547,12 +3591,12 @@ static const TypeInfo riscv_cpu_type_infos[] = {
 #endif
     ),
 
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_THEAD_C908V, TYPE_RISCV_CPU_THEAD_C908,
+    DEFINE_RISCV64_CPU(TYPE_RISCV_CPU_THEAD_C908V, TYPE_RISCV_CPU_THEAD_C908,
         .misa_ext = RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU | RVV,
         .vext_spec = VEXT_VERSION_1_00_0,
     ),
 
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_TT_ASCALON, TYPE_RISCV_VENDOR_CPU,
+    DEFINE_RISCV64_CPU(TYPE_RISCV_CPU_TT_ASCALON, TYPE_RISCV_VENDOR_CPU,
         .misa_mxl_max = MXL_RV64,
         .misa_ext = RVG | RVC | RVS | RVU | RVH | RVV,
         .priv_spec = PRIV_VERSION_1_13_0,
@@ -3616,7 +3660,7 @@ static const TypeInfo riscv_cpu_type_infos[] = {
         .cfg.max_satp_mode = VM_1_10_SV57,
     ),
 
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_VEYRON_V1, TYPE_RISCV_VENDOR_CPU,
+    DEFINE_RISCV64_CPU(TYPE_RISCV_CPU_VEYRON_V1, TYPE_RISCV_VENDOR_CPU,
         .misa_mxl_max = MXL_RV64,
         .misa_ext = RVG | RVC | RVS | RVU | RVH,
         .priv_spec = PRIV_VERSION_1_12_0,
@@ -3652,7 +3696,7 @@ static const TypeInfo riscv_cpu_type_infos[] = {
         .cfg.max_satp_mode = VM_1_10_SV48,
     ),
 
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_XIANGSHAN_NANHU, TYPE_RISCV_VENDOR_CPU,
+    DEFINE_RISCV64_CPU(TYPE_RISCV_CPU_XIANGSHAN_NANHU, TYPE_RISCV_VENDOR_CPU,
         .misa_mxl_max = MXL_RV64,
         .misa_ext = RVG | RVC | RVB | RVS | RVU,
         .priv_spec = PRIV_VERSION_1_12_0,
@@ -3675,7 +3719,7 @@ static const TypeInfo riscv_cpu_type_infos[] = {
         .cfg.max_satp_mode = VM_1_10_SV39,
     ),
 
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_XIANGSHAN_KMH, TYPE_RISCV_VENDOR_CPU,
+    DEFINE_RISCV64_CPU(TYPE_RISCV_CPU_XIANGSHAN_KMH, TYPE_RISCV_VENDOR_CPU,
         .misa_mxl_max = MXL_RV64,
         .misa_ext = RVG | RVC | RVB | RVS | RVU | RVH | RVV,
         .priv_spec = PRIV_VERSION_1_13_0,
@@ -3735,7 +3779,7 @@ static const TypeInfo riscv_cpu_type_infos[] = {
     ),
 
     /* https://mips.com/products/hardware/p8700/ */
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_MIPS_P8700, TYPE_RISCV_VENDOR_CPU,
+    DEFINE_RISCV64_CPU(TYPE_RISCV_CPU_MIPS_P8700, TYPE_RISCV_VENDOR_CPU,
         .misa_mxl_max = MXL_RV64,
         .misa_ext = RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU,
         .priv_spec = PRIV_VERSION_1_12_0,
@@ -3758,16 +3802,16 @@ static const TypeInfo riscv_cpu_type_infos[] = {
     ),
 
 #if defined(CONFIG_TCG) && !defined(CONFIG_USER_ONLY)
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_BASE128, TYPE_RISCV_DYNAMIC_CPU,
+    DEFINE_RISCV64_CPU(TYPE_RISCV_CPU_BASE128, TYPE_RISCV_DYNAMIC_CPU,
         .cfg.max_satp_mode = VM_1_10_SV57,
         .misa_mxl_max = MXL_RV128,
     ),
 #endif /* CONFIG_TCG */
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_RV64I, TYPE_RISCV_BARE_CPU,
+    DEFINE_RISCV64_CPU(TYPE_RISCV_CPU_RV64I, TYPE_RISCV_BARE_CPU,
         .misa_mxl_max = MXL_RV64,
         .misa_ext = RVI
     ),
-    DEFINE_RISCV_CPU(TYPE_RISCV_CPU_RV64E, TYPE_RISCV_BARE_CPU,
+    DEFINE_RISCV64_CPU(TYPE_RISCV_CPU_RV64E, TYPE_RISCV_BARE_CPU,
         .misa_mxl_max = MXL_RV64,
         .misa_ext = RVE
     ),
@@ -3776,7 +3820,6 @@ static const TypeInfo riscv_cpu_type_infos[] = {
     DEFINE_PROFILE_CPU(TYPE_RISCV_CPU_RVA22S64,  TYPE_RISCV_CPU_RV64I,  RVA22S64),
     DEFINE_PROFILE_CPU(TYPE_RISCV_CPU_RVA23U64,  TYPE_RISCV_CPU_RV64I,  RVA23U64),
     DEFINE_PROFILE_CPU(TYPE_RISCV_CPU_RVA23S64,  TYPE_RISCV_CPU_RV64I,  RVA23S64),
-#endif /* TARGET_RISCV64 */
 };
 
 DEFINE_TYPES(riscv_cpu_type_infos)
