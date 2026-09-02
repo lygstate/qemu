@@ -176,11 +176,11 @@ static int riscv_get_dump_info(ArchDumpInfo *info,
 
     info->d_machine = EM_RISCV;
 
-#if defined(TARGET_RISCV64)
-    info->d_class = ELFCLASS64;
-#else
-    info->d_class = ELFCLASS32;
-#endif
+    if (env->misa_mxl == MXL_RV32) {
+        info->d_class = ELFCLASS32;
+    } else {
+        info->d_class = ELFCLASS64;
+    }
 
     info->d_endian = (env->mstatus & MSTATUS_UBE) != 0 ?
                      ELFDATA2MSB : ELFDATA2LSB;
