@@ -1806,6 +1806,7 @@ static void virt_machine_class_init(ObjectClass *oc, const void *data)
 static const TypeInfo virt_machine_typeinfo = {
     .name       = TYPE_RISCV_VIRT_MACHINE,
     .parent     = TYPE_MACHINE,
+    .is_available = target_base_riscv,
     .class_init = virt_machine_class_init,
     .instance_init = virt_machine_instance_init,
     .instance_finalize = virt_machine_instance_finalize,
