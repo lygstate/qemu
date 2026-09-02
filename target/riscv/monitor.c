@@ -29,26 +29,20 @@
 #include "system/memory.h"
 #include "internals.h"
 
-#ifdef TARGET_RISCV64
 #define PTE_HEADER_FIELDS       "vaddr            paddr            "\
                                 "size             attr\n"
 #define PTE_HEADER_DELIMITER    "---------------- ---------------- "\
                                 "---------------- -------\n"
-#else
-#define PTE_HEADER_FIELDS       "vaddr    paddr            size     attr\n"
-#define PTE_HEADER_DELIMITER    "-------- ---------------- -------- -------\n"
-#endif
 
 #ifdef CONFIG_HMP
 
 /* Perform linear address sign extension */
-static target_ulong addr_canonical(int va_bits, target_ulong addr)
+static uint64_t addr_canonical(int va_bits, uint64_t addr)
 {
-#ifdef TARGET_RISCV64
-    if (addr & (1UL << (va_bits - 1))) {
-        addr |= (hwaddr)-(1L << va_bits);
+    if (va_bits < (int)(target_long_bits()) &&
+        (addr & ((uint64_t)1 << (va_bits - 1)))) {
+        addr |= MAKE_64BIT_MASK(va_bits, 64 - va_bits);
     }
-#endif
 
     return addr;
 }
@@ -59,11 +53,11 @@ static void print_pte_header(MonitorHMP *hmp)
     monitor_hmp_printf(hmp, PTE_HEADER_DELIMITER);
 }
 
-static void print_pte(MonitorHMP *hmp, int va_bits, target_ulong vaddr,
-                      hwaddr paddr, target_ulong size, int attr)
+static void print_pte(MonitorHMP *hmp, int va_bits, uint64_t vaddr,
+                      hwaddr paddr, uint64_t size, int attr)
 {
     /* sanity check on vaddr */
-    if (vaddr >= (1UL << va_bits)) {
+    if (va_bits >= 64 || vaddr >= (1ULL << va_bits)) {
         return;
     }
 
@@ -71,7 +65,7 @@ static void print_pte(MonitorHMP *hmp, int va_bits, target_ulong vaddr,
         return;
     }
 
-    monitor_hmp_printf(hmp, TARGET_FMT_lx " " HWADDR_FMT_plx " " TARGET_FMT_lx
+    monitor_hmp_printf(hmp, "%016" PRIx64 " " HWADDR_FMT_plx " %016" PRIx64
                        " %c%c%c%c%c%c%c\n",
                        addr_canonical(va_bits, vaddr),
                        paddr, size,
@@ -85,17 +79,17 @@ static void print_pte(MonitorHMP *hmp, int va_bits, target_ulong vaddr,
 }
 
 static void walk_pte(MonitorHMP *hmp, AddressSpace *as,
-                     hwaddr base, target_ulong start,
+                     hwaddr base, uint64_t start,
                      int level, int ptidxbits, int ptesize, int va_bits,
-                     target_ulong *vbase, hwaddr *pbase, hwaddr *last_paddr,
-                     target_ulong *last_size, int *last_attr)
+                     uint64_t *vbase, hwaddr *pbase, hwaddr *last_paddr,
+                     uint64_t *last_size, int *last_attr)
 {
     const MemTxAttrs attrs = MEMTXATTRS_UNSPECIFIED;
     hwaddr pte_addr;
     hwaddr paddr;
-    target_ulong last_start = -1;
-    target_ulong pgsize;
-    target_ulong pte;
+    uint64_t last_start = -1;
+    uint64_t pgsize;
+    uint64_t pte;
     int ptshift;
     int attr;
     int idx;
@@ -157,10 +151,10 @@ static void mem_info_svxx(MonitorHMP *hmp, CPUArchState *env)
     AddressSpace *as = env_cpu(env)->as;
     int levels, ptidxbits, ptesize, vm, va_bits;
     hwaddr base;
-    target_ulong vbase;
+    uint64_t vbase;
     hwaddr pbase;
     hwaddr last_paddr;
-    target_ulong last_size;
+    uint64_t last_size;
     int last_attr;
 
     if (riscv_cpu_mxl(env) == MXL_RV32) {
@@ -250,7 +244,7 @@ void hmp_info_mem(MonitorHMP *hmp, const QDict *qdict)
 
 #ifdef CONFIG_TCG
 static bool reg_is_ulong_integer(CPURISCVState *env, const char *name,
-                                 target_ulong *val, bool is_gprh)
+                                 uint64_t *val, bool is_gprh)
 {
     const char * const *reg_names;
     uint64_t *vals;
@@ -321,7 +315,7 @@ int riscv_monitor_get_register_legacy(CPUState *cs, const char *name,
 {
     RISCVCPU *hart = RISCV_CPU(cs);
     CPURISCVState *env = cpu_env(cs);
-    target_ulong val = 0;
+    uint64_t val = 0;
     uint64_t val64 = 0;
     int i;
 

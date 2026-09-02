@@ -19,12 +19,13 @@
 #include "qemu/osdep.h"
 #include "qemu/log.h"
 #include "cpu.h"
-#include "tcg/tcg-op.h"
+#include "tcg-op-riscv.h"
 #include "exec/helper-proto.h"
 #include "exec/helper-gen.h"
 #include "exec/target_page.h"
 #include "exec/translator.h"
-#include "accel/tcg/cpu-ldst.h"
+#include "accel/tcg/cpu-ldst-common.h"
+#include "accel/tcg/cpu-mmu-index.h"
 #include "exec/translation-block.h"
 #include "exec/log.h"
 #include "semihosting/semihost.h"
@@ -45,7 +46,8 @@ static TCGv load_res;
 static TCGv load_val;
 
 /*
- * If an operation is being performed on less than TARGET_LONG_BITS,
+ * If an operation is being performed on less than the TCG TL width
+ * (always 64-bit in this common compile; guest XLEN is get_olen()),
  * it may require the inputs to be sign- or zero-extended; which will
  * depend on the exact operation being performed.
  */
@@ -57,8 +59,8 @@ typedef enum {
 
 typedef struct DisasContext {
     DisasContextBase base;
-    target_ulong cur_insn_len;
-    target_ulong pc_save;
+    uint64_t cur_insn_len;
+    uint64_t pc_save;
     uint32_t priv_ver;
     RISCVMXL misa_mxl_max;
     RISCVMXL xl;
@@ -130,21 +132,8 @@ static inline bool has_ext(DisasContext *ctx, uint32_t ext)
     return ctx->misa_ext & ext;
 }
 
-#ifdef TARGET_RISCV32
-#define get_xl(ctx)    MXL_RV32
-#elif defined(CONFIG_USER_ONLY)
-#define get_xl(ctx)    MXL_RV64
-#else
-#define get_xl(ctx)    ((ctx)->xl)
-#endif
-
-#ifdef TARGET_RISCV32
-#define get_address_xl(ctx)    MXL_RV32
-#elif defined(CONFIG_USER_ONLY)
-#define get_address_xl(ctx)    MXL_RV64
-#else
+#define get_xl(ctx)            ((ctx)->xl)
 #define get_address_xl(ctx)    ((ctx)->address_xl)
-#endif
 
 #define mxl_memop(ctx) ((get_xl(ctx) + 1) | (ctx)->mo_endianness)
 
@@ -155,11 +144,7 @@ static inline int __attribute__((unused)) get_xlen(DisasContext *ctx)
 }
 
 /* The operation length, as opposed to the xlen. */
-#ifdef TARGET_RISCV32
-#define get_ol(ctx)    MXL_RV32
-#else
 #define get_ol(ctx)    ((ctx)->ol)
-#endif
 
 static inline int get_olen(DisasContext *ctx)
 {
@@ -167,11 +152,7 @@ static inline int get_olen(DisasContext *ctx)
 }
 
 /* The maximum register length */
-#ifdef TARGET_RISCV32
-#define get_xl_max(ctx)    MXL_RV32
-#else
 #define get_xl_max(ctx)    ((ctx)->misa_mxl_max)
-#endif
 
 /*
  * RISC-V requires NaN-boxing of narrower width floating point values.
@@ -230,9 +211,9 @@ static void decode_save_opc(DisasContext *ctx, uint64_t excp_uw2)
 }
 
 static void gen_pc_plus_diff(TCGv target, DisasContext *ctx,
-                             target_long diff)
+                             int64_t diff)
 {
-    target_ulong dest = ctx->base.pc_next + diff;
+    uint64_t dest = ctx->base.pc_next + diff;
 
     assert(ctx->pc_save != -1);
     if (tb_cflags(ctx->base.tb) & CF_PCREL) {
@@ -248,7 +229,7 @@ static void gen_pc_plus_diff(TCGv target, DisasContext *ctx,
     }
 }
 
-static void gen_update_pc(DisasContext *ctx, target_long diff)
+static void gen_update_pc(DisasContext *ctx, int64_t diff)
 {
     gen_pc_plus_diff(cpu_pc, ctx, diff);
     ctx->pc_save = ctx->base.pc_next + diff;
@@ -257,7 +238,7 @@ static void gen_update_pc(DisasContext *ctx, target_long diff)
 static void generate_exception(DisasContext *ctx, RISCVException excp)
 {
     gen_update_pc(ctx, 0);
-    gen_helper_raise_exception(tcg_env, tcg_constant_i32(excp));
+    gen_helper_riscv_raise_exception(tcg_env, tcg_constant_i32(excp));
     ctx->base.is_jmp = DISAS_NORETURN;
 }
 
@@ -301,9 +282,9 @@ static void exit_tb(DisasContext *ctx)
 }
 
 static void gen_goto_tb(DisasContext *ctx, unsigned tb_slot_idx,
-                        target_long diff)
+                        int64_t diff)
 {
-    target_ulong dest = ctx->base.pc_next + diff;
+    uint64_t dest = ctx->base.pc_next + diff;
 
      /*
       * Under itrigger, instruction executes one by one like singlestep,
@@ -385,7 +366,7 @@ static TCGv get_gprh(DisasContext *ctx, int reg_num)
 
 static TCGv dest_gpr(DisasContext *ctx, int reg_num)
 {
-    if (reg_num == 0 || get_olen(ctx) < TARGET_LONG_BITS) {
+    if (reg_num == 0 || get_olen(ctx) < 64) {
         return tcg_temp_new();
     }
     return cpu_gpr[reg_num];
@@ -420,7 +401,7 @@ static void gen_set_gpr(DisasContext *ctx, int reg_num, TCGv t)
     }
 }
 
-static void gen_set_gpri(DisasContext *ctx, int reg_num, target_long imm)
+static void gen_set_gpri(DisasContext *ctx, int reg_num, int64_t imm)
 {
     if (reg_num != 0) {
         switch (get_ol(ctx)) {
@@ -461,17 +442,8 @@ static TCGv_i64 get_fpr_hs(DisasContext *ctx, int reg_num)
     }
     switch (get_xl(ctx)) {
     case MXL_RV32:
-#ifdef TARGET_RISCV32
-    {
-        TCGv_i64 t = tcg_temp_new_i64();
-        tcg_gen_ext_i32_i64(t, cpu_gpr[reg_num]);
-        return t;
-    }
-#else
-    /* fall through */
     case MXL_RV64:
         return cpu_gpr[reg_num];
-#endif
     default:
         g_assert_not_reached();
     }
@@ -493,10 +465,8 @@ static TCGv_i64 get_fpr_d(DisasContext *ctx, int reg_num)
         tcg_gen_concat_tl_i64(t, cpu_gpr[reg_num], cpu_gpr[reg_num + 1]);
         return t;
     }
-#ifdef TARGET_RISCV64
     case MXL_RV64:
         return cpu_gpr[reg_num];
-#endif
     default:
         g_assert_not_reached();
     }
@@ -515,10 +485,8 @@ static TCGv_i64 dest_fpr(DisasContext *ctx, int reg_num)
     switch (get_xl(ctx)) {
     case MXL_RV32:
         return tcg_temp_new_i64();
-#ifdef TARGET_RISCV64
     case MXL_RV64:
         return cpu_gpr[reg_num];
-#endif
     default:
         g_assert_not_reached();
     }
@@ -534,15 +502,9 @@ static void gen_set_fpr_hs(DisasContext *ctx, int reg_num, TCGv_i64 t)
     if (reg_num != 0) {
         switch (get_xl(ctx)) {
         case MXL_RV32:
-#ifdef TARGET_RISCV32
-            tcg_gen_extrl_i64_i32(cpu_gpr[reg_num], t);
-            break;
-#else
-        /* fall through */
         case MXL_RV64:
             tcg_gen_mov_i64(cpu_gpr[reg_num], t);
             break;
-#endif
         default:
             g_assert_not_reached();
         }
@@ -559,17 +521,12 @@ static void gen_set_fpr_d(DisasContext *ctx, int reg_num, TCGv_i64 t)
     if (reg_num != 0) {
         switch (get_xl(ctx)) {
         case MXL_RV32:
-#ifdef TARGET_RISCV32
-            tcg_gen_extr_i64_i32(cpu_gpr[reg_num], cpu_gpr[reg_num + 1], t);
-            break;
-#else
             tcg_gen_ext32s_i64(cpu_gpr[reg_num], t);
             tcg_gen_sari_i64(cpu_gpr[reg_num + 1], t, 32);
             break;
         case MXL_RV64:
             tcg_gen_mov_i64(cpu_gpr[reg_num], t);
             break;
-#endif
         default:
             g_assert_not_reached();
         }
@@ -592,7 +549,7 @@ static void gen_set_fpr_d(DisasContext *ctx, int reg_num, TCGv_i64 t)
  * Other direct jumps
  * - jal rd where rd != x1 and rd != x5 and rd != x0;
  */
-static void gen_ctr_jal(DisasContext *ctx, int rd, target_ulong imm)
+static void gen_ctr_jal(DisasContext *ctx, int rd, uint64_t imm)
 {
     TCGv dest = tcg_temp_new();
     TCGv src = tcg_temp_new();
@@ -616,7 +573,7 @@ static void gen_ctr_jal(DisasContext *ctx, int rd, target_ulong imm)
 }
 #endif
 
-static void gen_jal(DisasContext *ctx, int rd, target_ulong imm)
+static void gen_jal(DisasContext *ctx, int rd, uint64_t imm)
 {
     TCGv succ_pc = dest_gpr(ctx, rd);
 
@@ -864,7 +821,7 @@ static int ex_rvc_shiftri(DisasContext *ctx, int imm)
 #include "decode-insn32.c.inc"
 
 static bool gen_logic_imm_fn(DisasContext *ctx, arg_i *a,
-                             void (*func)(TCGv, TCGv, target_long))
+                             void (*func)(TCGv, TCGv, int64_t))
 {
     TCGv dest = dest_gpr(ctx, a->rd);
     TCGv src1 = get_gpr(ctx, a->rs1, EXT_NONE);
@@ -908,8 +865,8 @@ static bool gen_logic(DisasContext *ctx, arg_r *a,
 }
 
 static bool gen_arith_imm_fn(DisasContext *ctx, arg_i *a, DisasExtend ext,
-                             void (*func)(TCGv, TCGv, target_long),
-                             void (*f128)(TCGv, TCGv, TCGv, TCGv, target_long))
+                             void (*func)(TCGv, TCGv, int64_t),
+                             void (*f128)(TCGv, TCGv, TCGv, TCGv, int64_t))
 {
     TCGv dest = dest_gpr(ctx, a->rd);
     TCGv src1 = get_gpr(ctx, a->rs1, ext);
@@ -990,7 +947,7 @@ static bool gen_arith_per_ol(DisasContext *ctx, arg_r *a, DisasExtend ext,
 {
     int olen = get_olen(ctx);
 
-    if (olen != TARGET_LONG_BITS) {
+    if (olen != 64) {
         if (olen == 32) {
             f_tl = f_32;
         } else if (olen != 128) {
@@ -1001,8 +958,8 @@ static bool gen_arith_per_ol(DisasContext *ctx, arg_r *a, DisasExtend ext,
 }
 
 static bool gen_shift_imm_fn(DisasContext *ctx, arg_shift *a, DisasExtend ext,
-                             void (*func)(TCGv, TCGv, target_long),
-                             void (*f128)(TCGv, TCGv, TCGv, TCGv, target_long))
+                             void (*func)(TCGv, TCGv, int64_t),
+                             void (*f128)(TCGv, TCGv, TCGv, TCGv, int64_t))
 {
     TCGv dest, src1;
     int max_len = get_olen(ctx);
@@ -1032,13 +989,13 @@ static bool gen_shift_imm_fn(DisasContext *ctx, arg_shift *a, DisasExtend ext,
 
 static bool gen_shift_imm_fn_per_ol(DisasContext *ctx, arg_shift *a,
                                     DisasExtend ext,
-                                    void (*f_tl)(TCGv, TCGv, target_long),
-                                    void (*f_32)(TCGv, TCGv, target_long),
+                                    void (*f_tl)(TCGv, TCGv, int64_t),
+                                    void (*f_32)(TCGv, TCGv, int64_t),
                                     void (*f_128)(TCGv, TCGv, TCGv, TCGv,
-                                                  target_long))
+                                                  int64_t))
 {
     int olen = get_olen(ctx);
-    if (olen != TARGET_LONG_BITS) {
+    if (olen != 64) {
         if (olen == 32) {
             f_tl = f_32;
         } else if (olen != 128) {
@@ -1103,7 +1060,7 @@ static bool gen_shift_per_ol(DisasContext *ctx, arg_r *a, DisasExtend ext,
                              void (*f_128)(TCGv, TCGv, TCGv, TCGv, TCGv))
 {
     int olen = get_olen(ctx);
-    if (olen != TARGET_LONG_BITS) {
+    if (olen != 64) {
         if (olen == 32) {
             f_tl = f_32;
         } else if (olen != 128) {
@@ -1131,7 +1088,7 @@ static bool gen_unary_per_ol(DisasContext *ctx, arg_r2 *a, DisasExtend ext,
 {
     int olen = get_olen(ctx);
 
-    if (olen != TARGET_LONG_BITS) {
+    if (olen != 64) {
         if (olen == 32) {
             f_tl = f_32;
         } else {
@@ -1178,7 +1135,7 @@ static bool gen_cmpxchg(DisasContext *ctx, arg_atomic *a, MemOp mop)
     return true;
 }
 
-static uint32_t opcode_at(DisasContextBase *dcbase, target_ulong pc)
+static uint32_t opcode_at(DisasContextBase *dcbase, uint64_t pc)
 {
     DisasContext *ctx = container_of(dcbase, DisasContext, base);
     CPUState *cpu = ctx->cs;
@@ -1364,7 +1321,7 @@ static void riscv_tr_tb_start(DisasContextBase *db, CPUState *cpu)
 static void riscv_tr_insn_start(DisasContextBase *dcbase, CPUState *cpu)
 {
     DisasContext *ctx = container_of(dcbase, DisasContext, base);
-    target_ulong pc_next = ctx->base.pc_next;
+    uint64_t pc_next = ctx->base.pc_next;
 
     if (tb_cflags(dcbase->tb) & CF_PCREL) {
         pc_next &= ~TARGET_PAGE_MASK;
@@ -1394,7 +1351,7 @@ static void riscv_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
         tcg_ctx->emit_before_op = QTAILQ_NEXT(ctx->base.insn_start, link);
         tcg_gen_st8_i32(tcg_constant_i32(RISCV_EXCP_SW_CHECK_FCFI_TVAL),
                         tcg_env, offsetof(CPURISCVState, sw_check_code));
-        gen_helper_raise_exception(tcg_env,
+        gen_helper_riscv_raise_exception(tcg_env,
                       tcg_constant_i32(RISCV_EXCP_SW_CHECK));
         tcg_ctx->emit_before_op = NULL;
         ctx->base.is_jmp = DISAS_NORETURN;
@@ -1469,11 +1426,7 @@ void riscv_translate_init(void)
      * to 32-bit TCGv globals.  An offset of 4 bytes is applied so the least
      * significant bytes are correctly written to.
      */
-#if HOST_BIG_ENDIAN && !defined(TARGET_RISCV64)
-    size_t field_offset = 4;
-#else
     size_t field_offset = 0;
-#endif
 
     /* 32 bits in size, no offset needed */
     size_t vl_offset = offsetof(CPURISCVState, vl);

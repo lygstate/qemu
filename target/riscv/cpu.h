@@ -26,7 +26,7 @@
 #include "exec/cpu-common.h"
 #include "exec/cpu-interrupt.h"
 #include "exec/gdbstub.h"
-#include "exec/target_long.h"
+#include "qemu/target-info.h"
 #include "qemu/cpu-float.h"
 #include "qom/object.h"
 #include "qemu/int128.h"
@@ -39,11 +39,8 @@ typedef struct CPUArchState CPURISCVState;
 
 #define CPU_RESOLVING_TYPE TYPE_RISCV_CPU
 
-#if defined(TARGET_RISCV32)
-# define TYPE_RISCV_CPU_BASE            TYPE_RISCV_CPU_BASE32
-#elif defined(TARGET_RISCV64)
-# define TYPE_RISCV_CPU_BASE            TYPE_RISCV_CPU_BASE64
-#endif
+#define TYPE_RISCV_CPU_BASE (target_riscv32(target_info()) ? \
+                             TYPE_RISCV_CPU_BASE32 : TYPE_RISCV_CPU_BASE64)
 
 /*
  * b0: Whether a instruction always raise a store AMO or not.
@@ -531,7 +528,6 @@ struct CPUArchState {
     hwaddr kernel_addr;
     hwaddr fdt_addr;
 
-#ifdef CONFIG_KVM
     /* kvm timer */
     bool kvm_timer_dirty;
     uint64_t kvm_timer_time;
@@ -542,7 +538,6 @@ struct CPUArchState {
     /* KVM multiprocessor state */
     uint32_t kvm_mp_state;
     bool kvm_mp_state_loaded;
-#endif /* CONFIG_KVM */
 };
 
 /*
@@ -747,14 +742,10 @@ FIELD(EXT_TB_FLAGS, MISA_EXT, 0, 32)
 FIELD(EXT_TB_FLAGS, ALTFMT, 32, 1)
 FIELD(EXT_TB_FLAGS, BIG_ENDIAN, 33, 1)
 
-#ifdef TARGET_RISCV32
-#define riscv_cpu_mxl(env)  ((void)(env), MXL_RV32)
-#else
 static inline RISCVMXL riscv_cpu_mxl(CPURISCVState *env)
 {
     return env->misa_mxl;
 }
-#endif
 #define riscv_cpu_mxl_bits(env) (1UL << (4 + riscv_cpu_mxl(env)))
 
 static inline const RISCVCPUConfig *riscv_cpu_cfg(CPURISCVState *env)
@@ -798,9 +789,6 @@ static inline RISCVMXL cpu_get_xl(CPURISCVState *env, privilege_mode_t mode)
 }
 #endif
 
-#if defined(TARGET_RISCV32)
-#define cpu_recompute_xl(env)  ((void)(env), MXL_RV32)
-#else
 static inline RISCVMXL cpu_recompute_xl(CPURISCVState *env)
 {
 #if !defined(CONFIG_USER_ONLY)
@@ -809,11 +797,7 @@ static inline RISCVMXL cpu_recompute_xl(CPURISCVState *env)
     return env->misa_mxl;
 #endif
 }
-#endif
 
-#if defined(TARGET_RISCV32)
-#define cpu_address_xl(env)  ((void)(env), MXL_RV32)
-#else
 static inline RISCVMXL cpu_address_xl(CPURISCVState *env)
 {
 #ifdef CONFIG_USER_ONLY
@@ -824,16 +808,12 @@ static inline RISCVMXL cpu_address_xl(CPURISCVState *env)
     return cpu_get_xl(env, mode);
 #endif
 }
-#endif
 
 static inline uint16_t riscv_cpu_xlen(CPURISCVState *env)
 {
     return 16 << env->xl;
 }
 
-#ifdef TARGET_RISCV32
-#define riscv_cpu_sxl(env)  ((void)(env), MXL_RV32)
-#else
 static inline RISCVMXL riscv_cpu_sxl(CPURISCVState *env)
 {
 #ifdef CONFIG_USER_ONLY
@@ -845,7 +825,6 @@ static inline RISCVMXL riscv_cpu_sxl(CPURISCVState *env)
 #endif
     return MXL_RV32;
 }
-#endif
 
 /*
  * Returns the current effective privilege mode.
@@ -974,8 +953,8 @@ void riscv_add_satp_mode_properties(Object *obj);
 bool riscv_cpu_accelerator_compatible(RISCVCPU *cpu);
 
 void riscv_cpu_register_gdb_regs_for_features(CPUState *cs);
-target_ulong riscv_new_csr_seed(target_ulong new_value,
-                                target_ulong write_mask);
+uint64_t riscv_new_csr_seed(uint64_t new_value,
+                            uint64_t write_mask);
 const char *satp_mode_str(uint8_t satp_mode, bool is_32_bit);
 
 const char *priv_spec_to_str(int priv_version);
