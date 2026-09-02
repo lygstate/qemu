@@ -164,6 +164,7 @@ static void sifive_e_machine_class_init(ObjectClass *oc, const void *data)
 static const TypeInfo sifive_e_machine_typeinfo = {
     .name       = MACHINE_TYPE_NAME("sifive_e"),
     .parent     = TYPE_MACHINE,
+    .is_available = target_is_base_riscv,
     .class_init = sifive_e_machine_class_init,
     .instance_init = sifive_e_machine_instance_init,
     .instance_size = sizeof(SiFiveEState),

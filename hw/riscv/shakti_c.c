@@ -94,6 +94,7 @@ static void shakti_c_machine_class_init(ObjectClass *klass, const void *data)
 static const TypeInfo shakti_c_machine_type_info = {
     .name = TYPE_RISCV_SHAKTI_MACHINE,
     .parent = TYPE_MACHINE,
+    .is_available = target_is_base_riscv,
     .class_init = shakti_c_machine_class_init,
     .instance_init = shakti_c_machine_instance_init,
     .instance_size = sizeof(ShaktiCMachineState),

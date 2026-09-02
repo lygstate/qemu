@@ -20,12 +20,10 @@
 #ifndef HW_SIFIVE_CPU_H
 #define HW_SIFIVE_CPU_H
 
-#if defined(TARGET_RISCV32)
-#define SIFIVE_E_CPU TYPE_RISCV_CPU_SIFIVE_E31
-#define SIFIVE_U_CPU TYPE_RISCV_CPU_SIFIVE_U34
-#elif defined(TARGET_RISCV64)
-#define SIFIVE_E_CPU TYPE_RISCV_CPU_SIFIVE_E51
-#define SIFIVE_U_CPU TYPE_RISCV_CPU_SIFIVE_U54
-#endif
+#include "qemu/target-info.h"
+#define SIFIVE_E_CPU (target_riscv32() ? \
+                      TYPE_RISCV_CPU_SIFIVE_E31 : TYPE_RISCV_CPU_SIFIVE_E51)
+#define SIFIVE_U_CPU (target_riscv32() ? \
+                      TYPE_RISCV_CPU_SIFIVE_U34 : TYPE_RISCV_CPU_SIFIVE_U54)
 
 #endif /* HW_SIFIVE_CPU_H */

@@ -218,6 +218,7 @@ static void xiangshan_kmh_machine_class_init(ObjectClass *klass, const void *dat
 static const TypeInfo xiangshan_kmh_machine_info = {
     .name = TYPE_XIANGSHAN_KMH_MACHINE,
     .parent = TYPE_MACHINE,
+    .is_available = target_is_base_riscv,
     .instance_size = sizeof(XiangshanKmhState),
     .class_init = xiangshan_kmh_machine_class_init,
 };
