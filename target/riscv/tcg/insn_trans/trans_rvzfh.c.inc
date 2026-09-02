@@ -590,14 +590,7 @@ static bool trans_fmv_x_h(DisasContext *ctx, arg_fmv_x_h *a)
 
     TCGv dest = dest_gpr(ctx, a->rd);
 
-#if defined(TARGET_RISCV64)
-    /* 16 bits -> 64 bits */
     tcg_gen_ext16s_tl(dest, cpu_fpr[a->rs1]);
-#else
-    /* 16 bits -> 32 bits */
-    tcg_gen_extrl_i64_i32(dest, cpu_fpr[a->rs1]);
-    tcg_gen_ext16s_tl(dest, dest);
-#endif
 
     gen_set_gpr(ctx, a->rd, dest);
     return true;

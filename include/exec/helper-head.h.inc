@@ -55,6 +55,10 @@
 #  define dh_typecode_tl dh_typecode_i64
 # endif
 # define dh_ctype_tl target_ulong
+#else
+# define dh_alias_tl i64
+# define dh_typecode_tl dh_typecode_i64
+# define dh_ctype_tl uint64_t
 #endif /* COMPILING_PER_TARGET */
 
 #if __SIZEOF_POINTER__ == 4

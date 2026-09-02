@@ -23,7 +23,6 @@
 #define RISCV_DEBUG_H
 
 #include "exec/breakpoint.h"
-#include "exec/target_long.h"
 
 /* register index of tdata CSRs */
 enum {
@@ -139,13 +138,13 @@ enum {
 
 bool tdata_available(CPURISCVState *env, int tdata_index);
 
-target_ulong tselect_csr_read(CPURISCVState *env);
-void tselect_csr_write(CPURISCVState *env, target_ulong val);
+uint64_t tselect_csr_read(CPURISCVState *env);
+void tselect_csr_write(CPURISCVState *env, uint64_t val);
 
-target_ulong tdata_csr_read(CPURISCVState *env, int tdata_index);
-void tdata_csr_write(CPURISCVState *env, int tdata_index, target_ulong val);
+uint64_t tdata_csr_read(CPURISCVState *env, int tdata_index);
+void tdata_csr_write(CPURISCVState *env, int tdata_index, uint64_t val);
 
-target_ulong tinfo_csr_read(CPURISCVState *env);
+uint64_t tinfo_csr_read(CPURISCVState *env);
 
 void riscv_cpu_debug_excp_handler(CPUState *cs);
 bool riscv_cpu_debug_check_breakpoint(CPUState *cs);

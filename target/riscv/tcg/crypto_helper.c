@@ -24,15 +24,15 @@
 #include "crypto/aes-round.h"
 #include "crypto/sm4.h"
 
-#define sext32_xlen(x) (target_ulong)(int32_t)(x)
+#define sext32_xlen(x) (uint64_t)(int32_t)(x)
 
-static inline target_ulong aes32_operation(target_ulong shamt,
-                                           target_ulong rs1, target_ulong rs2,
+static inline uint64_t aes32_operation(uint64_t shamt,
+                                           uint64_t rs1, uint64_t rs2,
                                            bool enc, bool mix)
 {
     uint8_t si = rs2 >> shamt;
     uint32_t mixed;
-    target_ulong res;
+    uint64_t res;
 
     if (enc) {
         if (mix) {
@@ -53,33 +53,33 @@ static inline target_ulong aes32_operation(target_ulong shamt,
     return sext32_xlen(res);
 }
 
-target_ulong HELPER(aes32esmi)(target_ulong rs1, target_ulong rs2,
-                               target_ulong shamt)
+uint64_t HELPER(aes32esmi)(uint64_t rs1, uint64_t rs2,
+                               uint64_t shamt)
 {
     return aes32_operation(shamt, rs1, rs2, true, true);
 }
 
-target_ulong HELPER(aes32esi)(target_ulong rs1, target_ulong rs2,
-                              target_ulong shamt)
+uint64_t HELPER(aes32esi)(uint64_t rs1, uint64_t rs2,
+                              uint64_t shamt)
 {
     return aes32_operation(shamt, rs1, rs2, true, false);
 }
 
-target_ulong HELPER(aes32dsmi)(target_ulong rs1, target_ulong rs2,
-                               target_ulong shamt)
+uint64_t HELPER(aes32dsmi)(uint64_t rs1, uint64_t rs2,
+                               uint64_t shamt)
 {
     return aes32_operation(shamt, rs1, rs2, false, true);
 }
 
-target_ulong HELPER(aes32dsi)(target_ulong rs1, target_ulong rs2,
-                              target_ulong shamt)
+uint64_t HELPER(aes32dsi)(uint64_t rs1, uint64_t rs2,
+                              uint64_t shamt)
 {
     return aes32_operation(shamt, rs1, rs2, false, false);
 }
 
 static const AESState aes_zero = { };
 
-target_ulong HELPER(aes64esm)(target_ulong rs1, target_ulong rs2)
+uint64_t HELPER(aes64esm)(uint64_t rs1, uint64_t rs2)
 {
     AESState t;
 
@@ -89,7 +89,7 @@ target_ulong HELPER(aes64esm)(target_ulong rs1, target_ulong rs2)
     return t.d[HOST_BIG_ENDIAN];
 }
 
-target_ulong HELPER(aes64es)(target_ulong rs1, target_ulong rs2)
+uint64_t HELPER(aes64es)(uint64_t rs1, uint64_t rs2)
 {
     AESState t;
 
@@ -99,7 +99,7 @@ target_ulong HELPER(aes64es)(target_ulong rs1, target_ulong rs2)
     return t.d[HOST_BIG_ENDIAN];
 }
 
-target_ulong HELPER(aes64ds)(target_ulong rs1, target_ulong rs2)
+uint64_t HELPER(aes64ds)(uint64_t rs1, uint64_t rs2)
 {
     AESState t;
 
@@ -109,7 +109,7 @@ target_ulong HELPER(aes64ds)(target_ulong rs1, target_ulong rs2)
     return t.d[HOST_BIG_ENDIAN];
 }
 
-target_ulong HELPER(aes64dsm)(target_ulong rs1, target_ulong rs2)
+uint64_t HELPER(aes64dsm)(uint64_t rs1, uint64_t rs2)
 {
     AESState t, z = { };
 
@@ -123,7 +123,7 @@ target_ulong HELPER(aes64dsm)(target_ulong rs1, target_ulong rs2)
     return t.d[HOST_BIG_ENDIAN];
 }
 
-target_ulong HELPER(aes64ks2)(target_ulong rs1, target_ulong rs2)
+uint64_t HELPER(aes64ks2)(uint64_t rs1, uint64_t rs2)
 {
     uint64_t RS1 = rs1;
     uint64_t RS2 = rs2;
@@ -133,12 +133,12 @@ target_ulong HELPER(aes64ks2)(target_ulong rs1, target_ulong rs2)
 
     uint32_t r_lo = (rs1_hi ^ rs2_lo);
     uint32_t r_hi = (rs1_hi ^ rs2_lo ^ rs2_hi);
-    target_ulong result = ((uint64_t)r_hi << 32) | r_lo;
+    uint64_t result = ((uint64_t)r_hi << 32) | r_lo;
 
     return result;
 }
 
-target_ulong HELPER(aes64ks1i)(target_ulong rs1, target_ulong rnum)
+uint64_t HELPER(aes64ks1i)(uint64_t rs1, uint64_t rnum)
 {
     uint64_t RS1 = rs1;
     static const uint8_t round_consts[10] = {
@@ -160,7 +160,7 @@ target_ulong HELPER(aes64ks1i)(target_ulong rs1, target_ulong rnum)
     return t.d[0];
 }
 
-target_ulong HELPER(aes64im)(target_ulong rs1)
+uint64_t HELPER(aes64im)(uint64_t rs1)
 {
     AESState t;
 
@@ -170,8 +170,8 @@ target_ulong HELPER(aes64im)(target_ulong rs1)
     return t.d[HOST_BIG_ENDIAN];
 }
 
-target_ulong HELPER(sm4ed)(target_ulong rs1, target_ulong rs2,
-                           target_ulong shamt)
+uint64_t HELPER(sm4ed)(uint64_t rs1, uint64_t rs2,
+                           uint64_t shamt)
 {
     uint32_t sb_in = (uint8_t)(rs2 >> shamt);
     uint32_t sb_out = (uint32_t)sm4_sbox[sb_in];
@@ -184,8 +184,8 @@ target_ulong HELPER(sm4ed)(target_ulong rs1, target_ulong rs2,
     return sext32_xlen(rotl ^ (uint32_t)rs1);
 }
 
-target_ulong HELPER(sm4ks)(target_ulong rs1, target_ulong rs2,
-                           target_ulong shamt)
+uint64_t HELPER(sm4ks)(uint64_t rs1, uint64_t rs2,
+                           uint64_t shamt)
 {
     uint32_t sb_in = (uint8_t)(rs2 >> shamt);
     uint32_t sb_out = sm4_sbox[sb_in];

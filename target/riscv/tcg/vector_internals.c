@@ -81,7 +81,7 @@ void do_vext_vv(void *vd, void *v0, void *vs1, void *vs2,
     vext_set_elems_1s(vd, vta, vl * esz, total_elems * esz);
 }
 
-void do_vext_vx(void *vd, void *v0, target_long s1, void *vs2,
+void do_vext_vx(void *vd, void *v0, int64_t s1, void *vs2,
                 CPURISCVState *env, uint32_t desc,
                 opivx2_fn fn, uint32_t esz)
 {
