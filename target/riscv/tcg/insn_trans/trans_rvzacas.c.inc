@@ -48,12 +48,8 @@ static void gen_set_gpr_pair(DisasContext *ctx, int reg_num, TCGv_i64 t)
     assert(get_ol(ctx) == MXL_RV32);
 
     if (reg_num != 0) {
-#ifdef TARGET_RISCV32
-        tcg_gen_extr_i64_i32(cpu_gpr[reg_num], cpu_gpr[reg_num + 1], t);
-#else
         tcg_gen_ext32s_i64(cpu_gpr[reg_num], t);
         tcg_gen_sari_i64(cpu_gpr[reg_num + 1], t, 32);
-#endif
 
         if (get_xl_max(ctx) == MXL_RV128) {
             tcg_gen_sari_tl(cpu_gprh[reg_num], cpu_gpr[reg_num], 63);
@@ -111,7 +107,6 @@ static bool trans_amocas_q(DisasContext *ctx, arg_amocas_q *a)
         return false;
     }
 
-#ifdef TARGET_RISCV64
     TCGv_i128 dest = tcg_temp_new_i128();
     TCGv src1 = get_address(ctx, a->rs1, 0);
     TCGv_i128 src2 = tcg_temp_new_i128();
@@ -133,7 +128,6 @@ static bool trans_amocas_q(DisasContext *ctx, arg_amocas_q *a)
         gen_set_gpr(ctx, a->rd, destl);
         gen_set_gpr(ctx, a->rd + 1, desth);
     }
-#endif
 
     return true;
 }
