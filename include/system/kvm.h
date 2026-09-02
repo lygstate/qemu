@@ -390,7 +390,6 @@ int kvm_arch_release_virq_post(int virq);
 int kvm_arch_msi_data_to_gsi(uint32_t data);
 
 int kvm_set_irq(KVMState *s, int irq, int level);
-int kvm_irqchip_send_msi(KVMState *s, MSIMessage msg);
 
 void kvm_irqchip_add_irq_route(KVMState *s, int gsi, int irqchip, int pin);
 
@@ -477,6 +476,7 @@ void kvm_init_cpu_signals(CPUState *cpu);
 int kvm_irqchip_add_msi_route(AccelRouteChange *c, int vector, PCIDevice *dev);
 int kvm_irqchip_update_msi_route(KVMState *s, int virq, MSIMessage msg,
                                  PCIDevice *dev);
+int kvm_irqchip_send_msi(KVMState *s, MSIMessage msg);
 void kvm_irqchip_commit_routes(KVMState *s);
 
 int kvm_irqchip_get_virq(KVMState *s);

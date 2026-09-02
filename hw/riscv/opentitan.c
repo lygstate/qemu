@@ -335,6 +335,7 @@ static const TypeInfo open_titan_types[] = {
     }, {
         .name           = TYPE_OPENTITAN_MACHINE,
         .parent         = TYPE_MACHINE,
+        .is_available   = target_base_riscv,
         .instance_size  = sizeof(OpenTitanState),
         .class_init     = opentitan_machine_class_init,
     }

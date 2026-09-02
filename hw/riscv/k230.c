@@ -552,6 +552,7 @@ static void k230_machine_class_init(ObjectClass *oc, const void *data)
 static const TypeInfo k230_machine_typeinfo = {
     .name       = TYPE_RISCV_K230_MACHINE,
     .parent     = TYPE_MACHINE,
+    .is_available = target_base_riscv,
     .class_init = k230_machine_class_init,
     .instance_init = k230_machine_instance_init,
     .instance_size = sizeof(K230MachineState),
