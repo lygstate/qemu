@@ -55,7 +55,7 @@ static bool trans_lpad(DisasContext *ctx, arg_lpad *a)
          */
         tcg_gen_st8_i32(tcg_constant_i32(RISCV_EXCP_SW_CHECK_FCFI_TVAL),
                         tcg_env, offsetof(CPURISCVState, sw_check_code));
-        gen_helper_raise_exception(tcg_env,
+        gen_helper_riscv_raise_exception(tcg_env,
                       tcg_constant_i32(RISCV_EXCP_SW_CHECK));
         return true;
     }
@@ -68,7 +68,7 @@ static bool trans_lpad(DisasContext *ctx, arg_lpad *a)
         tcg_gen_brcondi_tl(TCG_COND_EQ, tmp, a->label, skip);
         tcg_gen_st8_i32(tcg_constant_i32(RISCV_EXCP_SW_CHECK_FCFI_TVAL),
                         tcg_env, offsetof(CPURISCVState, sw_check_code));
-        gen_helper_raise_exception(tcg_env,
+        gen_helper_riscv_raise_exception(tcg_env,
                       tcg_constant_i32(RISCV_EXCP_SW_CHECK));
         gen_set_label(skip);
     }
@@ -145,7 +145,7 @@ static bool trans_jalr(DisasContext *ctx, arg_jalr *a)
     TCGv succ_pc = dest_gpr(ctx, a->rd);
 
     tcg_gen_addi_tl(target_pc, get_gpr(ctx, a->rs1, EXT_NONE), a->imm);
-    tcg_gen_andi_tl(target_pc, target_pc, (target_ulong)-2);
+    tcg_gen_andi_tl(target_pc, target_pc, (uint64_t)-2);
 
     if (get_xl(ctx) == MXL_RV32) {
         tcg_gen_ext32s_tl(target_pc, target_pc);
@@ -271,7 +271,7 @@ static bool gen_branch(DisasContext *ctx, arg_b *a, TCGCond cond)
     TCGLabel *l = gen_new_label();
     TCGv src1 = get_gpr(ctx, a->rs1, EXT_SIGN);
     TCGv src2 = get_gpr(ctx, a->rs2, EXT_SIGN);
-    target_ulong orig_pc_save = ctx->pc_save;
+    uint64_t orig_pc_save = ctx->pc_save;
 
     if (get_xl(ctx) == MXL_RV128) {
         TCGv src1h = get_gprh(ctx, a->rs1);
@@ -587,7 +587,7 @@ static bool trans_subd(DisasContext *ctx, arg_subd *a)
 }
 
 static void gen_addi2_i128(TCGv retl, TCGv reth,
-                           TCGv srcl, TCGv srch, target_long imm)
+                           TCGv srcl, TCGv srch, int64_t imm)
 {
     TCGv imml  = tcg_constant_tl(imm);
     TCGv immh  = tcg_constant_tl(-(imm < 0));
@@ -648,7 +648,7 @@ static bool trans_andi(DisasContext *ctx, arg_andi *a)
 
 static void gen_slli_i128(TCGv retl, TCGv reth,
                           TCGv src1l, TCGv src1h,
-                          target_long shamt)
+                          int64_t shamt)
 {
     if (shamt >= 64) {
         tcg_gen_shli_tl(reth, src1l, shamt - 64);
@@ -664,14 +664,14 @@ static bool trans_slli(DisasContext *ctx, arg_slli *a)
     return gen_shift_imm_fn(ctx, a, EXT_NONE, tcg_gen_shli_tl, gen_slli_i128);
 }
 
-static void gen_srliw(TCGv dst, TCGv src, target_long shamt)
+static void gen_srliw(TCGv dst, TCGv src, int64_t shamt)
 {
     tcg_gen_extract_tl(dst, src, shamt, 32 - shamt);
 }
 
 static void gen_srli_i128(TCGv retl, TCGv reth,
                           TCGv src1l, TCGv src1h,
-                          target_long shamt)
+                          int64_t shamt)
 {
     if (shamt >= 64) {
         tcg_gen_shri_tl(retl, src1h, shamt - 64);
@@ -688,14 +688,14 @@ static bool trans_srli(DisasContext *ctx, arg_srli *a)
                                    tcg_gen_shri_tl, gen_srliw, gen_srli_i128);
 }
 
-static void gen_sraiw(TCGv dst, TCGv src, target_long shamt)
+static void gen_sraiw(TCGv dst, TCGv src, int64_t shamt)
 {
     tcg_gen_sextract_tl(dst, src, shamt, 32 - shamt);
 }
 
 static void gen_srai_i128(TCGv retl, TCGv reth,
                           TCGv src1l, TCGv src1h,
-                          target_long shamt)
+                          int64_t shamt)
 {
     if (shamt >= 64) {
         tcg_gen_sari_tl(retl, src1h, shamt - 64);
@@ -1086,7 +1086,7 @@ static bool trans_csrrw(DisasContext *ctx, arg_csrrw *a)
         }
 
         TCGv mask = tcg_constant_tl(xl == MXL_RV32 ? UINT32_MAX :
-                                                     (target_ulong)-1);
+                                                     (uint64_t)-1);
         return do_csrrw(ctx, a->rd, a->csr, src, mask);
     } else {
         TCGv srcl = get_gpr(ctx, a->rs1, EXT_NONE);
@@ -1177,7 +1177,7 @@ static bool trans_csrrwi(DisasContext *ctx, arg_csrrwi *a)
         }
 
         TCGv mask = tcg_constant_tl(xl == MXL_RV32 ? UINT32_MAX :
-                                                     (target_ulong)-1);
+                                                     (uint64_t)-1);
         return do_csrrw(ctx, a->rd, a->csr, src, mask);
     } else {
         TCGv src = tcg_constant_tl(a->rs1);

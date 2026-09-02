@@ -9,31 +9,30 @@
 #ifndef RISCV_CSR_H
 #define RISCV_CSR_H
 
-#include "exec/target_long.h"
 #include "cpu_bits.h"
 
 RISCVException riscv_csrr(CPURISCVState *env, int csrno,
-                          target_ulong *ret_value);
+                          uint64_t *ret_value);
 
 RISCVException riscv_csrrw(CPURISCVState *env, int csrno,
-                           target_ulong *ret_value, target_ulong new_value,
-                           target_ulong write_mask, uintptr_t ra);
+                           uint64_t *ret_value, uint64_t new_value,
+                           uint64_t write_mask, uintptr_t ra);
 RISCVException riscv_csrrw_debug(CPURISCVState *env, int csrno,
-                                 target_ulong *ret_value,
-                                 target_ulong new_value,
-                                 target_ulong write_mask);
+                                 uint64_t *ret_value,
+                                 uint64_t new_value,
+                                 uint64_t write_mask);
 
 typedef RISCVException (*riscv_csr_predicate_fn)(CPURISCVState *env,
                                                  int csrno);
 typedef RISCVException (*riscv_csr_read_fn)(CPURISCVState *env, int csrno,
-                                            target_ulong *ret_value);
+                                            uint64_t *ret_value);
 typedef RISCVException (*riscv_csr_write_fn)(CPURISCVState *env, int csrno,
-                                             target_ulong new_value,
+                                             uint64_t new_value,
                                              uintptr_t ra);
 typedef RISCVException (*riscv_csr_op_fn)(CPURISCVState *env, int csrno,
-                                          target_ulong *ret_value,
-                                          target_ulong new_value,
-                                          target_ulong write_mask);
+                                          uint64_t *ret_value,
+                                          uint64_t new_value,
+                                          uint64_t write_mask);
 
 RISCVException riscv_csrr_i128(CPURISCVState *env, int csrno,
                                Int128 *ret_value);
@@ -89,14 +88,14 @@ extern const RISCVCSR mips_csr_list[];
 
 /* PMP CSRs, defined in pmp.c */
 void pmpcfg_csr_write(CPURISCVState *env, uint32_t reg_index,
-                      target_ulong val);
-target_ulong pmpcfg_csr_read(CPURISCVState *env, uint32_t reg_index);
+                      uint64_t val);
+uint64_t pmpcfg_csr_read(CPURISCVState *env, uint32_t reg_index);
 
 void mseccfg_csr_write(CPURISCVState *env, uint64_t val);
 uint64_t mseccfg_csr_read(CPURISCVState *env);
 
 void pmpaddr_csr_write(CPURISCVState *env, uint32_t addr_index,
-                       target_ulong val);
-target_ulong pmpaddr_csr_read(CPURISCVState *env, uint32_t addr_index);
+                       uint64_t val);
+uint64_t pmpaddr_csr_read(CPURISCVState *env, uint32_t addr_index);
 
 #endif /* RISCV_CSR_H */

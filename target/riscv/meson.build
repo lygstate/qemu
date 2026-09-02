@@ -10,16 +10,12 @@ gen = [
 
 riscv_stubs_ss = ss.source_set()
 riscv_ss = ss.source_set()
-riscv_ss.add(gen)
-
-riscv_ss.add(files(
+riscv_common_system_ss = ss.source_set()
+riscv_common_system_ss.add(gen)
+riscv_common_system_ss.add(files(
   'cpu.c',
   'gdbstub.c',
   'common-semi-target.c',
-))
-
-riscv_system_ss = ss.source_set()
-riscv_system_ss.add(files(
   'arch_dump.c',
   'monitor.c',
   'machine.c',
@@ -32,4 +28,4 @@ subdir('kvm')
 
 target_stubs_arch += {'riscv': riscv_stubs_ss}
 target_arch += {'riscv': riscv_ss}
-target_system_arch += {'riscv': riscv_system_ss}
+target_common_system_arch += {'riscv': riscv_common_system_ss}
