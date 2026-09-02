@@ -122,7 +122,7 @@ static bool test_thead_mvendorid(RISCVCPU *cpu)
 }
 
 static RISCVException read_th_mxstatus(CPURISCVState *env, int csrno,
-                                       target_ulong *val)
+                                       uint64_t *val)
 {
     /* We don't set MAEE here, because QEMU does not implement MAEE. */
     *val = TH_MXSTATUS_UCME | TH_MXSTATUS_THEADISAEE;
@@ -130,14 +130,14 @@ static RISCVException read_th_mxstatus(CPURISCVState *env, int csrno,
 }
 
 static RISCVException read_unimp_th_csr(CPURISCVState *env, int csrno,
-                                        target_ulong *val)
+                                        uint64_t *val)
 {
     *val = 0;
     return RISCV_EXCP_NONE;
 }
 
 static RISCVException read_th_sxstatus(CPURISCVState *env, int csrno,
-                                       target_ulong *val)
+                                       uint64_t *val)
 {
     /* We don't set MAEE here, because QEMU does not implement MAEE. */
     *val = TH_SXSTATUS_UCME | TH_SXSTATUS_THEADISAEE;

@@ -21,12 +21,10 @@
 #include "qemu/error-report.h"
 #include "system/kvm.h"
 #include "system/tcg.h"
-#include "migration/cpu.h"
+#include "migration/vmstate.h"
 #include "exec/icount.h"
 #include "target/riscv/tcg/debug.h"
-#ifdef CONFIG_KVM
 #include "kvm/kvm_riscv.h"
-#endif
 
 static bool pmp_needed(void *opaque)
 {
@@ -196,7 +194,6 @@ static const VMStateDescription vmstate_rv128 = {
     }
 };
 
-#ifdef CONFIG_KVM
 static bool kvmtimer_needed(void *opaque)
 {
     return kvm_enabled();
@@ -262,7 +259,6 @@ static const VMStateDescription vmstate_kvm_mp_state = {
         VMSTATE_END_OF_LIST()
     }
 };
-#endif
 
 static bool debug_needed(void *opaque)
 {
@@ -499,9 +495,7 @@ const VMStateDescription vmstate_riscv_cpu = {
     .name = "cpu",
     .version_id = 12,
     .minimum_version_id = 12,
-#ifdef CONFIG_KVM
     .pre_load = riscv_cpu_kvm_pre_load,
-#endif
     .post_load = riscv_cpu_post_load,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT64_ARRAY(env.gpr, RISCVCPU, 32),
@@ -563,10 +557,8 @@ const VMStateDescription vmstate_riscv_cpu = {
         &vmstate_vector,
         &vmstate_pointermasking,
         &vmstate_rv128,
-#ifdef CONFIG_KVM
         &vmstate_kvmtimer,
         &vmstate_kvm_mp_state,
-#endif
         &vmstate_envcfg,
         &vmstate_debug,
         &vmstate_smstateen,
