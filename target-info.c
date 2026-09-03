@@ -42,9 +42,9 @@ bool target_big_endian(void)
     return target_endian_mode() == ENDIAN_MODE_BIG;
 }
 
-bool target_base_arm(void)
+bool target_base_arm(const TargetInfo *ti)
 {
-    switch (target_arch()) {
+    switch (ti->target_arch) {
     case SYS_EMU_TARGET_ARM:
     case SYS_EMU_TARGET_AARCH64:
         return true;
@@ -53,19 +53,19 @@ bool target_base_arm(void)
     }
 }
 
-bool target_arm(void)
+bool target_arm(const TargetInfo *ti)
 {
-    return target_arch() == SYS_EMU_TARGET_ARM;
+    return ti->target_arch == SYS_EMU_TARGET_ARM;
 }
 
-bool target_aarch64(void)
+bool target_aarch64(const TargetInfo *ti)
 {
-    return target_arch() == SYS_EMU_TARGET_AARCH64;
+    return ti->target_arch == SYS_EMU_TARGET_AARCH64;
 }
 
-bool target_base_ppc(void)
+bool target_base_ppc(const TargetInfo *ti)
 {
-    switch (target_arch()) {
+    switch (ti->target_arch) {
     case SYS_EMU_TARGET_PPC:
     case SYS_EMU_TARGET_PPC64:
         return true;
@@ -74,22 +74,22 @@ bool target_base_ppc(void)
     }
 }
 
-bool target_ppc(void)
+bool target_ppc(const TargetInfo *ti)
 {
-    return target_arch() == SYS_EMU_TARGET_PPC;
+    return ti->target_arch == SYS_EMU_TARGET_PPC;
 }
 
-bool target_ppc64(void)
+bool target_ppc64(const TargetInfo *ti)
 {
-    return target_arch() == SYS_EMU_TARGET_PPC64;
+    return ti->target_arch == SYS_EMU_TARGET_PPC64;
 }
 
-bool target_s390x(void)
+bool target_s390x(const TargetInfo *ti)
 {
-    return target_arch() == SYS_EMU_TARGET_S390X;
+    return ti->target_arch == SYS_EMU_TARGET_S390X;
 }
 
-bool target_riscv64(void)
+bool target_riscv64(const TargetInfo *ti)
 {
-    return target_arch() == SYS_EMU_TARGET_RISCV64;
+    return ti->target_arch == SYS_EMU_TARGET_RISCV64;
 }

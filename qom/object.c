@@ -15,6 +15,8 @@
 #include "qom/compat-properties.h"
 #include "qom/object.h"
 #include "qom/object_interfaces.h"
+#include "qemu/target-info-impl.h"
+#include "qemu/target-info-qapi.h"
 #include "qemu/cutils.h"
 #include "qemu/memalign.h"
 #include "qapi/visitor.h"
@@ -61,6 +63,7 @@ struct TypeImpl
     void (*class_base_init)(ObjectClass *klass, const void *data);
 
     const void *class_data;
+    TypeIsAvailable *is_available;
 
     void (*instance_init)(Object *obj);
     void (*instance_post_init)(Object *obj);
@@ -82,6 +85,30 @@ static Type type_interface;
 static GHashTable *type_table;
 
 static bool enumerating_types;
+
+static const TargetInfo target_info_none = {
+    .target_arch = SYS_EMU_TARGET_NONE,
+    .target_name = "none",
+};
+
+/* Use TypeInfo.is_available at registration once TargetInfo is selected. */
+static bool target_info_selected = false;
+static const TargetInfo *target_info_ptr = &target_info_none;
+
+const TargetInfo *target_info(void)
+{
+    return target_info_ptr;
+}
+
+void target_info_select(const TargetInfo *ti)
+{
+    g_assert(!target_info_selected);
+    g_assert(ti != NULL);
+    g_assert(ti->target_arch != SYS_EMU_TARGET_NONE);
+
+    target_info_selected = true;
+    target_info_ptr = ti;
+}
 
 static void type_table_add(TypeImpl *ti)
 {
@@ -116,6 +143,7 @@ static TypeImpl *type_new(const TypeInfo *info)
     ti->class_init = info->class_init;
     ti->class_base_init = info->class_base_init;
     ti->class_data = info->class_data;
+    ti->is_available = info->is_available;
 
     ti->instance_init = info->instance_init;
     ti->instance_post_init = info->instance_post_init;
@@ -163,7 +191,8 @@ static TypeImpl *type_register_internal(const TypeInfo *info)
         abort();
     }
 
-    if (info->is_available && !info->is_available()) {
+    if (target_info_selected &&
+        info->is_available && !info->is_available(target_info())) {
         return NULL;
     }
 
@@ -1147,6 +1176,11 @@ bool object_class_is_abstract(ObjectClass *klass)
 const char *object_class_get_name(ObjectClass *klass)
 {
     return klass->type->name;
+}
+
+TypeIsAvailable *object_class_get_is_available(ObjectClass *klass)
+{
+    return klass->type->is_available;
 }
 
 ObjectClass *object_class_by_name(const char *typename)
