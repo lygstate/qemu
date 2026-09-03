@@ -135,6 +135,23 @@ const TargetInfo *target_info(void);
  */
 void target_info_select(const TargetInfo *ti);
 
+/**
+ * typedef TypeIsAvailable:
+ * @ti: TargetInfo to test.
+ *
+ * Returns whether a type is available for @ti. Typical implementations
+ * are target_is_*().
+ *
+ * At registration, QOM calls this with target_info() after
+ * target_info_select(). It is skipped until a TargetInfo is selected.
+ *
+ * Before a TargetInfo is selected, callers may invoke this with a
+ * custom TargetInfo to list whether a type belongs to that target.
+ * For example, a machine type may match a specific list of target
+ * names.
+ */
+typedef bool (TypeIsAvailable)(const TargetInfo *ti);
+
 #define OBJECT_CLASS_CAST_CACHE 4
 
 /**
@@ -513,7 +530,7 @@ struct TypeInfo
     void (*class_base_init)(ObjectClass *klass, const void *data);
     const void *class_data;
 
-    bool (*is_available)(const TargetInfo *ti);
+    TypeIsAvailable *is_available;
     const InterfaceInfo *interfaces;
 };
 
@@ -1093,6 +1110,15 @@ const char *object_class_get_name(ObjectClass *klass);
  * Returns: %true if @klass is abstract, %false otherwise.
  */
 bool object_class_is_abstract(ObjectClass *klass);
+
+/**
+ * object_class_get_is_available:
+ * @klass: The class to obtain TypeInfo.is_available for.
+ *
+ * Returns: The availability callback, or %NULL if the type is always
+ * available.
+ */
+TypeIsAvailable *object_class_get_is_available(ObjectClass *klass);
 
 /**
  * object_class_by_name:

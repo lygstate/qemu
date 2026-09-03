@@ -69,6 +69,8 @@ struct TypeImpl
 
     bool abstract;
 
+    TypeIsAvailable *is_available;
+
     const char *parent;
     TypeImpl *parent_type;
 
@@ -135,6 +137,7 @@ static TypeImpl *type_new(const TypeInfo *info)
     ti->instance_finalize = info->instance_finalize;
 
     ti->abstract = info->abstract;
+    ti->is_available = info->is_available;
 
     for (i = 0; info->interfaces && info->interfaces[i].type; i++) {
         ti->interfaces[i].typename = g_strdup(info->interfaces[i].type);
@@ -1155,6 +1158,11 @@ ObjectClass *object_get_class(Object *obj)
 bool object_class_is_abstract(ObjectClass *klass)
 {
     return klass->type->abstract;
+}
+
+TypeIsAvailable *object_class_get_is_available(ObjectClass *klass)
+{
+    return klass->type->is_available;
 }
 
 const char *object_class_get_name(ObjectClass *klass)
