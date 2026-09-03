@@ -122,7 +122,8 @@ typedef struct TargetInfo TargetInfo;
 /**
  * target_info:
  *
- * Returns: The current TargetInfo, or NULL before target_info_select().
+ * Returns: The current TargetInfo. Before target_info_select(), the
+ * default uses SYS_EMU_TARGET_NONE.
  */
 const TargetInfo *target_info(void);
 
@@ -131,7 +132,7 @@ const TargetInfo *target_info(void);
  * @ti: TargetInfo to select
  *
  * Sets the TargetInfo returned by target_info(). Must be called only
- * once. @ti must not be NULL.
+ * once. @ti must not be NULL and must not use SYS_EMU_TARGET_NONE.
  */
 void target_info_select(const TargetInfo *ti);
 
