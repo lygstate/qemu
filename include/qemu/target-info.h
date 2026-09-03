@@ -75,6 +75,14 @@ bool target_base_arm(void);
 bool target_arm(void);
 
 /**
+ * target_is_aarch64:
+ * @ti: TargetInfo to inspect
+ *
+ * Returns whether @ti is Aarch64.
+ */
+bool target_is_aarch64(const TargetInfo *ti);
+
+/**
  * target_aarch64:
  *
  * Returns whether the target architecture is Aarch64.
@@ -110,9 +118,17 @@ bool target_ppc64(void);
 bool target_s390x(void);
 
 /**
+ * target_is_riscv64:
+ * @ti: TargetInfo to inspect
+ *
+ * Returns whether @ti is RISC-V 64-bit.
+ */
+bool target_is_riscv64(const TargetInfo *ti);
+
+/**
  * target_riscv64:
  *
- * Returns whether the target architecture is riscv64
+ * Returns whether the target architecture is RISC-V 64-bit.
  */
 bool target_riscv64(void);
 
