@@ -1654,7 +1654,6 @@ static const TypeInfo mps3tz_an555_info = {
     .name = TYPE_MPS3TZ_AN555_MACHINE,
     .parent = TYPE_MPS2TZ_MACHINE,
     .class_init = mps3tz_an555_class_init,
-    .interfaces = arm_machine_interfaces,
 };
 
 static void mps2tz_machine_init(void)
