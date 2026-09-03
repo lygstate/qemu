@@ -12,6 +12,18 @@
 #include "qemu/target-info-impl.h"
 #include "qapi/error.h"
 
+static const TargetInfo *target_info_ptr;
+
+const TargetInfo *target_info(void)
+{
+    return target_info_ptr;
+}
+
+void target_info_select(const TargetInfo *ti)
+{
+    target_info_ptr = ti;
+}
+
 const char *target_name(void)
 {
     return target_info()->target_name;
