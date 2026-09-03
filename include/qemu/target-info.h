@@ -9,6 +9,10 @@
 #ifndef QEMU_TARGET_INFO_H
 #define QEMU_TARGET_INFO_H
 
+#include <stdbool.h>
+
+typedef struct TargetInfo TargetInfo;
+
 /**
  * target_name:
  *
@@ -44,58 +48,66 @@ bool target_big_endian(void);
 
 /**
  * target_base_arm:
+ * @ti: TargetInfo to test.
  *
- * Returns whether the target architecture is ARM or Aarch64.
+ * Returns whether @ti is ARM or AArch64.
  */
-bool target_base_arm(void);
+bool target_base_arm(const TargetInfo *ti);
 
 /**
  * target_arm:
+ * @ti: TargetInfo to test.
  *
- * Returns whether the target architecture is ARM (32-bit, not Aarch64).
+ * Returns whether @ti is ARM (32-bit, not AArch64).
  */
-bool target_arm(void);
+bool target_arm(const TargetInfo *ti);
 
 /**
  * target_aarch64:
+ * @ti: TargetInfo to test.
  *
- * Returns whether the target architecture is Aarch64.
+ * Returns whether @ti is AArch64.
  */
-bool target_aarch64(void);
+bool target_aarch64(const TargetInfo *ti);
 
 /**
  * target_base_ppc:
+ * @ti: TargetInfo to test.
  *
- * Returns whether the target architecture is PowerPC 32-bit or 64-bit.
+ * Returns whether @ti is PowerPC 32-bit or 64-bit.
  */
-bool target_base_ppc(void);
+bool target_base_ppc(const TargetInfo *ti);
 
 /**
  * target_ppc:
+ * @ti: TargetInfo to test.
  *
- * Returns whether the target architecture is PowerPC 32-bit.
+ * Returns whether @ti is PowerPC 32-bit.
  */
-bool target_ppc(void);
+bool target_ppc(const TargetInfo *ti);
 
 /**
  * target_ppc64:
+ * @ti: TargetInfo to test.
  *
- * Returns whether the target architecture is PowerPC 64-bit.
+ * Returns whether @ti is PowerPC 64-bit.
  */
-bool target_ppc64(void);
+bool target_ppc64(const TargetInfo *ti);
 
 /**
  * target_s390x:
+ * @ti: TargetInfo to test.
  *
- * Returns whether the target architecture is S390x.
+ * Returns whether @ti is S390x.
  */
-bool target_s390x(void);
+bool target_s390x(const TargetInfo *ti);
 
 /**
  * target_riscv64:
+ * @ti: TargetInfo to test.
  *
- * Returns whether the target architecture is riscv64
+ * Returns whether @ti is RISC-V 64-bit.
  */
-bool target_riscv64(void);
+bool target_riscv64(const TargetInfo *ti);
 
 #endif
