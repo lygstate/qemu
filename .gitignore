@@ -2,6 +2,8 @@
 /build/
 /.cache/
 /.vscode/
+/subprojects/jsonc-daccord
+/xemu
 *.pyc
 .sdk
 .stgit-*
