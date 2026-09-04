@@ -9,8 +9,10 @@
 #include "qemu/osdep.h"
 #include "qapi/error.h"
 #include "qom/object.h"
+#include "qemu/target-info.h"
 #include "qemu/target-info-impl.h"
 #include "qemu/target-info-init.h"
+#include "qemu/target-info-qapi.h"
 #include "qemu/target-info-qom.h"
 
 static void target_info_qom_class_init(ObjectClass *oc, const void * data)
@@ -33,16 +35,29 @@ static const TypeInfo target_info_parent_type = {
 
 DEFINE_TARGET_INFO_TYPE(target_info_parent_type)
 
-void target_info_qom_set_target(void)
+void target_info_qom_set_target(const char *name, Error **errp)
 {
     g_autoptr(GSList) targets = object_class_get_list(TYPE_TARGET_INFO, false);
 
     size_t num_found = g_slist_length(targets);
-    if (num_found != 1) {
-        error_setg(&error_fatal, num_found == 0 ?
-                                 "no target-info is available" :
-                                 "more than one target-info is available");
+
+    if (num_found == 0) {
+        error_setg(errp, "no target-info is available");
+        return;
     }
 
-    target_info_select(TARGET_INFO_CLASS(targets->data)->target_info);
+    if (!name) {
+        /* No argv[0] suffix and no -M arch: prefix: keep SYS_EMU_TARGET_NONE. */
+        return;
+    }
+
+    for (GSList *elem = targets; elem; elem = elem->next) {
+        const TargetInfo *ti = TARGET_INFO_CLASS(elem->data)->target_info;
+        if (!strcmp(name, ti->target_name)) {
+            target_info_select(ti);
+            return;
+        }
+    }
+    error_setg(errp, "target '%s' is not available, "
+               "use -M help or a qemu-system-* binary", name);
 }

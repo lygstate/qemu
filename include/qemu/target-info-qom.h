@@ -14,6 +14,7 @@
 #include "qapi/error.h"
 #include "qemu/base-arch-defs.h"
 #include "qemu/target-info-impl.h"
+#include "qapi/error.h"
 #include "qom/object.h"
 
 typedef struct ArchDumpInfo ArchDumpInfo;
@@ -68,6 +69,10 @@ typedef struct TargetInfoQomClass {
 
 OBJECT_DECLARE_TYPE(TargetInfoQom, TargetInfoQomClass, TARGET_INFO)
 
-void target_info_qom_set_target(void);
+/*
+ * Select TargetInfo by @name from argv[0] or -M arch: prefix.
+ * @name NULL leaves SYS_EMU_TARGET_NONE.
+ */
+void target_info_qom_set_target(const char *name, Error **errp);
 
 #endif /* QEMU_TARGET_INFO_QOM_H */

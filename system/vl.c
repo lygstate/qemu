@@ -851,6 +851,13 @@ static MachineClass *find_machine(const char *name, GSList *machines)
         MachineClass *mc = el->data;
 
         if (!strcmp(mc->name, name) || !g_strcmp0(mc->alias, name)) {
+            TypeIsAvailable *is_available =
+                object_class_get_is_available(OBJECT_CLASS(mc));
+
+            if (target_info()->target_arch != SYS_EMU_TARGET_NONE &&
+                is_available && !is_available(target_info())) {
+                continue;
+            }
             return mc;
         }
     }
@@ -873,6 +880,146 @@ static MachineClass *find_default_machine(GSList *machines)
     }
 
     return default_machineclass;
+}
+
+/* qemu-system-aarch64[.exe] -> aarch64; qemu-system[.exe] -> NULL. */
+static char *target_name_from_prgname(void)
+{
+    const char *prg = g_get_prgname();
+    g_autofree char *base = NULL;
+    char *dot;
+
+    if (!prg || !prg[0]) {
+        return NULL;
+    }
+    base = g_path_get_basename(prg);
+    dot = strrchr(base, '.');
+    if (dot && g_ascii_strcasecmp(dot, ".exe") == 0) {
+        *dot = '\0';
+    }
+    if (!g_str_has_prefix(base, "qemu-system-")) {
+        return NULL;
+    }
+    return g_strdup(base + strlen("qemu-system-"));
+}
+
+static const TargetInfo *target_info_by_name(const char *name)
+{
+    g_autoptr(GSList) targets = object_class_get_list(TYPE_TARGET_INFO, false);
+
+    for (GSList *elem = targets; elem; elem = elem->next) {
+        const TargetInfo *ti = TARGET_INFO_CLASS(elem->data)->target_info;
+
+        if (!strcmp(ti->target_name, name)) {
+            return ti;
+        }
+    }
+    return NULL;
+}
+
+/* Split "aarch64:virt". Unknown prefix is left as a plain machine name. */
+static const char *machine_type_parse_target(const char *type,
+                                             const TargetInfo **target)
+{
+    const char *colon = strchr(type, ':');
+    g_autofree char *arch = NULL;
+    const TargetInfo *ti;
+
+    *target = NULL;
+    if (!colon || colon == type || colon[1] == '\0') {
+        return type;
+    }
+    arch = g_strndup(type, colon - type);
+    ti = target_info_by_name(arch);
+    if (!ti || ti->target_arch == SYS_EMU_TARGET_NONE) {
+        return type;
+    }
+    *target = ti;
+    return colon + 1;
+}
+
+static char *machine_optarg_target_name(const char *optarg)
+{
+    g_autofree char *type = NULL;
+    const TargetInfo *ti = NULL;
+    const char *p = optarg;
+    const char *comma;
+
+    if (!optarg || is_help_option(optarg)) {
+        return NULL;
+    }
+    if (g_str_has_prefix(p, "type=")) {
+        p += 5;
+    }
+    comma = strchr(p, ',');
+    type = g_strndup(p, comma ? comma - p : strlen(p));
+    if (strchr(type, '=')) {
+        return NULL;
+    }
+    machine_type_parse_target(type, &ti);
+    return ti ? g_strdup(ti->target_name) : NULL;
+}
+
+static MachineClass *machine_resolve_none(GSList *machines, const char *name,
+                                          Error **errp)
+{
+    g_autoptr(GSList) targets =
+        object_class_get_list_sorted(TYPE_TARGET_INFO, false);
+    g_autoptr(GPtrArray) cands = g_ptr_array_new_with_free_func(g_free);
+    MachineClass *mc_found = NULL;
+    const TargetInfo *ti_found = NULL;
+    GString *hint;
+    guint i;
+
+    for (GSList *el = machines; el; el = el->next) {
+        MachineClass *mc = el->data;
+        TypeIsAvailable *is_available;
+
+        if (strcmp(mc->name, name) && g_strcmp0(mc->alias, name)) {
+            continue;
+        }
+        is_available = object_class_get_is_available(OBJECT_CLASS(mc));
+        if (!is_available) {
+            mc_found = mc;
+            ti_found = NULL;
+            g_ptr_array_add(cands, g_strdup(name));
+            continue;
+        }
+        for (GSList *t = targets; t; t = t->next) {
+            const TargetInfo *ti = TARGET_INFO_CLASS(t->data)->target_info;
+
+            if (ti->target_arch != SYS_EMU_TARGET_NONE && is_available(ti)) {
+                mc_found = mc;
+                ti_found = ti;
+                g_ptr_array_add(cands, g_strdup_printf("%s:%s",
+                                                       ti->target_name, name));
+            }
+        }
+    }
+
+    if (cands->len == 1) {
+        if (ti_found) {
+            target_info_select(ti_found);
+        }
+        return mc_found;
+    }
+    if (cands->len == 0) {
+        error_setg(errp, "unsupported machine type: \"%s\"", name);
+        return NULL;
+    }
+
+    hint = g_string_new("Did you mean ");
+    for (i = 0; i < cands->len; i++) {
+        if (i) {
+            g_string_append(hint, i + 1 == cands->len ? " or " : ", ");
+        }
+        g_string_append_printf(hint, "'%s'", (char *)cands->pdata[i]);
+    }
+    g_string_append(hint, "?\n");
+    error_setg(errp, "machine type \"%s\" is ambiguous", name);
+    error_append_hint(errp, "%s", hint->str);
+    g_string_free(hint, TRUE);
+    return NULL;
 }
 
 static void version(void)
@@ -1720,18 +1867,51 @@ static MachineClass *select_machine(QDict *qdict, Error **errp)
     const char *machine_type = qdict_get_try_str(qdict, "type");
     g_autoptr(GSList) machines = object_class_get_list(TYPE_MACHINE, false);
     MachineClass *machine_class = NULL;
+    const TargetInfo *prefix_ti = NULL;
+    g_autofree char *type_copy = NULL;
+    const char *name = machine_type;
 
     if (machine_type) {
-        machine_class = find_machine(machine_type, machines);
-        if (!machine_class) {
-            error_setg(errp, "unsupported machine type: \"%s\"", machine_type);
+        type_copy = g_strdup(machine_type);
+        name = machine_type_parse_target(type_copy, &prefix_ti);
+        if (prefix_ti) {
+            if (target_info()->target_arch != SYS_EMU_TARGET_NONE &&
+                target_info() != prefix_ti) {
+                error_setg(errp, "machine type \"%s\" is not available "
+                           "for target %s", type_copy, target_name());
+                error_append_hint(errp,
+                                  "Use -machine help to list supported "
+                                  "machines\n");
+                return NULL;
+            }
+            if (target_info()->target_arch == SYS_EMU_TARGET_NONE) {
+                target_info_select(prefix_ti);
+            }
         }
         qdict_del(qdict, "type");
-    } else {
+    }
+
+    if (name) {
+        if (target_info()->target_arch == SYS_EMU_TARGET_NONE) {
+            machine_class = machine_resolve_none(machines, name, errp);
+        } else {
+            machine_class = find_machine(name, machines);
+            if (!machine_class) {
+                error_setg(errp, "unsupported machine type: \"%s\"",
+                           type_copy ? type_copy : name);
+            }
+        }
+    } else if (target_info()->target_arch != SYS_EMU_TARGET_NONE) {
         machine_class = find_default_machine(machines);
         if (!machine_class) {
             error_setg(errp, "No machine specified, and there is no default");
         }
+    } else {
+        error_setg(errp, "No machine specified");
+        error_append_hint(errp,
+                          "Use -M arch:name (e.g. aarch64:virt) or "
+                          "-machine help\n");
+        return NULL;
     }
 
     if (!machine_class) {
@@ -2894,6 +3074,8 @@ void qemu_init(int argc, char **argv)
     const char *optarg;
     MachineClass *machine_class;
     bool userconfig = true;
+    g_autofree char *target_from_argv0 = NULL;
+    g_autofree char *target_from_machine = NULL;
     FILE *vmstate_dump_file = NULL;
 
     qemu_add_opts(&qemu_drive_opts);
@@ -2936,7 +3118,29 @@ void qemu_init(int argc, char **argv)
     os_setup_limits();
 
     module_call_init(MODULE_INIT_TARGET_INFO);
-    target_info_qom_set_target();
+
+    /*
+     * Bind TargetInfo before QOM/modules. argv[0] wins; otherwise
+     * use -M arch:name (e.g. aarch64:virt).
+     */
+    optind = 1;
+    while (optind < argc) {
+        if (argv[optind][0] != '-') {
+            optind++;
+        } else {
+            const QEMUOption *popt = lookup_opt(argc, argv, &optarg, &optind);
+
+            if ((popt->index == QEMU_OPTION_M ||
+                 popt->index == QEMU_OPTION_machine) &&
+                !target_from_machine) {
+                target_from_machine = machine_optarg_target_name(optarg);
+            }
+        }
+    }
+    target_from_argv0 = target_name_from_prgname();
+    target_info_qom_set_target(target_from_argv0 ? target_from_argv0
+                                                 : target_from_machine,
+                               &error_fatal);
 
     module_init_info(qemu_modinfo);
     module_allow_arch(target_name());
