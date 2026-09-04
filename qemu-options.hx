@@ -27,6 +27,7 @@ ERST
 DEF("machine", HAS_ARG, QEMU_OPTION_machine, \
     "-machine [type=]name[,prop=value[,...]]\n"
     "                selects emulated machine ('-machine help' for list)\n"
+    "                use arch:name (e.g. aarch64:virt) when the name is shared\n"
     "                property accel=accel1[:accel2[:...]] selects accelerator\n"
     "                supported accelerators are kvm, xen, hvf, nitro, nvmm, whpx, mshv or tcg (default: tcg)\n"
     "                vmport=on|off|auto controls emulation of vmport (default: auto)\n"
@@ -53,7 +54,8 @@ DEF("machine", HAS_ARG, QEMU_OPTION_machine, \
 SRST
 ``-machine [type=]name[,prop=value[,...]]``
     Select the emulated machine by name. Use ``-machine help`` to list
-    available machines.
+    available machines. When several targets share a machine name, use
+    ``arch:name`` (for example ``aarch64:virt``).
 
     For architectures which aim to support live migration compatibility
     across releases, each release will introduce a new versioned machine
