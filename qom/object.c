@@ -86,7 +86,12 @@ static GHashTable *type_table;
 
 static bool enumerating_types;
 
-static const TargetInfo *target_info_ptr;
+static const TargetInfo target_info_none = {
+    .target_arch = SYS_EMU_TARGET_NONE,
+    .target_name = "none",
+};
+
+static const TargetInfo *target_info_ptr = &target_info_none;
 
 const TargetInfo *target_info(void)
 {
@@ -95,6 +100,10 @@ const TargetInfo *target_info(void)
 
 void target_info_select(const TargetInfo *ti)
 {
+    g_assert(target_info_ptr->target_arch == SYS_EMU_TARGET_NONE);
+    g_assert(ti != NULL);
+    g_assert(ti->target_arch != SYS_EMU_TARGET_NONE);
+
     target_info_ptr = ti;
 }
 
@@ -179,7 +188,8 @@ static TypeImpl *type_register_internal(const TypeInfo *info)
         abort();
     }
 
-    if (info->is_available && !info->is_available(target_info())) {
+    if (target_info()->target_arch != SYS_EMU_TARGET_NONE &&
+        info->is_available && !info->is_available(target_info())) {
         return NULL;
     }
 
