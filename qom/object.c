@@ -15,6 +15,7 @@
 #include "qom/compat-properties.h"
 #include "qom/object.h"
 #include "qom/object_interfaces.h"
+#include "qemu/target-info-qapi.h"
 #include "qemu/cutils.h"
 #include "qemu/memalign.h"
 #include "qapi/visitor.h"
@@ -67,6 +68,8 @@ struct TypeImpl
     void (*instance_finalize)(Object *obj);
 
     bool abstract;
+
+    TypeIsAvailable *is_available;
 
     const char *parent;
     TypeImpl *parent_type;
@@ -122,6 +125,7 @@ static TypeImpl *type_new(const TypeInfo *info)
     ti->instance_finalize = info->instance_finalize;
 
     ti->abstract = info->abstract;
+    ti->is_available = info->is_available;
 
     for (i = 0; info->interfaces && info->interfaces[i].type; i++) {
         ti->interfaces[i].typename = g_strdup(info->interfaces[i].type);
@@ -163,7 +167,8 @@ static TypeImpl *type_register_internal(const TypeInfo *info)
         abort();
     }
 
-    if (info->is_available && !info->is_available(target_info())) {
+    if (target_arch() != SYS_EMU_TARGET_NONE &&
+        info->is_available && !info->is_available(target_info())) {
         return NULL;
     }
 
@@ -1142,6 +1147,11 @@ ObjectClass *object_get_class(Object *obj)
 bool object_class_is_abstract(ObjectClass *klass)
 {
     return klass->type->abstract;
+}
+
+TypeIsAvailable *object_class_get_is_available(ObjectClass *klass)
+{
+    return klass->type->is_available;
 }
 
 const char *object_class_get_name(ObjectClass *klass)
