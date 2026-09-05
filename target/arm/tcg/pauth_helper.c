@@ -22,7 +22,7 @@
 #include "helper.h"
 #include "internals.h"
 #include "cpu-features.h"
-#include "accel/tcg/cpu-ldst.h"
+#include "accel/tcg/cpu-ldst-common.h"
 #include "helper-a64.h"
 #include "tcg/tcg-gvec-desc.h"
 #include "qemu/xxhash.h"
