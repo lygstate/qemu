@@ -52,4 +52,7 @@ QEMU_BUILD_BUG_ON(SYS_EMU_TARGET__MAX > 32);
  */
 bool qemu_arch_available(uint32_t arch_bitmask);
 
+SysEmuTarget qemu_host_arch(void);
+bool qemu_host_kvm_supports(SysEmuTarget guest);
+
 #endif

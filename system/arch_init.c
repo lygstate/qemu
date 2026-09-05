@@ -33,3 +33,44 @@ bool qemu_arch_available(uint32_t arch_bitmask)
     }
     return extract32(arch_bitmask, target_arch(), 1);
 }
+
+SysEmuTarget qemu_host_arch(void)
+{
+#if defined(HOST_X86_64)
+    return SYS_EMU_TARGET_X86_64;
+#elif defined(HOST_AARCH64)
+    return SYS_EMU_TARGET_AARCH64;
+#elif defined(HOST_S390X)
+    return SYS_EMU_TARGET_S390X;
+#elif defined(HOST_PPC64)
+    return SYS_EMU_TARGET_PPC64;
+#elif defined(HOST_RISCV64)
+    return SYS_EMU_TARGET_RISCV64;
+#elif defined(HOST_LOONGARCH64)
+    return SYS_EMU_TARGET_LOONGARCH64;
+#else
+    return SYS_EMU_TARGET_NONE;
+#endif
+}
+
+bool qemu_host_kvm_supports(SysEmuTarget guest)
+{
+    switch (qemu_host_arch()) {
+    case SYS_EMU_TARGET_X86_64:
+        return guest == SYS_EMU_TARGET_I386 ||
+               guest == SYS_EMU_TARGET_X86_64;
+    case SYS_EMU_TARGET_AARCH64:
+        return guest == SYS_EMU_TARGET_AARCH64;
+    case SYS_EMU_TARGET_S390X:
+        return guest == SYS_EMU_TARGET_S390X;
+    case SYS_EMU_TARGET_PPC64:
+        return guest == SYS_EMU_TARGET_PPC ||
+               guest == SYS_EMU_TARGET_PPC64;
+    case SYS_EMU_TARGET_RISCV64:
+        return guest == SYS_EMU_TARGET_RISCV64;
+    case SYS_EMU_TARGET_LOONGARCH64:
+        return guest == SYS_EMU_TARGET_LOONGARCH64;
+    default:
+        return false;
+    }
+}

@@ -35,6 +35,8 @@
 #include "system/physmem.h"
 #include "system/ramblock.h"
 #include "accel/accel-ops.h"
+#include "qemu/target-info-impl.h"
+#include "qemu/base-arch-defs.h"
 #include "qemu/bswap.h"
 #include "exec/tswap.h"
 #include "exec/target_page.h"
@@ -4269,6 +4271,11 @@ static void kvm_accel_instance_init(Object *obj)
     s->honor_guest_pat = ON_OFF_AUTO_OFF;
 }
 
+static bool kvm_accel_is_available(const TargetInfo *ti)
+{
+    return qemu_host_kvm_supports(ti->target_arch);
+}
+
 static void kvm_accel_class_init(ObjectClass *oc, const void *data)
 {
     AccelClass *ac = ACCEL_CLASS(oc);
@@ -4328,6 +4335,7 @@ static const TypeInfo kvm_accel_type = {
     .instance_finalize = kvm_accel_finalize,
     .class_init = kvm_accel_class_init,
     .instance_size = sizeof(KVMState),
+    .is_available = kvm_accel_is_available,
 };
 
 static void kvm_type_init(void)
