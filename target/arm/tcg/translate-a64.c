@@ -25,7 +25,6 @@
 #include "helper-fp8.h"
 #include "translate.h"
 #include "translate-a64.h"
-#include "tcg/tcg-op.h"
 #include "qemu/log.h"
 #include "semihosting/semihost.h"
 #include "cpregs.h"
@@ -184,7 +183,7 @@ static void reset_btype(DisasContext *s)
     }
 }
 
-static void gen_pc_plus_diff(DisasContext *s, TCGv_i64 dest, target_long diff)
+static void gen_pc_plus_diff(DisasContext *s, TCGv_i64 dest, int64_t diff)
 {
     assert(s->pc_save != -1);
     if (tb_cflags(s->base.tb) & CF_PCREL) {
@@ -194,7 +193,7 @@ static void gen_pc_plus_diff(DisasContext *s, TCGv_i64 dest, target_long diff)
     }
 }
 
-void gen_a64_update_pc(DisasContext *s, target_long diff)
+void gen_a64_update_pc(DisasContext *s, int64_t diff)
 {
     gen_pc_plus_diff(s, cpu_pc, diff);
     s->pc_save = s->pc_curr + diff;
@@ -11115,7 +11114,7 @@ static void aarch64_tr_tb_start(DisasContextBase *db, CPUState *cpu)
 static void aarch64_tr_insn_start(DisasContextBase *dcbase, CPUState *cpu)
 {
     DisasContext *dc = container_of(dcbase, DisasContext, base);
-    target_ulong pc_arg = dc->base.pc_next;
+    vaddr pc_arg = dc->base.pc_next;
 
     if (tb_cflags(dcbase->tb) & CF_PCREL) {
         pc_arg &= ~TARGET_PAGE_MASK;
