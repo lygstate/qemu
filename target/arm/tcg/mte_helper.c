@@ -30,7 +30,7 @@
 #else
 #include "system/physmem.h"
 #endif
-#include "accel/tcg/cpu-ldst.h"
+#include "accel/tcg/cpu-ldst-common.h"
 #include "accel/tcg/probe.h"
 #include "helper-a64.h"
 #include "exec/tlb-flags.h"

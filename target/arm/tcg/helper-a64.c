@@ -30,7 +30,8 @@
 #include "internals.h"
 #include "qemu/crc32c.h"
 #include "exec/cpu-common.h"
-#include "accel/tcg/cpu-ldst.h"
+#include "accel/tcg/cpu-ldst-common.h"
+#include "accel/tcg/cpu-mmu-index.h"
 #include "accel/tcg/cpu-loop.h"
 #include "accel/tcg/helper-retaddr.h"
 #include "accel/tcg/probe.h"
@@ -819,7 +820,7 @@ void HELPER(dc_zva)(CPUARMState *env, uint64_t vaddr_in)
              * Just do a series of byte writes as the architecture demands.
              */
             for (int i = 0; i < blocklen; i++) {
-                cpu_stb_mmuidx_ra(env, vaddr + i, 0, mmu_idx, ra);
+                cpu_stb_mmu(env, vaddr + i, 0, make_memop_idx(MO_UB, mmu_idx), ra);
             }
             return;
         }
@@ -972,7 +973,7 @@ static uint64_t set_step(CPUARMState *env, uint64_t toaddr,
          * For clean code pages, the next iteration will see
          * the page dirty and will use the fast path.
          */
-        cpu_stb_mmuidx_ra(env, toaddr, data, memidx, ra);
+        cpu_stb_mmu(env, toaddr, data, make_memop_idx(MO_UB, memidx), ra);
         return 1;
     }
 #endif
@@ -1347,12 +1348,12 @@ static uint64_t copy_step(CPUARMState *env, uint64_t toaddr, uint64_t fromaddr,
         if (rmem) {
             byte = *(uint8_t *)rmem;
         } else {
-            byte = cpu_ldub_mmuidx_ra(env, fromaddr, rmemidx, ra);
+            byte = cpu_ldb_mmu(env, fromaddr, make_memop_idx(MO_UB, rmemidx), ra);
         }
         if (wmem) {
             *(uint8_t *)wmem = byte;
         } else {
-            cpu_stb_mmuidx_ra(env, toaddr, byte, wmemidx, ra);
+            cpu_stb_mmu(env, toaddr, byte, make_memop_idx(MO_UB, wmemidx), ra);
         }
         return 1;
     }
@@ -1421,12 +1422,12 @@ static uint64_t copy_step_rev(CPUARMState *env, uint64_t toaddr,
         if (rmem) {
             byte = *(uint8_t *)rmem;
         } else {
-            byte = cpu_ldub_mmuidx_ra(env, fromaddr, rmemidx, ra);
+            byte = cpu_ldb_mmu(env, fromaddr, make_memop_idx(MO_UB, rmemidx), ra);
         }
         if (wmem) {
             *(uint8_t *)wmem = byte;
         } else {
-            cpu_stb_mmuidx_ra(env, toaddr, byte, wmemidx, ra);
+            cpu_stb_mmu(env, toaddr, byte, make_memop_idx(MO_UB, wmemidx), ra);
         }
         return 1;
     }
