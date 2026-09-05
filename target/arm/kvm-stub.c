@@ -12,6 +12,7 @@
 #include "qemu/osdep.h"
 #include "cpu.h"
 #include "kvm_arm.h"
+#include "internals.h"
 
 bool write_kvmstate_to_list(ARMCPU *cpu)
 {
@@ -111,6 +112,11 @@ bool kvm_arm_cpu_post_load(ARMCPU *cpu)
 }
 
 void arm_gic_cap_kvm_probe(GICCapability *v2, GICCapability *v3)
+{
+    g_assert_not_reached();
+}
+
+void aarch64_host_initfn(Object *obj)
 {
     g_assert_not_reached();
 }
