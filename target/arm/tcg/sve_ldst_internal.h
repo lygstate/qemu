@@ -20,7 +20,117 @@
 #ifndef TARGET_ARM_SVE_LDST_INTERNAL_H
 #define TARGET_ARM_SVE_LDST_INTERNAL_H
 
-#include "accel/tcg/cpu-ldst.h"
+#include "accel/tcg/cpu-ldst-common.h"
+#include "accel/tcg/cpu-mmu-index.h"
+
+static inline int arm_data_mmu_idx(CPUARMState *env)
+{
+    return cpu_mmu_index(env_cpu(env), false);
+}
+
+static inline uint32_t cpu_ldub_data_ra(CPUARMState *env, vaddr addr,
+                                        uintptr_t ra)
+{
+    return cpu_ldb_mmu(env, addr, make_memop_idx(MO_UB, arm_data_mmu_idx(env)),
+                       ra);
+}
+
+static inline void cpu_stb_data_ra(CPUARMState *env, vaddr addr, uint32_t val,
+                                   uintptr_t ra)
+{
+    cpu_stb_mmu(env, addr, val, make_memop_idx(MO_UB, arm_data_mmu_idx(env)),
+                ra);
+}
+
+static inline uint32_t cpu_lduw_be_data_ra(CPUARMState *env, vaddr addr,
+                                           uintptr_t ra)
+{
+    return cpu_ldw_mmu(env, addr,
+                       make_memop_idx(MO_BEUW | MO_UNALN, arm_data_mmu_idx(env)),
+                       ra);
+}
+
+static inline uint32_t cpu_lduw_le_data_ra(CPUARMState *env, vaddr addr,
+                                           uintptr_t ra)
+{
+    return cpu_ldw_mmu(env, addr,
+                       make_memop_idx(MO_LEUW | MO_UNALN, arm_data_mmu_idx(env)),
+                       ra);
+}
+
+static inline uint32_t cpu_ldl_be_data_ra(CPUARMState *env, vaddr addr,
+                                          uintptr_t ra)
+{
+    return cpu_ldl_mmu(env, addr,
+                       make_memop_idx(MO_BEUL | MO_UNALN, arm_data_mmu_idx(env)),
+                       ra);
+}
+
+static inline uint32_t cpu_ldl_le_data_ra(CPUARMState *env, vaddr addr,
+                                          uintptr_t ra)
+{
+    return cpu_ldl_mmu(env, addr,
+                       make_memop_idx(MO_LEUL | MO_UNALN, arm_data_mmu_idx(env)),
+                       ra);
+}
+
+static inline uint64_t cpu_ldq_be_data_ra(CPUARMState *env, vaddr addr,
+                                          uintptr_t ra)
+{
+    return cpu_ldq_mmu(env, addr,
+                       make_memop_idx(MO_BEUQ | MO_UNALN, arm_data_mmu_idx(env)),
+                       ra);
+}
+
+static inline uint64_t cpu_ldq_le_data_ra(CPUARMState *env, vaddr addr,
+                                          uintptr_t ra)
+{
+    return cpu_ldq_mmu(env, addr,
+                       make_memop_idx(MO_LEUQ | MO_UNALN, arm_data_mmu_idx(env)),
+                       ra);
+}
+
+static inline void cpu_stw_be_data_ra(CPUARMState *env, vaddr addr,
+                                      uint32_t val, uintptr_t ra)
+{
+    cpu_stw_mmu(env, addr, val,
+                make_memop_idx(MO_BEUW | MO_UNALN, arm_data_mmu_idx(env)), ra);
+}
+
+static inline void cpu_stw_le_data_ra(CPUARMState *env, vaddr addr,
+                                      uint32_t val, uintptr_t ra)
+{
+    cpu_stw_mmu(env, addr, val,
+                make_memop_idx(MO_LEUW | MO_UNALN, arm_data_mmu_idx(env)), ra);
+}
+
+static inline void cpu_stl_be_data_ra(CPUARMState *env, vaddr addr,
+                                      uint32_t val, uintptr_t ra)
+{
+    cpu_stl_mmu(env, addr, val,
+                make_memop_idx(MO_BEUL | MO_UNALN, arm_data_mmu_idx(env)), ra);
+}
+
+static inline void cpu_stl_le_data_ra(CPUARMState *env, vaddr addr,
+                                      uint32_t val, uintptr_t ra)
+{
+    cpu_stl_mmu(env, addr, val,
+                make_memop_idx(MO_LEUL | MO_UNALN, arm_data_mmu_idx(env)), ra);
+}
+
+static inline void cpu_stq_be_data_ra(CPUARMState *env, vaddr addr,
+                                      uint64_t val, uintptr_t ra)
+{
+    cpu_stq_mmu(env, addr, val,
+                make_memop_idx(MO_BEUQ | MO_UNALN, arm_data_mmu_idx(env)), ra);
+}
+
+static inline void cpu_stq_le_data_ra(CPUARMState *env, vaddr addr,
+                                      uint64_t val, uintptr_t ra)
+{
+    cpu_stq_mmu(env, addr, val,
+                make_memop_idx(MO_LEUQ | MO_UNALN, arm_data_mmu_idx(env)), ra);
+}
 
 /*
  * Load one element into @vd + @reg_off from @host.
@@ -33,7 +143,7 @@ typedef void sve_ldst1_host_fn(void *vd, intptr_t reg_off, void *host);
  * The controlling predicate is known to be true.
  */
 typedef void sve_ldst1_tlb_fn(CPUARMState *env, void *vd, intptr_t reg_off,
-                              target_ulong vaddr, uintptr_t retaddr);
+                              vaddr vaddr, uintptr_t retaddr);
 
 /*
  * Generate the above primitives.
@@ -49,7 +159,7 @@ static inline void sve_##NAME##_host(void *vd, intptr_t reg_off, void *host) \
 
 #define DO_LD_TLB(NAME, H, TYPEE, TYPEM, TLB)                              \
 static inline void sve_##NAME##_tlb(CPUARMState *env, void *vd,            \
-                        intptr_t reg_off, target_ulong addr, uintptr_t ra) \
+                        intptr_t reg_off, vaddr addr, uintptr_t ra) \
 {                                                                          \
     TYPEM val = TLB(env, useronly_clean_ptr(addr), ra);                    \
     *(TYPEE *)(vd + H(reg_off)) = val;                                     \
@@ -57,7 +167,7 @@ static inline void sve_##NAME##_tlb(CPUARMState *env, void *vd,            \
 
 #define DO_ST_TLB(NAME, H, TYPEE, TYPEM, TLB)                              \
 static inline void sve_##NAME##_tlb(CPUARMState *env, void *vd,            \
-                        intptr_t reg_off, target_ulong addr, uintptr_t ra) \
+                        intptr_t reg_off, vaddr addr, uintptr_t ra) \
 {                                                                          \
     TYPEM val = *(TYPEE *)(vd + H(reg_off));                               \
     TLB(env, useronly_clean_ptr(addr), val, ra);                           \
@@ -122,7 +232,7 @@ DO_ST_PRIM_2(dd, H1_8, uint64_t, uint64_t, stq)
     { sve_##FUNC##_host(vd, reg_off, host);                             \
       *(uint64_t *)(vd + reg_off + 8) = 0; }                            \
     static inline void sve_##NAME##_tlb(CPUARMState *env, void *vd,     \
-        intptr_t reg_off, target_ulong addr, uintptr_t ra)              \
+        intptr_t reg_off, vaddr addr, uintptr_t ra)              \
     { sve_##FUNC##_tlb(env, vd, reg_off, addr, ra);                     \
       *(uint64_t *)(vd + reg_off + 8) = 0; }
 
@@ -162,7 +272,7 @@ static inline void sve_ld1qq_le_host(void *vd, intptr_t reg_off, void *host)
 
 static inline void
 sve_ld1qq_be_tlb(CPUARMState *env, void *vd, intptr_t reg_off,
-                 target_ulong addr, uintptr_t ra)
+                 vaddr addr, uintptr_t ra)
 {
     sve_ld1dd_be_tlb(env, vd, reg_off + 8, addr, ra);
     sve_ld1dd_be_tlb(env, vd, reg_off, addr + 8, ra);
@@ -170,7 +280,7 @@ sve_ld1qq_be_tlb(CPUARMState *env, void *vd, intptr_t reg_off,
 
 static inline void
 sve_ld1qq_le_tlb(CPUARMState *env, void *vd, intptr_t reg_off,
-                 target_ulong addr, uintptr_t ra)
+                 vaddr addr, uintptr_t ra)
 {
     sve_ld1dd_le_tlb(env, vd, reg_off, addr, ra);
     sve_ld1dd_le_tlb(env, vd, reg_off + 8, addr + 8, ra);
@@ -190,7 +300,7 @@ static inline void sve_st1qq_le_host(void *vd, intptr_t reg_off, void *host)
 
 static inline void
 sve_st1qq_be_tlb(CPUARMState *env, void *vd, intptr_t reg_off,
-                 target_ulong addr, uintptr_t ra)
+                 vaddr addr, uintptr_t ra)
 {
     sve_st1dd_be_tlb(env, vd, reg_off + 8, addr, ra);
     sve_st1dd_be_tlb(env, vd, reg_off, addr + 8, ra);
@@ -198,7 +308,7 @@ sve_st1qq_be_tlb(CPUARMState *env, void *vd, intptr_t reg_off,
 
 static inline void
 sve_st1qq_le_tlb(CPUARMState *env, void *vd, intptr_t reg_off,
-                 target_ulong addr, uintptr_t ra)
+                 vaddr addr, uintptr_t ra)
 {
     sve_st1dd_le_tlb(env, vd, reg_off, addr, ra);
     sve_st1dd_le_tlb(env, vd, reg_off + 8, addr + 8, ra);
@@ -227,7 +337,7 @@ typedef struct {
 } SVEHostPage;
 
 bool sve_probe_page(SVEHostPage *info, bool nofault, CPUARMState *env,
-                    target_ulong addr, int mem_off, MMUAccessType access_type,
+                    vaddr addr, int mem_off, MMUAccessType access_type,
                     int mmu_idx, uintptr_t retaddr);
 
 /*
@@ -279,7 +389,7 @@ typedef struct {
  * final element on each page.  Identify any single element that spans
  * the page boundary.  Return true if there are any active elements.
  */
-bool sve_cont_ldst_elements(SVEContLdSt *info, target_ulong addr, uint64_t *vg,
+bool sve_cont_ldst_elements(SVEContLdSt *info, vaddr addr, uint64_t *vg,
                             intptr_t reg_max, int esz, int msize);
 
 /*
@@ -288,24 +398,24 @@ bool sve_cont_ldst_elements(SVEContLdSt *info, target_ulong addr, uint64_t *vg,
  * there is no work to do, which can only happen with @fault == FAULT_NO.
  */
 bool sve_cont_ldst_pages(SVEContLdSt *info, SVEContFault fault,
-                         CPUARMState *env, target_ulong addr,
+                         CPUARMState *env, vaddr addr,
                          MMUAccessType access_type, uintptr_t retaddr);
 
 #ifdef CONFIG_USER_ONLY
 static inline void
 sve_cont_ldst_watchpoints(SVEContLdSt *info, CPUARMState *env, uint64_t *vg,
-                          target_ulong addr, int esize, int msize,
+                          vaddr addr, int esize, int msize,
                           int wp_access, uintptr_t retaddr)
 { }
 #else
 void sve_cont_ldst_watchpoints(SVEContLdSt *info, CPUARMState *env,
-                               uint64_t *vg, target_ulong addr,
+                               uint64_t *vg, vaddr addr,
                                int esize, int msize, int wp_access,
                                uintptr_t retaddr);
 #endif
 
 void sve_cont_ldst_mte_check(SVEContLdSt *info, CPUARMState *env, uint64_t *vg,
-                             target_ulong addr, int esize, int msize,
+                             vaddr addr, int esize, int msize,
                              uint32_t mtedesc, uintptr_t ra);
 
 #endif /* TARGET_ARM_SVE_LDST_INTERNAL_H */

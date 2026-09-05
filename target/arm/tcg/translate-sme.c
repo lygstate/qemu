@@ -25,7 +25,6 @@
 #include "helper-fp8.h"
 #include "translate.h"
 #include "translate-a64.h"
-#include "tcg/tcg-op.h"
 
 /*
  * Include the generated decoder.
