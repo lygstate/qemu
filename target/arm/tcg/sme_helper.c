@@ -23,7 +23,7 @@
 #include "tcg/tcg-gvec-desc.h"
 #include "helper.h"
 #include "helper-sme.h"
-#include "accel/tcg/cpu-ldst.h"
+#include "accel/tcg/cpu-ldst-common.h"
 #include "accel/tcg/helper-retaddr.h"
 #include "qemu/int128.h"
 #include "fpu/softfloat.h"
@@ -421,7 +421,7 @@ static inline void sme_##NAME##_v_host(void *za, intptr_t off, void *host)  \
     *(TYPE *)(za + tile_vslice_offset(off)) = val;                          \
 }                                                                           \
 static inline void sme_##NAME##_v_tlb(CPUARMState *env, void *za,           \
-                        intptr_t off, target_ulong addr, uintptr_t ra)      \
+                        intptr_t off, vaddr addr, uintptr_t ra)      \
 {                                                                           \
     TYPE val = TLB(env, useronly_clean_ptr(addr), ra);                      \
     *(TYPE *)(za + tile_vslice_offset(off)) = val;                          \
@@ -434,7 +434,7 @@ static inline void sme_##NAME##_v_host(void *za, intptr_t off, void *host)  \
     HOST(host, val);                                                        \
 }                                                                           \
 static inline void sme_##NAME##_v_tlb(CPUARMState *env, void *za,           \
-                        intptr_t off, target_ulong addr, uintptr_t ra)      \
+                        intptr_t off, vaddr addr, uintptr_t ra)      \
 {                                                                           \
     TYPE val = *(TYPE *)(za + tile_vslice_offset(off));                     \
     TLB(env, useronly_clean_ptr(addr), val, ra);                            \
@@ -446,7 +446,7 @@ static inline void VNAME##_v_host(void *za, intptr_t off, void *host)       \
     HNAME##_host(za, tile_vslice_offset(off), host);                        \
 }                                                                           \
 static inline void VNAME##_v_tlb(CPUARMState *env, void *za, intptr_t off,  \
-                               target_ulong addr, uintptr_t ra)             \
+                               vaddr addr, uintptr_t ra)             \
 {                                                                           \
     HNAME##_tlb(env, za, tile_vslice_offset(off), addr, ra);                \
 }
@@ -457,7 +457,7 @@ static inline void VNAME##_v_host(void *za, intptr_t off, void *host)       \
     HNAME##_host(za, tile_vslice_offset(off), host);                        \
 }                                                                           \
 static inline void VNAME##_v_tlb(CPUARMState *env, void *za, intptr_t off,  \
-                               target_ulong addr, uintptr_t ra)             \
+                               vaddr addr, uintptr_t ra)             \
 {                                                                           \
     HNAME##_tlb(env, za, tile_vslice_offset(off), addr, ra);                \
 }
@@ -495,7 +495,7 @@ DO_STQ(sve_st1qq_le, sme_st1q_le)
 
 static inline QEMU_ALWAYS_INLINE
 void sme_ld1(CPUARMState *env, void *za, uint64_t *vg,
-             const target_ulong addr, uint32_t desc, const uintptr_t ra,
+             const vaddr addr, uint32_t desc, const uintptr_t ra,
              const int esz, uint32_t mtedesc, bool vertical,
              sve_ldst1_host_fn *host_fn,
              sve_ldst1_tlb_fn *tlb_fn,
@@ -631,7 +631,7 @@ void sme_ld1(CPUARMState *env, void *za, uint64_t *vg,
 
 static inline QEMU_ALWAYS_INLINE
 void sme_ld1_mte(CPUARMState *env, void *za, uint64_t *vg,
-                 target_ulong addr, uint64_t desc, uintptr_t ra,
+                 vaddr addr, uint64_t desc, uintptr_t ra,
                  const int esz, bool vertical,
                  sve_ldst1_host_fn *host_fn,
                  sve_ldst1_tlb_fn *tlb_fn,
@@ -653,28 +653,28 @@ void sme_ld1_mte(CPUARMState *env, void *za, uint64_t *vg,
 
 #define DO_LD(L, END, ESZ)                                                 \
 void HELPER(sme_ld1##L##END##_h)(CPUARMState *env, void *za, void *vg,     \
-                                 target_ulong addr, uint64_t desc)         \
+                                 vaddr addr, uint64_t desc)         \
 {                                                                          \
     sme_ld1(env, za, vg, addr, desc, GETPC(), ESZ, 0, false,               \
             sve_ld1##L##L##END##_host, sve_ld1##L##L##END##_tlb,           \
             clear_horizontal, copy_horizontal);                            \
 }                                                                          \
 void HELPER(sme_ld1##L##END##_v)(CPUARMState *env, void *za, void *vg,     \
-                                 target_ulong addr, uint64_t desc)         \
+                                 vaddr addr, uint64_t desc)         \
 {                                                                          \
     sme_ld1(env, za, vg, addr, desc, GETPC(), ESZ, 0, true,                \
             sme_ld1##L##END##_v_host, sme_ld1##L##END##_v_tlb,             \
             clear_vertical_##L, copy_vertical_##L);                        \
 }                                                                          \
 void HELPER(sme_ld1##L##END##_h_mte)(CPUARMState *env, void *za, void *vg, \
-                                     target_ulong addr, uint64_t desc)     \
+                                     vaddr addr, uint64_t desc)     \
 {                                                                          \
     sme_ld1_mte(env, za, vg, addr, desc, GETPC(), ESZ, false,              \
                 sve_ld1##L##L##END##_host, sve_ld1##L##L##END##_tlb,       \
                 clear_horizontal, copy_horizontal);                        \
 }                                                                          \
 void HELPER(sme_ld1##L##END##_v_mte)(CPUARMState *env, void *za, void *vg, \
-                                     target_ulong addr, uint64_t desc)     \
+                                     vaddr addr, uint64_t desc)     \
 {                                                                          \
     sme_ld1_mte(env, za, vg, addr, desc, GETPC(), ESZ, true,               \
                 sme_ld1##L##END##_v_host, sme_ld1##L##END##_v_tlb,         \
@@ -699,7 +699,7 @@ DO_LD(q, _le, MO_128)
 
 static inline QEMU_ALWAYS_INLINE
 void sme_st1(CPUARMState *env, void *za, uint64_t *vg,
-             const target_ulong addr, uint32_t desc, const uintptr_t ra,
+             const vaddr addr, uint32_t desc, const uintptr_t ra,
              const int esz, uint32_t mtedesc, bool vertical,
              sve_ldst1_host_fn *host_fn,
              sve_ldst1_tlb_fn *tlb_fn)
@@ -815,7 +815,7 @@ void sme_st1(CPUARMState *env, void *za, uint64_t *vg,
 }
 
 static inline QEMU_ALWAYS_INLINE
-void sme_st1_mte(CPUARMState *env, void *za, uint64_t *vg, target_ulong addr,
+void sme_st1_mte(CPUARMState *env, void *za, uint64_t *vg, vaddr addr,
                  uint64_t desc, uintptr_t ra, int esz, bool vertical,
                  sve_ldst1_host_fn *host_fn,
                  sve_ldst1_tlb_fn *tlb_fn)
@@ -835,25 +835,25 @@ void sme_st1_mte(CPUARMState *env, void *za, uint64_t *vg, target_ulong addr,
 
 #define DO_ST(L, END, ESZ)                                                 \
 void HELPER(sme_st1##L##END##_h)(CPUARMState *env, void *za, void *vg,     \
-                                 target_ulong addr, uint64_t desc)         \
+                                 vaddr addr, uint64_t desc)         \
 {                                                                          \
     sme_st1(env, za, vg, addr, desc, GETPC(), ESZ, 0, false,               \
             sve_st1##L##L##END##_host, sve_st1##L##L##END##_tlb);          \
 }                                                                          \
 void HELPER(sme_st1##L##END##_v)(CPUARMState *env, void *za, void *vg,     \
-                                 target_ulong addr, uint64_t desc)         \
+                                 vaddr addr, uint64_t desc)         \
 {                                                                          \
     sme_st1(env, za, vg, addr, desc, GETPC(), ESZ, 0, true,                \
             sme_st1##L##END##_v_host, sme_st1##L##END##_v_tlb);            \
 }                                                                          \
 void HELPER(sme_st1##L##END##_h_mte)(CPUARMState *env, void *za, void *vg, \
-                                     target_ulong addr, uint64_t desc)     \
+                                     vaddr addr, uint64_t desc)     \
 {                                                                          \
     sme_st1_mte(env, za, vg, addr, desc, GETPC(), ESZ, false,              \
                 sve_st1##L##L##END##_host, sve_st1##L##L##END##_tlb);      \
 }                                                                          \
 void HELPER(sme_st1##L##END##_v_mte)(CPUARMState *env, void *za, void *vg, \
-                                     target_ulong addr, uint64_t desc)     \
+                                     vaddr addr, uint64_t desc)     \
 {                                                                          \
     sme_st1_mte(env, za, vg, addr, desc, GETPC(), ESZ, true,               \
                 sme_st1##L##END##_v_host, sme_st1##L##END##_v_tlb);        \
