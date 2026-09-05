@@ -143,3 +143,23 @@ int kvm_create_guest_memfd(uint64_t size, uint64_t flags, Error **errp)
 {
     return -ENOSYS;
 }
+
+bool kvm_kernel_irqchip_allowed(void)
+{
+    return false;
+}
+
+bool kvm_kernel_irqchip_required(void)
+{
+    return false;
+}
+
+bool kvm_kernel_irqchip_split(void)
+{
+    return false;
+}
+
+int kvm_irqchip_send_msi(KVMState *s, MSIMessage msg)
+{
+    return -ENOSYS;
+}

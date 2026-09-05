@@ -4,4 +4,4 @@ kvm_ss.add(files(
   'kvm-accel-ops.c',
 ))
 
-specific_ss.add_all(when: 'CONFIG_KVM', if_true: kvm_ss)
+accel_common_ss.add_all(when: 'CONFIG_KVM', if_true: kvm_ss)

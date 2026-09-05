@@ -3709,6 +3709,7 @@ qom_ss = ss.source_set()
 system_ss = ss.source_set()
 specific_fuzz_ss = ss.source_set()
 specific_ss = ss.source_set()
+accel_common_ss = ss.source_set()
 rust_devices_ss = ss.source_set()
 stub_ss = ss.source_set()
 trace_ss = ss.source_set()
@@ -3729,6 +3730,7 @@ hw_common_arch = {}
 target_common_arch = {}
 target_common_system_arch = {}
 target_stubs_arch = {}
+target_accel_arch = {}
 
 # NOTE: the trace/ subdirectory needs the qapi_trace_events variable
 # that is filled in by qapi/.
@@ -4369,6 +4371,17 @@ foreach target : target_dirs
   arch_srcs += target_specific.sources()
   arch_deps += target_specific.dependencies()
 
+  host_accel_srcs = []
+  common_accel = accel_common_ss.apply(config_target, strict: false)
+  host_accel_srcs += common_accel.sources()
+  arch_deps += common_accel.dependencies()
+  if target_base_arch in target_accel_arch
+    target_accel = target_accel_arch[target_base_arch].apply(
+      config_target, strict: false)
+    host_accel_srcs += target_accel.sources()
+    arch_deps += target_accel.dependencies()
+  endif
+
   main_rs = []
   crates = []
   if have_rust and target_type == 'system'
@@ -4395,6 +4408,20 @@ foreach target : target_dirs
   foreach dep : arch_deps
     lib_deps += dep.partial_dependency(compile_args: true, includes: true)
   endforeach
+
+  # apply() is non-empty only for targets in accelerator_targets.
+  # aarch64 and riscv64 hosts have one donor, so one host-accel lib.
+  # x86_64 KVM and ppc64 KVM list two (i386+x86_64, ppc+ppc64).
+  host_accel_dep = []
+  if host_accel_srcs.length() != 0
+    lib_host_accel = static_library('host-accel-' + target,
+                                    sources: host_accel_srcs + genh,
+                                    dependencies: lib_deps,
+                                    include_directories: target_inc,
+                                    c_args: c_args,
+                                    build_by_default: false)
+    host_accel_dep = [declare_dependency(link_whole: lib_host_accel)]
+  endif
 
   lib = static_library('qemu-' + target,
                  sources: arch_srcs + genh,
@@ -4445,7 +4472,7 @@ foreach target : target_dirs
     emulator = executable(exe_name, exe['sources'],
                install: true,
                c_args: c_args,
-               dependencies: arch_deps + exe['dependencies'],
+               dependencies: arch_deps + exe['dependencies'] + host_accel_dep,
                objects: lib.extract_all_objects(recursive: true),
                link_depends: [block_syms, qemu_syms],
                link_args: link_args,
