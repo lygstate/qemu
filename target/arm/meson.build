@@ -1,4 +1,3 @@
-arm_ss = ss.source_set()
 arm_common_ss = ss.source_set()
 arm_common_system_ss = ss.source_set()
 arm_common_user_system_ss = ss.source_set()
@@ -9,7 +8,7 @@ arm_user_ss = ss.source_set()
 arm_common_system_ss.add(files('gdbstub.c'))
 arm_user_ss.add(files('gdbstub.c'))
 
-arm_ss.add(when: 'TARGET_AARCH64', if_true: files(
+arm_common_user_system_ss.add(files(
   'cpu64.c',
 ))
 
@@ -24,7 +23,7 @@ arm_common_user_system_ss.add(files(
   'helper.c',
   'vfp_fpscr.c',
 ))
-arm_common_user_system_ss.add(when: 'TARGET_AARCH64', if_true: files(
+arm_common_user_system_ss.add(files(
   'gdbstub64.c'
 ))
 
@@ -46,7 +45,6 @@ arm_system_ss.add(when: 'CONFIG_WHPX', if_true: files(
 
 arm_user_ss.add(files('cpu.c'))
 arm_stubs_ss.add(files(
-  'cpu32-stubs.c',
   'gicv5-stubs.c',
   'kvm-stub.c',
   'tcg-stubs.c',
@@ -78,7 +76,6 @@ endif
 arm_user_ss.add_all(arm_common_user_system_ss)
 arm_common_system_ss.add_all(arm_common_user_system_ss)
 
-target_arch += {'arm': arm_ss}
 target_system_arch += {'arm': arm_system_ss}
 target_user_arch += {'arm': arm_user_ss}
 target_common_arch += {'arm': arm_common_ss}
