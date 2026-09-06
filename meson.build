@@ -3233,32 +3233,10 @@ config_devices_h = {}
 config_target_h = {}
 config_target_mak = {}
 config_base_arch_mak = {}
-config_base_arch_target = {}
-# Preferred *-config-target.h / *-config-devices.h for each
-# TARGET_BASE_ARCH (family-common and host-accel). 64-bit or the
-# little-endian sibling. First configured softmmu of that base is
-# the fallback when the preferred target is not in this build.
-config_base_arch_target_prefer = {
-  'alpha': 'alpha-softmmu',
-  'arm': 'aarch64-softmmu',
-  'avr': 'avr-softmmu',
-  'hexagon': 'hexagon-softmmu',
-  'hppa': 'hppa-softmmu',
-  'i386': 'x86_64-softmmu',
-  'loongarch': 'loongarch64-softmmu',
-  'm68k': 'm68k-softmmu',
-  'microblaze': 'microblaze-softmmu',
-  'mips': 'mips64el-softmmu',
-  'or1k': 'or1k-softmmu',
-  'ppc': 'ppc64-softmmu',
-  'riscv': 'riscv64-softmmu',
-  'rx': 'rx-softmmu',
-  's390x': 's390x-softmmu',
-  'sh4': 'sh4-softmmu',
-  'sparc': 'sparc64-softmmu',
-  'tricore': 'tricore-softmmu',
-  'xtensa': 'xtensa-softmmu',
-}
+config_base_arch_target_union = {}
+config_base_arch_devices_union = {}
+config_base_arch_target_h = {}
+config_base_arch_devices_h = {}
 config_target_info = {}
 
 disassemblers = {
@@ -3413,7 +3391,18 @@ foreach target : target_dirs
   config_target_h += {target: configure_file(output: target + '-config-target.h',
                                                configuration: config_target_data)}
 
+  target_base_arch = config_target['TARGET_BASE_ARCH']
   if target.endswith('-softmmu')
+    t_union = config_base_arch_target_union.get(target_base_arch, {})
+    foreach k, v : config_target
+      if not k.startswith('TARGET_')
+        if k not in t_union or v == 'y'
+          t_union += {k: v}
+        endif
+      endif
+    endforeach
+    config_base_arch_target_union += {target_base_arch: t_union}
+
     target_kconfig += 'CONFIG_' + config_target['TARGET_ARCH'].to_upper() + '=y'
     target_kconfig += 'CONFIG_TARGET_BIG_ENDIAN=' + config_target['TARGET_BIG_ENDIAN']
 
@@ -3443,23 +3432,52 @@ foreach target : target_dirs
     config_devices_mak_list += config_devices_mak
     config_devices_h += {target: configure_file(output: target + '-config-devices.h',
                                                 configuration: config_devices_data)}
+    d_union = config_base_arch_devices_union.get(target_base_arch, {})
+    foreach k, v : config_devices
+      if k not in d_union or v == 'y'
+        d_union += {k: v}
+      endif
+    endforeach
+    config_base_arch_devices_union += {target_base_arch: d_union}
     config_target += config_devices
     config_all_devices += config_devices
   endif
   config_target_mak += {target: config_target}
 
   # build a merged config for all targets with the same TARGET_BASE_ARCH
-  target_base_arch = config_target['TARGET_BASE_ARCH']
   config_base_arch = config_base_arch_mak.get(target_base_arch, {}) + config_target
   config_base_arch_mak += {target_base_arch: config_base_arch}
-  if target.endswith('-softmmu')
-    preferred = config_base_arch_target_prefer.get(target_base_arch, '')
-    if target == preferred or target_base_arch not in config_base_arch_target
-      config_base_arch_target += {target_base_arch: target}
-    endif
-  endif
 endforeach
 target_dirs = actual_target_dirs
+
+foreach base, union : config_base_arch_target_union
+  data = configuration_data()
+  foreach k, v : union
+    if ignored.contains(k)
+      # do nothing
+    elif v == 'y'
+      data.set(k, 1)
+    elif v == 'n'
+      data.set(k, 0)
+    elif k.startswith('CONFIG_')
+      data.set(k, v)
+    endif
+  endforeach
+  config_base_arch_target_h += {
+    base: configure_file(output: base + '-base-config-target.h',
+                         configuration: data)}
+endforeach
+foreach base, union : config_base_arch_devices_union
+  data = configuration_data()
+  foreach k, v : union
+    if v == 'y' or v == '1'
+      data.set(k, 1)
+    endif
+  endforeach
+  config_base_arch_devices_h += {
+    base: configure_file(output: base + '-base-config-devices.h',
+                         configuration: data)}
+endforeach
 
 target_configs_h = []
 foreach target: target_dirs
@@ -4240,33 +4258,35 @@ foreach target_base_arch, config_base_arch : config_base_arch_mak
     target_stubs_arch_libs += {target_base_arch: lib}
   endif
 
-  # One host-accel lib per TARGET_BASE_ARCH. apply() uses the merged
-  # base config so a source is compiled if any sibling enables it.
-  # CONFIG_TARGET/CONFIG_DEVICES come from
-  # config_base_arch_target_prefer, or the first softmmu of that base.
+  # One host-accel lib per TARGET_BASE_ARCH. apply() uses the
+  # target CONFIG_* union plus the devices union (y wins).
   # extract_objects so these objects outrank stub archives.
   host_accel_srcs = []
   host_accel_deps = []
-  common_accel = accel_common_ss.apply(config_base_arch, strict: false)
-  host_accel_srcs += common_accel.sources()
-  host_accel_deps += common_accel.dependencies()
-  if target_base_arch in target_accel_arch
-    target_accel = target_accel_arch[target_base_arch].apply(
-      config_base_arch, strict: false)
-    host_accel_srcs += target_accel.sources()
-    host_accel_deps += target_accel.dependencies()
+  if target_base_arch in config_base_arch_target_union
+    union = config_base_arch_target_union[target_base_arch]
+    if target_base_arch in config_base_arch_devices_union
+      union += config_base_arch_devices_union[target_base_arch]
+    endif
+    common_accel = accel_common_ss.apply(union, strict: false)
+    host_accel_srcs += common_accel.sources()
+    host_accel_deps += common_accel.dependencies()
+    if target_base_arch in target_accel_arch
+      target_accel = target_accel_arch[target_base_arch].apply(
+        union, strict: false)
+      host_accel_srcs += target_accel.sources()
+      host_accel_deps += target_accel.dependencies()
+    endif
   endif
-  if (host_accel_srcs.length() != 0 and
-      target_base_arch in config_base_arch_target)
+  if host_accel_srcs.length() != 0
     accel_inc = inc
     if host_os == 'linux'
       accel_inc += include_directories('linux-headers', is_system: true)
     endif
-    donor = config_base_arch_target[target_base_arch]
     host_accel_c_args = [
       '-DCOMPILING_PER_TARGET',
-      '-DCONFIG_TARGET="@0@-config-target.h"'.format(donor),
-      '-DCONFIG_DEVICES="@0@-config-devices.h"'.format(donor),
+      '-DCONFIG_TARGET="@0@-base-config-target.h"'.format(target_base_arch),
+      '-DCONFIG_DEVICES="@0@-base-config-devices.h"'.format(target_base_arch),
       '-DCOMPILING_PER_TARGET_BASE',
     ]
     host_accel_lib_deps = []
@@ -4277,7 +4297,9 @@ foreach target_base_arch, config_base_arch : config_base_arch_mak
     lib_host_accel = static_library(
       'host-accel-' + target_base_arch,
       build_by_default: false,
-      sources: host_accel_srcs + genh,
+      sources: host_accel_srcs + genh +
+                config_base_arch_target_h[target_base_arch] +
+                config_base_arch_devices_h[target_base_arch],
       include_directories: accel_inc,
       c_args: host_accel_c_args,
       dependencies: host_accel_lib_deps + common_deps + system_deps)

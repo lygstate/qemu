@@ -40,7 +40,6 @@
  * Do not use TARGET_LONG_BITS; use target_long_bits() /
  * target_x86_64() and friends.
  */
-#include "exec/poison-target-undef.h"
 #include "exec/poison-target-arch.h"
 #endif
 #else
