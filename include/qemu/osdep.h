@@ -34,6 +34,15 @@
 #include "config-host.h"
 #ifdef COMPILING_PER_TARGET
 #include CONFIG_TARGET
+#ifdef COMPILING_PER_TARGET_BASE
+/*
+ * COMPILING_PER_TARGET_BASE is only valid under COMPILING_PER_TARGET.
+ * Do not use TARGET_LONG_BITS; use target_long_bits() /
+ * target_x86_64() and friends.
+ */
+#include "exec/poison-target-undef.h"
+#include "exec/poison-target-arch.h"
+#endif
 #else
 #include "exec/poison.h"
 #endif

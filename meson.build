@@ -3233,6 +3233,32 @@ config_devices_h = {}
 config_target_h = {}
 config_target_mak = {}
 config_base_arch_mak = {}
+config_base_arch_target = {}
+# Preferred *-config-target.h / *-config-devices.h for each
+# TARGET_BASE_ARCH (family-common and host-accel). 64-bit or the
+# little-endian sibling. First configured softmmu of that base is
+# the fallback when the preferred target is not in this build.
+config_base_arch_target_prefer = {
+  'alpha': 'alpha-softmmu',
+  'arm': 'aarch64-softmmu',
+  'avr': 'avr-softmmu',
+  'hexagon': 'hexagon-softmmu',
+  'hppa': 'hppa-softmmu',
+  'i386': 'x86_64-softmmu',
+  'loongarch': 'loongarch64-softmmu',
+  'm68k': 'm68k-softmmu',
+  'microblaze': 'microblaze-softmmu',
+  'mips': 'mips64el-softmmu',
+  'or1k': 'or1k-softmmu',
+  'ppc': 'ppc64-softmmu',
+  'riscv': 'riscv64-softmmu',
+  'rx': 'rx-softmmu',
+  's390x': 's390x-softmmu',
+  'sh4': 'sh4-softmmu',
+  'sparc': 'sparc64-softmmu',
+  'tricore': 'tricore-softmmu',
+  'xtensa': 'xtensa-softmmu',
+}
 config_target_info = {}
 
 disassemblers = {
@@ -3426,6 +3452,12 @@ foreach target : target_dirs
   target_base_arch = config_target['TARGET_BASE_ARCH']
   config_base_arch = config_base_arch_mak.get(target_base_arch, {}) + config_target
   config_base_arch_mak += {target_base_arch: config_base_arch}
+  if target.endswith('-softmmu')
+    preferred = config_base_arch_target_prefer.get(target_base_arch, '')
+    if target == preferred or target_base_arch not in config_base_arch_target
+      config_base_arch_target += {target_base_arch: target}
+    endif
+  endif
 endforeach
 target_dirs = actual_target_dirs
 
@@ -4138,6 +4170,7 @@ common_all = static_library('common',
 target_common_arch_libs = {}
 target_common_system_arch_libs = {}
 target_stubs_arch_libs = {}
+host_accel_arch_objects = {}
 foreach target_base_arch, config_base_arch : config_base_arch_mak
   target_inc = [include_directories('target' / target_base_arch)]
   inc = [common_user_inc + target_inc]
@@ -4205,6 +4238,52 @@ foreach target_base_arch, config_base_arch : config_base_arch_mak
                          include_directories: inc,
                          c_args: target_system_c_args)
     target_stubs_arch_libs += {target_base_arch: lib}
+  endif
+
+  # One host-accel lib per TARGET_BASE_ARCH. apply() uses the merged
+  # base config so a source is compiled if any sibling enables it.
+  # CONFIG_TARGET/CONFIG_DEVICES come from
+  # config_base_arch_target_prefer, or the first softmmu of that base.
+  # extract_objects so these objects outrank stub archives.
+  host_accel_srcs = []
+  host_accel_deps = []
+  common_accel = accel_common_ss.apply(config_base_arch, strict: false)
+  host_accel_srcs += common_accel.sources()
+  host_accel_deps += common_accel.dependencies()
+  if target_base_arch in target_accel_arch
+    target_accel = target_accel_arch[target_base_arch].apply(
+      config_base_arch, strict: false)
+    host_accel_srcs += target_accel.sources()
+    host_accel_deps += target_accel.dependencies()
+  endif
+  if (host_accel_srcs.length() != 0 and
+      target_base_arch in config_base_arch_target)
+    accel_inc = inc
+    if host_os == 'linux'
+      accel_inc += include_directories('linux-headers', is_system: true)
+    endif
+    donor = config_base_arch_target[target_base_arch]
+    host_accel_c_args = [
+      '-DCOMPILING_PER_TARGET',
+      '-DCONFIG_TARGET="@0@-config-target.h"'.format(donor),
+      '-DCONFIG_DEVICES="@0@-config-devices.h"'.format(donor),
+      '-DCOMPILING_PER_TARGET_BASE',
+    ]
+    host_accel_lib_deps = []
+    foreach dep : host_accel_deps
+      host_accel_lib_deps += dep.partial_dependency(
+        compile_args: true, includes: true)
+    endforeach
+    lib_host_accel = static_library(
+      'host-accel-' + target_base_arch,
+      build_by_default: false,
+      sources: host_accel_srcs + genh,
+      include_directories: accel_inc,
+      c_args: host_accel_c_args,
+      dependencies: host_accel_lib_deps + common_deps + system_deps)
+    host_accel_arch_objects += {
+      target_base_arch: lib_host_accel.extract_objects(host_accel_srcs)
+    }
   endif
 endforeach
 
@@ -4385,6 +4464,9 @@ foreach target : target_dirs
     objects += lib.extract_objects(src.sources())
     arch_deps += src.dependencies()
   endif
+  if target_type == 'system' and target_base_arch in host_accel_arch_objects
+    objects += host_accel_arch_objects[target_base_arch]
+  endif
   lib_target_stubs = []
   if target_base_arch in target_stubs_arch_libs
     lib_target_stubs = [target_stubs_arch_libs[target_base_arch]]
@@ -4396,14 +4478,11 @@ foreach target : target_dirs
   arch_deps += target_specific.dependencies()
   arch_srcs += per_target_srcs
 
-  host_accel_srcs = []
   common_accel = accel_common_ss.apply(config_target, strict: false)
-  host_accel_srcs += common_accel.sources()
   arch_deps += common_accel.dependencies()
   if target_base_arch in target_accel_arch
     target_accel = target_accel_arch[target_base_arch].apply(
       config_target, strict: false)
-    host_accel_srcs += target_accel.sources()
     arch_deps += target_accel.dependencies()
   endif
 
@@ -4434,20 +4513,6 @@ foreach target : target_dirs
     lib_deps += dep.partial_dependency(compile_args: true, includes: true)
   endforeach
 
-  # apply() is non-empty only for targets in accelerator_targets.
-  # aarch64 and riscv64 hosts have one donor, so one host-accel lib.
-  # x86_64 KVM and ppc64 KVM list two (i386+x86_64, ppc+ppc64).
-  host_accel_dep = []
-  if host_accel_srcs.length() != 0
-    lib_host_accel = static_library('host-accel-' + target,
-                                    sources: host_accel_srcs + genh,
-                                    dependencies: lib_deps,
-                                    include_directories: target_inc,
-                                    c_args: c_args,
-                                    build_by_default: false)
-    host_accel_dep = [declare_dependency(link_whole: lib_host_accel)]
-  endif
-
   lib = static_library('qemu-' + target,
                  sources: arch_srcs + genh,
                  dependencies: lib_deps,
@@ -4473,7 +4538,6 @@ foreach target : target_dirs
       single_binary_bases += {target_base_arch: true}
       single_binary_deps += arch_deps
       single_binary_deps += target_stubs
-      single_binary_deps += host_accel_dep
       single_binary_crates += main_rs
       single_binary_available = true
     elif target in single_binary_target_info_only
@@ -4520,7 +4584,7 @@ foreach target : target_dirs
     emulator = executable(exe_name, exe['sources'],
                install: true,
                c_args: c_args,
-               dependencies: arch_deps + exe['dependencies'] + host_accel_dep,
+               dependencies: arch_deps + exe['dependencies'],
                objects: lib.extract_all_objects(recursive: true),
                link_depends: [block_syms, qemu_syms],
                link_args: link_args,
@@ -4567,8 +4631,9 @@ endforeach
 # (the real PXB object, not the stub). single_binary_bases is each CPU
 # family once (arm, not both arm-softmmu and aarch64-softmmu) so common
 # CPU/board objects are extracted once per family. Each qemu-* lib
-# contributes target-info-def.c (one TargetInfo per TARGET_NAME) plus
-# host-accel-$target (link_whole) for the guest this host can accelerate.
+# contributes target-info-def.c (one TargetInfo per TARGET_NAME).
+# host-accel-$base objects are extracted once per TARGET_BASE_ARCH
+# so real accel code outranks stubs.
 if single_binary_available
   single_binary_objects = []
   target_common = common_ss.apply(single_binary_config, strict: false)
@@ -4592,6 +4657,9 @@ if single_binary_available
       single_binary_objects += target_common_system_arch_libs[base].extract_objects(
         src.sources())
       single_binary_deps += src.dependencies()
+    endif
+    if base in host_accel_arch_objects
+      single_binary_objects += host_accel_arch_objects[base]
     endif
   endforeach
   single_binary_objects += single_binary_target_info_objects
