@@ -1,1 +1,1 @@
-system_ss.add(when: 'CONFIG_XEN', if_true: files('xen-all.c'))
+accel_common_ss.add(when: 'CONFIG_XEN', if_true: files('xen-all.c'))
