@@ -18,6 +18,8 @@
 #include "hw/xen/xen_igd.h"
 #include "chardev/char.h"
 #include "qemu/accel.h"
+#include "qemu/target-info-impl.h"
+#include "qemu/base-arch-defs.h"
 #include "accel/dummy-cpus.h"
 #include "accel/accel-ops.h"
 #include "accel/accel-cpu-ops.h"
@@ -143,10 +145,26 @@ static void xen_accel_class_init(ObjectClass *oc, const void *data)
 
 #define TYPE_XEN_ACCEL ACCEL_CLASS_NAME("xen")
 
+static bool xen_accel_is_available(const TargetInfo *ti)
+{
+    switch (qemu_host_arch()) {
+    case SYS_EMU_TARGET_X86_64:
+        return ti->target_arch == SYS_EMU_TARGET_I386 ||
+               ti->target_arch == SYS_EMU_TARGET_X86_64;
+    case SYS_EMU_TARGET_AARCH64:
+        return ti->target_arch == SYS_EMU_TARGET_I386 ||
+               ti->target_arch == SYS_EMU_TARGET_X86_64 ||
+               ti->target_arch == SYS_EMU_TARGET_AARCH64;
+    default:
+        return false;
+    }
+}
+
 static const TypeInfo xen_accel_type = {
     .name = TYPE_XEN_ACCEL,
     .parent = TYPE_ACCEL,
     .class_init = xen_accel_class_init,
+    .is_available = xen_accel_is_available,
 };
 
 static void xen_accel_ops_class_init(ObjectClass *oc, const void *data)

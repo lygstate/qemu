@@ -33,6 +33,8 @@
 #include "qemu/module.h"
 #include "qemu/rcu.h"
 #include "qemu/accel.h"
+#include "qemu/target-info-impl.h"
+#include "qemu/base-arch-defs.h"
 #include "qemu/guest-random.h"
 #include "qemu/main-loop.h"
 #include "accel/accel-ops.h"
@@ -246,11 +248,17 @@ static void nitro_accel_class_init(ObjectClass *oc, const void *data)
         "Enclave CID (0 = auto-assigned by Nitro)");
 }
 
+static bool nitro_accel_is_available(const TargetInfo *ti)
+{
+    return ti->target_arch == qemu_host_arch();
+}
+
 static const TypeInfo nitro_accel_type = {
     .name = TYPE_NITRO_ACCEL,
     .parent = TYPE_ACCEL,
     .instance_size = sizeof(NitroAccelState),
     .class_init = nitro_accel_class_init,
+    .is_available = nitro_accel_is_available,
 };
 module_obj(TYPE_NITRO_ACCEL);
 
