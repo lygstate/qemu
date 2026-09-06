@@ -52,7 +52,7 @@ static void riscv_cpu_set_geilen(CPURISCVState *env, uint8_t geilen)
         return;
     }
 
-    if (geilen > (TARGET_LONG_BITS - 1)) {
+    if (geilen > (target_long_bits() - 1)) {
         return;
     }
 
