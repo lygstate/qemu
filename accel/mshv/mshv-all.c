@@ -28,6 +28,8 @@
 #include "linux/mshv.h"
 
 #include "qemu/accel.h"
+#include "qemu/target-info-impl.h"
+#include "qemu/base-arch-defs.h"
 #include "qemu/guest-random.h"
 #include "accel/accel-ops.h"
 #include "accel/accel-cpu-ops.h"
@@ -808,12 +810,18 @@ static void mshv_accel_instance_init(Object *obj)
     s->vm = 0;
 }
 
+static bool mshv_accel_is_available(const TargetInfo *ti)
+{
+    return ti->target_arch == qemu_host_arch();
+}
+
 static const TypeInfo mshv_accel_type = {
     .name = TYPE_MSHV_ACCEL,
     .parent = TYPE_ACCEL,
     .instance_init = mshv_accel_instance_init,
     .class_init = mshv_accel_class_init,
     .instance_size = sizeof(MshvState),
+    .is_available = mshv_accel_is_available,
 };
 
 /*
