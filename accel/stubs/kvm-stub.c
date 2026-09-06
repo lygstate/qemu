@@ -49,6 +49,11 @@ int kvm_irqchip_add_msi_route(AccelRouteChange *c, int vector, PCIDevice *dev)
     return -ENOSYS;
 }
 
+int kvm_irqchip_send_msi(KVMState *s, MSIMessage msg)
+{
+    return -ENOSYS;
+}
+
 void kvm_init_irq_routing(KVMState *s)
 {
 }
@@ -77,6 +82,11 @@ void kvm_irqchip_remove_change_notifier(Notifier *n)
 
 void kvm_irqchip_change_notify(void)
 {
+}
+
+bool kvm_kernel_irqchip_split(void)
+{
+    return false;
 }
 
 void kvm_vmfd_add_change_notifier(NotifierWithReturn *n)
