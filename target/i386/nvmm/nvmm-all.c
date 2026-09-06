@@ -12,6 +12,8 @@
 #include "system/address-spaces.h"
 #include "system/ioport.h"
 #include "qemu/accel.h"
+#include "qemu/target-info-impl.h"
+#include "qemu/base-arch-defs.h"
 #include "accel/accel-ops.h"
 #include "system/nvmm.h"
 #include "system/cpus.h"
@@ -1206,10 +1208,22 @@ nvmm_accel_class_init(ObjectClass *oc, const void *data)
     ac->allowed = &nvmm_allowed;
 }
 
+static bool nvmm_accel_is_available(const TargetInfo *ti)
+{
+    switch (qemu_host_arch()) {
+    case SYS_EMU_TARGET_X86_64:
+        return ti->target_arch == SYS_EMU_TARGET_I386 ||
+               ti->target_arch == SYS_EMU_TARGET_X86_64;
+    default:
+        return false;
+    }
+}
+
 static const TypeInfo nvmm_accel_type = {
     .name = ACCEL_CLASS_NAME("nvmm"),
     .parent = TYPE_ACCEL,
     .class_init = nvmm_accel_class_init,
+    .is_available = nvmm_accel_is_available,
 };
 
 static void nvmm_cpu_instance_init(CPUState *cs)
