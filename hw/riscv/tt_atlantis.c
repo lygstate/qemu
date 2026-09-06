@@ -696,6 +696,7 @@ static const TypeInfo tt_atlantis_types[] = {
     }, {
         .name       = MACHINE_TYPE_NAME("tt-atlantis"),
         .parent     = TYPE_MACHINE,
+        .is_available = target_is_base_riscv,
         .class_init = tt_atlantis_machine_class_init,
         .instance_size = sizeof(TTAtlantisState),
     },
