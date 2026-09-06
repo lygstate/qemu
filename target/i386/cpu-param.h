@@ -8,7 +8,9 @@
 #ifndef I386_CPU_PARAM_H
 #define I386_CPU_PARAM_H
 
-#ifdef TARGET_X86_64
+#ifdef COMPILING_HOST_ACCEL
+# define TARGET_VIRT_ADDR_SPACE_BITS  47
+#elif defined(TARGET_X86_64)
 /*
  * ??? This is really 48 bits, sign-extended, but the only thing
  * accessible to userland with bit 48 set is the VSYSCALL, and that

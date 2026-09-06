@@ -8,6 +8,7 @@
  */
 
 #include "qemu/osdep.h"
+#include "qemu/target-info.h"
 #include "cpu.h"
 #include "system/address-spaces.h"
 #include "system/ioport.h"
@@ -103,16 +104,16 @@ nvmm_set_registers(CPUState *cpu)
     state->gprs[NVMM_X64_GPR_RBP] = env->regs[R_EBP];
     state->gprs[NVMM_X64_GPR_RSI] = env->regs[R_ESI];
     state->gprs[NVMM_X64_GPR_RDI] = env->regs[R_EDI];
-#ifdef TARGET_X86_64
-    state->gprs[NVMM_X64_GPR_R8]  = env->regs[R_R8];
-    state->gprs[NVMM_X64_GPR_R9]  = env->regs[R_R9];
-    state->gprs[NVMM_X64_GPR_R10] = env->regs[R_R10];
-    state->gprs[NVMM_X64_GPR_R11] = env->regs[R_R11];
-    state->gprs[NVMM_X64_GPR_R12] = env->regs[R_R12];
-    state->gprs[NVMM_X64_GPR_R13] = env->regs[R_R13];
-    state->gprs[NVMM_X64_GPR_R14] = env->regs[R_R14];
-    state->gprs[NVMM_X64_GPR_R15] = env->regs[R_R15];
-#endif
+    if (target_x86_64()) {
+        state->gprs[NVMM_X64_GPR_R8]  = env->regs[R_R8];
+        state->gprs[NVMM_X64_GPR_R9]  = env->regs[R_R9];
+        state->gprs[NVMM_X64_GPR_R10] = env->regs[R_R10];
+        state->gprs[NVMM_X64_GPR_R11] = env->regs[R_R11];
+        state->gprs[NVMM_X64_GPR_R12] = env->regs[R_R12];
+        state->gprs[NVMM_X64_GPR_R13] = env->regs[R_R13];
+        state->gprs[NVMM_X64_GPR_R14] = env->regs[R_R14];
+        state->gprs[NVMM_X64_GPR_R15] = env->regs[R_R15];
+    }
 
     /* RIP and RFLAGS. */
     state->gprs[NVMM_X64_GPR_RIP] = env->eip;
@@ -162,7 +163,7 @@ nvmm_set_registers(CPUState *cpu)
     state->fpu.fx_mxcsr_mask = 0x0000FFFF;
     assert(sizeof(state->fpu.fx_87_ac) == sizeof(env->fpregs));
     memcpy(state->fpu.fx_87_ac, env->fpregs, sizeof(env->fpregs));
-    for (i = 0; i < CPU_NB_REGS; i++) {
+    for (i = 0; i < CPU_NB_REGS64; i++) {
         memcpy(&state->fpu.fx_xmm[i].xmm_bytes[0],
             &env->xmm_regs[i].ZMM_Q(0), 8);
         memcpy(&state->fpu.fx_xmm[i].xmm_bytes[8],
@@ -172,12 +173,12 @@ nvmm_set_registers(CPUState *cpu)
     /* MSRs. */
     state->msrs[NVMM_X64_MSR_EFER] = env->efer;
     state->msrs[NVMM_X64_MSR_STAR] = env->star;
-#ifdef TARGET_X86_64
-    state->msrs[NVMM_X64_MSR_LSTAR] = env->lstar;
-    state->msrs[NVMM_X64_MSR_CSTAR] = env->cstar;
-    state->msrs[NVMM_X64_MSR_SFMASK] = env->fmask;
-    state->msrs[NVMM_X64_MSR_KERNELGSBASE] = env->kernelgsbase;
-#endif
+    if (target_x86_64()) {
+        state->msrs[NVMM_X64_MSR_LSTAR] = env->lstar;
+        state->msrs[NVMM_X64_MSR_CSTAR] = env->cstar;
+        state->msrs[NVMM_X64_MSR_SFMASK] = env->fmask;
+        state->msrs[NVMM_X64_MSR_KERNELGSBASE] = env->kernelgsbase;
+    }
     state->msrs[NVMM_X64_MSR_SYSENTER_CS]  = env->sysenter_cs;
     state->msrs[NVMM_X64_MSR_SYSENTER_ESP] = env->sysenter_esp;
     state->msrs[NVMM_X64_MSR_SYSENTER_EIP] = env->sysenter_eip;
@@ -255,16 +256,16 @@ nvmm_get_registers(CPUState *cpu)
     env->regs[R_EBP] = state->gprs[NVMM_X64_GPR_RBP];
     env->regs[R_ESI] = state->gprs[NVMM_X64_GPR_RSI];
     env->regs[R_EDI] = state->gprs[NVMM_X64_GPR_RDI];
-#ifdef TARGET_X86_64
-    env->regs[R_R8]  = state->gprs[NVMM_X64_GPR_R8];
-    env->regs[R_R9]  = state->gprs[NVMM_X64_GPR_R9];
-    env->regs[R_R10] = state->gprs[NVMM_X64_GPR_R10];
-    env->regs[R_R11] = state->gprs[NVMM_X64_GPR_R11];
-    env->regs[R_R12] = state->gprs[NVMM_X64_GPR_R12];
-    env->regs[R_R13] = state->gprs[NVMM_X64_GPR_R13];
-    env->regs[R_R14] = state->gprs[NVMM_X64_GPR_R14];
-    env->regs[R_R15] = state->gprs[NVMM_X64_GPR_R15];
-#endif
+    if (target_x86_64()) {
+        env->regs[R_R8]  = state->gprs[NVMM_X64_GPR_R8];
+        env->regs[R_R9]  = state->gprs[NVMM_X64_GPR_R9];
+        env->regs[R_R10] = state->gprs[NVMM_X64_GPR_R10];
+        env->regs[R_R11] = state->gprs[NVMM_X64_GPR_R11];
+        env->regs[R_R12] = state->gprs[NVMM_X64_GPR_R12];
+        env->regs[R_R13] = state->gprs[NVMM_X64_GPR_R13];
+        env->regs[R_R14] = state->gprs[NVMM_X64_GPR_R14];
+        env->regs[R_R15] = state->gprs[NVMM_X64_GPR_R15];
+    }
 
     /* RIP and RFLAGS. */
     env->eip = state->gprs[NVMM_X64_GPR_RIP];
@@ -317,7 +318,7 @@ nvmm_get_registers(CPUState *cpu)
     env->mxcsr = state->fpu.fx_mxcsr;
     assert(sizeof(state->fpu.fx_87_ac) == sizeof(env->fpregs));
     memcpy(env->fpregs, state->fpu.fx_87_ac, sizeof(env->fpregs));
-    for (i = 0; i < CPU_NB_REGS; i++) {
+    for (i = 0; i < CPU_NB_REGS64; i++) {
         memcpy(&env->xmm_regs[i].ZMM_Q(0),
             &state->fpu.fx_xmm[i].xmm_bytes[0], 8);
         memcpy(&env->xmm_regs[i].ZMM_Q(1),
@@ -327,12 +328,12 @@ nvmm_get_registers(CPUState *cpu)
     /* MSRs. */
     env->efer = state->msrs[NVMM_X64_MSR_EFER];
     env->star = state->msrs[NVMM_X64_MSR_STAR];
-#ifdef TARGET_X86_64
-    env->lstar = state->msrs[NVMM_X64_MSR_LSTAR];
-    env->cstar = state->msrs[NVMM_X64_MSR_CSTAR];
-    env->fmask = state->msrs[NVMM_X64_MSR_SFMASK];
-    env->kernelgsbase = state->msrs[NVMM_X64_MSR_KERNELGSBASE];
-#endif
+    if (target_x86_64()) {
+        env->lstar = state->msrs[NVMM_X64_MSR_LSTAR];
+        env->cstar = state->msrs[NVMM_X64_MSR_CSTAR];
+        env->fmask = state->msrs[NVMM_X64_MSR_SFMASK];
+        env->kernelgsbase = state->msrs[NVMM_X64_MSR_KERNELGSBASE];
+    }
     env->sysenter_cs  = state->msrs[NVMM_X64_MSR_SYSENTER_CS];
     env->sysenter_esp = state->msrs[NVMM_X64_MSR_SYSENTER_ESP];
     env->sysenter_eip = state->msrs[NVMM_X64_MSR_SYSENTER_EIP];

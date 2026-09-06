@@ -43,10 +43,10 @@
  * simplifications obtained by storing flags in three words rather than two.
  */
 
-#define LF_SIGN_BIT    (TARGET_LONG_BITS - 1)
+#define LF_SIGN_BIT    (target_long_bits() - 1)
 
-#define LF_BIT_CF      (TARGET_LONG_BITS - 1) /* lazy Carry Flag */
-#define LF_BIT_PO      (TARGET_LONG_BITS - 2) /* lazy Partial Overflow = CF ^ OF */
+#define LF_BIT_CF      (target_long_bits() - 1) /* lazy Carry Flag */
+#define LF_BIT_PO      (target_long_bits() - 2) /* lazy Partial Overflow = CF ^ OF */
 
 #define LF_MASK_CF     ((target_ulong)0x01 << LF_BIT_CF)
 #define LF_MASK_PO     ((target_ulong)0x01 << LF_BIT_PO)
@@ -63,7 +63,7 @@
 #define SET_FLAGS_OSZAPC_SIZE(size, lf_carries, lf_result) { \
     env->cc_dst = env->cc_src2 = (target_ulong)(int##size##_t)(lf_result); \
     target_ulong temp = (lf_carries) & MAKE_64BIT_MASK(0, size); \
-    temp |= temp << (TARGET_LONG_BITS - (size)); \
+    temp |= temp << (target_long_bits() - (size)); \
     env->cc_src = temp; \
 }
 
@@ -74,10 +74,8 @@
     SET_FLAGS_OSZAPC_SIZE(16, carries, result)
 #define SET_FLAGS_OSZAPC_32(carries, result) \
     SET_FLAGS_OSZAPC_SIZE(32, carries, result)
-#ifdef TARGET_X86_64
 #define SET_FLAGS_OSZAPC_64(carries, result) \
     SET_FLAGS_OSZAPC_SIZE(64, carries, result)
-#endif
 
 /* ******************* */
 /* OSZAP */
@@ -87,7 +85,7 @@
 #define SET_FLAGS_OSZAP_SIZE(size, lf_carries, lf_result) { \
     env->cc_dst = env->cc_src2 = (target_ulong)(int##size##_t)(lf_result); \
     target_ulong temp = (lf_carries) & MAKE_64BIT_MASK(0, size); \
-    temp |= temp << (TARGET_LONG_BITS - (size)); \
+    temp |= temp << (target_long_bits() - (size)); \
     target_ulong cf_changed = ((target_long)(env->cc_src ^ temp)) < 0; \
     env->cc_src = temp ^ (cf_changed * (LF_MASK_PO | LF_MASK_CF)); \
 }
@@ -99,10 +97,8 @@
     SET_FLAGS_OSZAP_SIZE(16, carries, result)
 #define SET_FLAGS_OSZAP_32(carries, result) \
     SET_FLAGS_OSZAP_SIZE(32, carries, result)
-#ifdef TARGET_X86_64
 #define SET_FLAGS_OSZAP_64(carries, result) \
     SET_FLAGS_OSZAP_SIZE(64, carries, result)
-#endif
 
 void SET_FLAGS_OxxxxC(CPUX86State *env, bool new_of, bool new_cf)
 {
@@ -111,13 +107,11 @@ void SET_FLAGS_OxxxxC(CPUX86State *env, bool new_of, bool new_cf)
     env->cc_src ^= ((target_ulong)new_of << LF_BIT_PO);
 }
 
-#ifdef TARGET_X86_64
 void SET_FLAGS_OSZAPC_SUB64(CPUX86State *env, uint64_t v1, uint64_t v2,
                             uint64_t diff)
 {
     SET_FLAGS_OSZAPC_64(SUB_COUT_VEC(v1, v2, diff), diff);
 }
-#endif
 
 void SET_FLAGS_OSZAPC_SUB32(CPUX86State *env, uint32_t v1, uint32_t v2,
                             uint32_t diff)
@@ -137,13 +131,11 @@ void SET_FLAGS_OSZAPC_SUB8(CPUX86State *env, uint8_t v1, uint8_t v2,
     SET_FLAGS_OSZAPC_8(SUB_COUT_VEC(v1, v2, diff), diff);
 }
 
-#ifdef TARGET_X86_64
 void SET_FLAGS_OSZAPC_ADD64(CPUX86State *env, uint64_t v1, uint64_t v2,
                             uint64_t diff)
 {
     SET_FLAGS_OSZAPC_64(ADD_COUT_VEC(v1, v2, diff), diff);
 }
-#endif
 
 void SET_FLAGS_OSZAPC_ADD32(CPUX86State *env, uint32_t v1, uint32_t v2,
                             uint32_t diff)
@@ -163,13 +155,11 @@ void SET_FLAGS_OSZAPC_ADD8(CPUX86State *env, uint8_t v1, uint8_t v2,
     SET_FLAGS_OSZAPC_8(ADD_COUT_VEC(v1, v2, diff), diff);
 }
 
-#ifdef TARGET_X86_64
 void SET_FLAGS_OSZAP_SUB64(CPUX86State *env, uint64_t v1, uint64_t v2,
                             uint64_t diff)
 {
     SET_FLAGS_OSZAP_64(SUB_COUT_VEC(v1, v2, diff), diff);
 }
-#endif
 
 void SET_FLAGS_OSZAP_SUB32(CPUX86State *env, uint32_t v1, uint32_t v2,
                             uint32_t diff)
@@ -189,13 +179,11 @@ void SET_FLAGS_OSZAP_SUB8(CPUX86State *env, uint8_t v1, uint8_t v2,
     SET_FLAGS_OSZAP_8(SUB_COUT_VEC(v1, v2, diff), diff);
 }
 
-#ifdef TARGET_X86_64
 void SET_FLAGS_OSZAP_ADD64(CPUX86State *env, uint64_t v1, uint64_t v2,
                             uint64_t diff)
 {
     SET_FLAGS_OSZAP_64(ADD_COUT_VEC(v1, v2, diff), diff);
 }
-#endif
 
 void SET_FLAGS_OSZAP_ADD32(CPUX86State *env, uint32_t v1, uint32_t v2,
                             uint32_t diff)
@@ -215,13 +203,11 @@ void SET_FLAGS_OSZAP_ADD8(CPUX86State *env, uint8_t v1, uint8_t v2,
     SET_FLAGS_OSZAP_8(ADD_COUT_VEC(v1, v2, diff), diff);
 }
 
-#ifdef TARGET_X86_64
 void SET_FLAGS_OSZAPC_LOGIC64(CPUX86State *env, uint64_t v1, uint64_t v2,
                             uint64_t diff)
 {
     SET_FLAGS_OSZAPC_64(0, diff);
 }
-#endif
 
 void SET_FLAGS_OSZAPC_LOGIC32(CPUX86State *env, uint32_t v1, uint32_t v2,
                               uint32_t diff)
@@ -280,7 +266,7 @@ void lflags_to_rflags(CPUX86State *env)
     /* rotate left by one to move carry-out bits into CF and AF */
     env->eflags |= (
         (env->cc_src << 1) |
-        (env->cc_src >> (TARGET_LONG_BITS - 1))) & (CC_C | CC_A);
+        (env->cc_src >> (target_long_bits() - 1))) & (CC_C | CC_A);
     env->eflags |= get_SF(env);
     env->eflags |= get_PF(env);
     env->eflags |= get_ZF(env);
@@ -298,7 +284,7 @@ void rflags_to_lflags(CPUX86State *env)
 
     /* rotate right by one to move CF and AF into the carry-out positions */
     cf_af = env->eflags & (CC_C | CC_A);
-    env->cc_src = ((cf_af >> 1) | (cf_af << (TARGET_LONG_BITS - 1)));
+    env->cc_src = ((cf_af >> 1) | (cf_af << (target_long_bits() - 1)));
 
     cf_xor_of = ((env->eflags & (CC_C | CC_O)) + (CC_O - CC_C)) & CC_O;
     env->cc_src |= -cf_xor_of & LF_MASK_PO;

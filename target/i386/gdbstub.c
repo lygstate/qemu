@@ -27,7 +27,7 @@
 #endif
 
 #ifdef TARGET_X86_64
-static const int gpr_map[CPU_NB_EREGS] = {
+static const int gpr_map[CPU_NB_EREGS64] = {
     R_EAX, R_EBX, R_ECX, R_EDX, R_ESI, R_EDI, R_EBP, R_ESP,
     R_R8, R_R9, R_R10, R_R11, R_R12, R_R13, R_R14, R_R15,
     R_R16, R_R17, R_R18, R_R19, R_R20, R_R21, R_R22, R_R23,
@@ -62,13 +62,13 @@ static const int gpr_map32[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
  *          total ----> 8+1+1+9+6+16+8+1=50 or 16+1+1+9+6+16+16+1=66
  */
 
-#define IDX_IP_REG      CPU_NB_REGS
+#define IDX_IP_REG      CPU_NB_REGS_T
 #define IDX_FLAGS_REG   (IDX_IP_REG + IDX_NB_IP)
 #define IDX_SEG_REGS    (IDX_FLAGS_REG + IDX_NB_FLAGS)
 #define IDX_CTL_REGS    (IDX_SEG_REGS + IDX_NB_SEG)
 #define IDX_FP_REGS     (IDX_CTL_REGS + IDX_NB_CTL)
 #define IDX_XMM_REGS    (IDX_FP_REGS + IDX_NB_FP)
-#define IDX_MXCSR_REG   (IDX_XMM_REGS + CPU_NB_REGS)
+#define IDX_MXCSR_REG   (IDX_XMM_REGS + CPU_NB_REGS_T)
 
 #define IDX_CTL_CR0_REG     (IDX_CTL_REGS + 0)
 #define IDX_CTL_CR2_REG     (IDX_CTL_REGS + 1)
@@ -119,7 +119,7 @@ int x86_cpu_gdb_read_register(CPUState *cs, GByteArray *mem_buf, int n)
        of a session. So if we're in 32-bit mode on a 64-bit cpu, still act
        as if we're on a 64-bit cpu. */
 
-    if (n < CPU_NB_REGS) {
+    if (n < cpu_nb_regs()) {
         if (TARGET_LONG_BITS == 64) {
             if (env->hflags & HF_CS64_MASK) {
                 return gdb_get_reg64(mem_buf, env->regs[gpr_map[n]]);
@@ -139,7 +139,7 @@ int x86_cpu_gdb_read_register(CPUState *cs, GByteArray *mem_buf, int n)
         int len = gdb_get_reg64(mem_buf, cpu_to_le64(fp->low));
         len += gdb_get_reg16(mem_buf, cpu_to_le16(fp->high));
         return len;
-    } else if (n >= IDX_XMM_REGS && n < IDX_XMM_REGS + CPU_NB_REGS) {
+    } else if (n >= IDX_XMM_REGS && n < IDX_XMM_REGS + cpu_nb_regs()) {
         n -= IDX_XMM_REGS;
         if (n < CPU_NB_REGS32 || TARGET_LONG_BITS == 64) {
             return gdb_get_reg128(mem_buf,
@@ -278,7 +278,7 @@ int x86_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
        of a session. So if we're in 32-bit mode on a 64-bit cpu, still act
        as if we're on a 64-bit cpu. */
 
-    if (n < CPU_NB_REGS) {
+    if (n < cpu_nb_regs()) {
         if (TARGET_LONG_BITS == 64) {
             if (env->hflags & HF_CS64_MASK) {
                 env->regs[gpr_map[n]] = ldq_p(mem_buf);
@@ -297,7 +297,7 @@ int x86_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
         fp->low = le64_to_cpu(* (uint64_t *) mem_buf);
         fp->high = le16_to_cpu(* (uint16_t *) (mem_buf + 8));
         return 10;
-    } else if (n >= IDX_XMM_REGS && n < IDX_XMM_REGS + CPU_NB_REGS) {
+    } else if (n >= IDX_XMM_REGS && n < IDX_XMM_REGS + cpu_nb_regs()) {
         n -= IDX_XMM_REGS;
         if (n < CPU_NB_REGS32 || TARGET_LONG_BITS == 64) {
             env->xmm_regs[n].ZMM_Q(0) = ldq_p(mem_buf);
@@ -446,7 +446,7 @@ static int i386_cpu_gdb_get_egprs(CPUState *cs, GByteArray *mem_buf, int n)
     if (n >= 0 && n < EGPR_NUM) {
         /* EGPRs can be only directly accessible in 64-bit mode. */
         if (env->hflags & HF_CS64_MASK) {
-            return gdb_get_reg64(mem_buf, env->regs[gpr_map[n + CPU_NB_REGS]]);
+            return gdb_get_reg64(mem_buf, env->regs[gpr_map[n + cpu_nb_regs()]]);
         } else if (TARGET_LONG_BITS == 64) {
             return gdb_get_reg64(mem_buf, 0);
         } else {
@@ -468,7 +468,7 @@ static int i386_cpu_gdb_set_egprs(CPUState *cs, uint8_t *mem_buf, int n)
          * XCR0[APX_F] (at least for modification in gdbstub) to be enabled.
          */
         if (env->hflags & HF_CS64_MASK && env->xcr0 & XSTATE_APX_MASK) {
-            env->regs[gpr_map[n + CPU_NB_REGS]] = ldn_p(mem_buf, regsz);
+            env->regs[gpr_map[n + cpu_nb_regs()]] = ldn_p(mem_buf, regsz);
 
             /*
              * Per SDM Vol 1, "Processor Tracking of XSAVE-Managed State",

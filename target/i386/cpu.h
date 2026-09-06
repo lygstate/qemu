@@ -25,19 +25,30 @@
 #include "kvm/hyperv-proto.h"
 #include "exec/cpu-common.h"
 #include "exec/cpu-interrupt.h"
+#ifdef COMPILING_HOST_ACCEL
+typedef int64_t target_long;
+typedef uint64_t target_ulong;
+#define TARGET_LONG_SIZE 8
+#define MO_TL MO_64
+#else
 #include "exec/target_long.h"
+#endif
 #include "exec/memop.h"
 #include "hw/i386/apic.h"
 #include "hw/i386/topology.h"
 #include "qapi/qapi-types-common.h"
 #include "qemu/cpu-float.h"
+#include "qemu/target-info.h"
 #include "qemu/timer.h"
 #include "standard-headers/asm-x86/kvm_para.h"
 #include "hw/hyperv/hvgdk_mini.h"
 
 #define XEN_NR_VIRQS 24
 
-#ifdef TARGET_X86_64
+#ifdef COMPILING_HOST_ACCEL
+#define I386_ELF_MACHINE  EM_X86_64
+#define ELF_MACHINE_UNAME "x86_64"
+#elif defined(TARGET_X86_64)
 #define I386_ELF_MACHINE  EM_X86_64
 #define ELF_MACHINE_UNAME "x86_64"
 #else
@@ -284,7 +295,9 @@ typedef enum X86Seg {
 #define CR4_PKS_MASK   (1U << 24)
 #define CR4_LAM_SUP_MASK (1U << 28)
 
-#ifdef TARGET_X86_64
+#ifdef COMPILING_HOST_ACCEL
+#define CR4_FRED_MASK   (1ULL << 32)
+#elif defined(TARGET_X86_64)
 #define CR4_FRED_MASK   (1ULL << 32)
 #else
 #define CR4_FRED_MASK   0
@@ -1752,13 +1765,30 @@ typedef struct {
 #define CPU_NB_REGS64 16
 #define CPU_NB_REGS32 8
 
-#ifdef TARGET_X86_64
-#define CPU_NB_EREGS CPU_NB_EREGS64
-#define CPU_NB_REGS CPU_NB_REGS64
+#ifdef COMPILING_HOST_ACCEL
+#define CPU_NB_EREGS_T CPU_NB_EREGS64
+#define CPU_NB_REGS_T  CPU_NB_REGS64
+#elif defined(TARGET_X86_64)
+#define CPU_NB_EREGS_T CPU_NB_EREGS64
+#define CPU_NB_REGS_T  CPU_NB_REGS64
 #else
-#define CPU_NB_EREGS CPU_NB_REGS32
-#define CPU_NB_REGS CPU_NB_REGS32
+#define CPU_NB_EREGS_T CPU_NB_REGS32
+#define CPU_NB_REGS_T  CPU_NB_REGS32
 #endif
+
+/* Shared layout capacity: always the 64-bit file (max of 32 vs 8 / 16 vs 8). */
+#define CPU_NB_EREGS_MAX CPU_NB_EREGS64
+#define CPU_NB_REGS_MAX  CPU_NB_REGS64
+
+static inline int cpu_nb_eregs(void)
+{
+    return target_x86_64() ? CPU_NB_EREGS64 : CPU_NB_REGS32;
+}
+
+static inline int cpu_nb_regs(void)
+{
+    return target_x86_64() ? CPU_NB_REGS64 : CPU_NB_REGS32;
+}
 
 #define MAX_FIXED_COUNTERS 3
 /*
@@ -1995,7 +2025,7 @@ struct hv_vp_register_page;
 
 typedef struct CPUArchState {
     /* standard registers */
-    target_ulong regs[CPU_NB_EREGS];
+    target_ulong regs[CPU_NB_EREGS_MAX];
     target_ulong eip;
     target_ulong eflags; /* eflags register. During CPU emulation, CC
                         flags and DF are set to zero because they are
@@ -2052,15 +2082,14 @@ typedef struct CPUArchState {
     float_status mmx_status; /* for 3DNow! float ops */
     float_status sse_status;
     uint32_t mxcsr;
-    ZMMReg xmm_regs[CPU_NB_EREGS] QEMU_ALIGNED(16);
+    ZMMReg xmm_regs[CPU_NB_EREGS_MAX] QEMU_ALIGNED(16);
     ZMMReg xmm_t0 QEMU_ALIGNED(16);
     MMXReg mmx_t0;
 
     uint64_t opmask_regs[NB_OPMASK_REGS];
-#ifdef TARGET_X86_64
+    /* Always present; was #ifdef TARGET_X86_64. */
     uint8_t xtilecfg[64];
     uint8_t xtiledata[8192];
-#endif
 
     /* sysenter registers */
     uint32_t sysenter_cs;
@@ -2070,7 +2099,7 @@ typedef struct CPUArchState {
 
     uint64_t vm_hsave;
 
-#ifdef TARGET_X86_64
+    /* Long-mode MSRs; was #ifdef TARGET_X86_64. */
     uint64_t lstar;
     uint64_t cstar;
     uint64_t fmask;
@@ -2086,7 +2115,6 @@ typedef struct CPUArchState {
     uint64_t fred_ssp2;
     uint64_t fred_ssp3;
     uint64_t fred_config;
-#endif
 
     /* CET MSRs and register */
     uint64_t u_cet;
@@ -2095,9 +2123,7 @@ typedef struct CPUArchState {
     uint64_t pl1_ssp;
     uint64_t pl2_ssp;
     uint64_t pl3_ssp;
-#ifdef TARGET_X86_64
-    uint64_t int_ssp_table;
-#endif
+    uint64_t int_ssp_table; /* was #ifdef TARGET_X86_64 */
     uint64_t guest_ssp;
 
     uint64_t tsc_adjust;
@@ -2639,14 +2665,13 @@ static inline void cpu_x86_load_seg_cache(CPUX86State *env,
     /* update the hidden flags */
     {
         if (seg_reg == R_CS) {
-#ifdef TARGET_X86_64
-            if ((env->hflags & HF_LMA_MASK) && (flags & DESC_L_MASK)) {
+            /* Long mode; was #ifdef TARGET_X86_64. */
+            if (target_x86_64() &&
+                (env->hflags & HF_LMA_MASK) && (flags & DESC_L_MASK)) {
                 /* long mode */
                 env->hflags |= HF_CS32_MASK | HF_SS32_MASK | HF_CS64_MASK;
                 env->hflags &= ~(HF_ADDSEG_MASK);
-            } else
-#endif
-            {
+            } else {
                 /* legacy / compatibility case */
                 new_hflags = (env->segs[R_CS].flags & DESC_B_MASK)
                     >> (DESC_B_SHIFT - HF_CS32_SHIFT);
@@ -2803,7 +2828,9 @@ uint64_t cpu_get_tsc(CPUX86State *env);
 
 #define CPU_RESOLVING_TYPE TYPE_X86_CPU
 
-#ifdef TARGET_X86_64
+#ifdef COMPILING_HOST_ACCEL
+#define TARGET_DEFAULT_CPU_TYPE X86_CPU_TYPE_NAME("qemu32")
+#elif defined(TARGET_X86_64)
 #define TARGET_DEFAULT_CPU_TYPE X86_CPU_TYPE_NAME("qemu64")
 #else
 #define TARGET_DEFAULT_CPU_TYPE X86_CPU_TYPE_NAME("qemu32")
@@ -2820,7 +2847,9 @@ uint64_t cpu_get_tsc(CPUX86State *env);
 #define MMU_NESTED_IDX     7
 
 #ifdef CONFIG_USER_ONLY
-#ifdef TARGET_X86_64
+#ifdef COMPILING_HOST_ACCEL
+#define MMU_USER_IDX MMU_USER64_IDX
+#elif defined(TARGET_X86_64)
 #define MMU_USER_IDX MMU_USER64_IDX
 #else
 #define MMU_USER_IDX MMU_USER32_IDX
@@ -3111,7 +3140,8 @@ static inline bool x86_cpu_interrupts_enabled(const CPUX86State *env)
            (env->hflags2 & HF2_HYPERV_HLT_MASK);
 }
 
-#if defined(TARGET_X86_64) && \
+#ifdef COMPILING_HOST_ACCEL
+#elif defined(TARGET_X86_64) && \
     defined(CONFIG_USER_ONLY) && \
     defined(CONFIG_LINUX)
 # define TARGET_VSYSCALL_PAGE  (UINT64_C(-10) << 20)

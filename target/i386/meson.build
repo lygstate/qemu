@@ -43,4 +43,8 @@ subdir('mshv')
 target_arch += {'i386': i386_ss}
 target_system_arch += {'i386': i386_system_ss}
 target_user_arch += {'i386': i386_user_ss}
+# TODO: i386_accel_ss still uses compile-time TARGET_LONG_BITS /
+# target_ulong width (see emulate/x86_flags.c). Finish converting
+# those to target_long_bits() so one host-accel-i386 can serve
+# i386-softmmu and x86_64-softmmu.
 target_accel_arch += {'i386': i386_accel_ss}
