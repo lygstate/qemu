@@ -91,6 +91,51 @@ bool target_is_aarch64(const TargetInfo *ti);
 bool target_aarch64(void);
 
 /**
+ * target_is_base_i386:
+ * @ti: TargetInfo to inspect
+ *
+ * Returns whether @ti is i386 or x86_64.
+ */
+bool target_is_base_i386(const TargetInfo *ti);
+
+/**
+ * target_base_i386:
+ *
+ * Returns whether the target architecture is i386 or x86_64.
+ */
+bool target_base_i386(void);
+
+/**
+ * target_is_i386:
+ * @ti: TargetInfo to inspect
+ *
+ * Returns whether @ti is i386 (32-bit, not x86_64).
+ */
+bool target_is_i386(const TargetInfo *ti);
+
+/**
+ * target_i386:
+ *
+ * Returns whether the target architecture is i386 (32-bit, not x86_64).
+ */
+bool target_i386(void);
+
+/**
+ * target_is_x86_64:
+ * @ti: TargetInfo to inspect
+ *
+ * Returns whether @ti is x86_64.
+ */
+bool target_is_x86_64(const TargetInfo *ti);
+
+/**
+ * target_x86_64:
+ *
+ * Returns whether the target architecture is x86_64.
+ */
+bool target_x86_64(void);
+
+/**
  * target_base_ppc:
  *
  * Returns whether the target architecture is PowerPC 32-bit or 64-bit.
