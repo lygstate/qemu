@@ -1,7 +1,6 @@
 arm_common_ss = ss.source_set()
 arm_common_system_ss = ss.source_set()
 arm_common_user_system_ss = ss.source_set()
-arm_system_ss = ss.source_set()
 arm_stubs_ss = ss.source_set()
 arm_user_ss = ss.source_set()
 
@@ -30,16 +29,16 @@ arm_common_user_system_ss.add(files(
 arm_common_system_ss.add(files(
   'arm-qmp-cmds.c',
 ))
-arm_system_ss.add(when: 'CONFIG_KVM', if_true: files(
+accel_arm_ss.add(when: 'CONFIG_KVM', if_true: files(
   'kvm.c',
   'hyp_gdbstub.c',
   'arm-host-cpu.c',
 ))
-arm_system_ss.add(when: 'CONFIG_HVF', if_true: files(
+accel_arm_ss.add(when: 'CONFIG_HVF', if_true: files(
   'hyp_gdbstub.c',
   'arm-host-cpu.c',
 ))
-arm_system_ss.add(when: 'CONFIG_WHPX', if_true: files(
+accel_arm_ss.add(when: 'CONFIG_WHPX', if_true: files(
   'arm-host-cpu.c',
 ))
 
@@ -76,7 +75,6 @@ endif
 arm_user_ss.add_all(arm_common_user_system_ss)
 arm_common_system_ss.add_all(arm_common_user_system_ss)
 
-target_system_arch += {'arm': arm_system_ss}
 target_user_arch += {'arm': arm_user_ss}
 target_common_arch += {'arm': arm_common_ss}
 target_common_system_arch += {'arm': arm_common_system_ss}
