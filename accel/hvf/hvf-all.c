@@ -13,6 +13,8 @@
 #include "qapi/error.h"
 #include "qapi/qapi-visit-common.h"
 #include "accel/accel-ops.h"
+#include "qemu/target-info-impl.h"
+#include "qemu/base-arch-defs.h"
 #include "exec/cpu-common.h"
 #include "system/address-spaces.h"
 #include "system/memory.h"
@@ -269,6 +271,11 @@ static void hvf_set_kernel_irqchip(Object *obj, Visitor *v,
     }
 }
 
+static bool hvf_accel_is_available(const TargetInfo *ti)
+{
+    return ti->target_arch == qemu_host_arch();
+}
+
 static void hvf_accel_class_init(ObjectClass *oc, const void *data)
 {
     AccelClass *ac = ACCEL_CLASS(oc);
@@ -289,6 +296,7 @@ static const TypeInfo hvf_accel_type = {
     .parent = TYPE_ACCEL,
     .instance_size = sizeof(HVFState),
     .class_init = hvf_accel_class_init,
+    .is_available = hvf_accel_is_available,
 };
 
 static void hvf_type_init(void)
