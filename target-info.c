@@ -91,6 +91,42 @@ bool target_aarch64(void)
     return target_is_aarch64(target_info());
 }
 
+bool target_is_base_i386(const TargetInfo *ti)
+{
+    switch (ti->target_arch) {
+    case SYS_EMU_TARGET_I386:
+    case SYS_EMU_TARGET_X86_64:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool target_base_i386(void)
+{
+    return target_is_base_i386(target_info());
+}
+
+bool target_is_i386(const TargetInfo *ti)
+{
+    return ti->target_arch == SYS_EMU_TARGET_I386;
+}
+
+bool target_i386(void)
+{
+    return target_is_i386(target_info());
+}
+
+bool target_is_x86_64(const TargetInfo *ti)
+{
+    return ti->target_arch == SYS_EMU_TARGET_X86_64;
+}
+
+bool target_x86_64(void)
+{
+    return target_is_x86_64(target_info());
+}
+
 bool target_base_ppc(void)
 {
     switch (target_arch()) {
