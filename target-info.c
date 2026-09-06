@@ -132,6 +132,32 @@ bool target_riscv64(void)
     return target_is_riscv64(target_info());
 }
 
+bool target_base_i386(void)
+{
+    switch (target_arch()) {
+    case SYS_EMU_TARGET_I386:
+    case SYS_EMU_TARGET_X86_64:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool target_i386(void)
+{
+    return target_arch() == SYS_EMU_TARGET_I386;
+}
+
+bool target_is_x86_64(const TargetInfo *ti)
+{
+    return ti->target_arch == SYS_EMU_TARGET_X86_64;
+}
+
+bool target_x86_64(void)
+{
+    return target_is_x86_64(target_info());
+}
+
 static TargetCpuOps target_cpu_ops[SYS_EMU_TARGET__MAX];
 
 static void target_cpu_ops_store(SysEmuTarget arch, size_t offset, void *impl)
