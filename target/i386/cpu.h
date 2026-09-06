@@ -25,7 +25,7 @@
 #include "kvm/hyperv-proto.h"
 #include "exec/cpu-common.h"
 #include "exec/cpu-interrupt.h"
-#ifdef COMPILING_HOST_ACCEL
+#ifdef COMPILING_PER_TARGET_BASE
 typedef int64_t target_long;
 typedef uint64_t target_ulong;
 #define TARGET_LONG_SIZE 8
@@ -45,7 +45,7 @@ typedef uint64_t target_ulong;
 
 #define XEN_NR_VIRQS 24
 
-#ifdef COMPILING_HOST_ACCEL
+#ifdef COMPILING_PER_TARGET_BASE
 #define I386_ELF_MACHINE  EM_X86_64
 #define ELF_MACHINE_UNAME "x86_64"
 #elif defined(TARGET_X86_64)
@@ -295,7 +295,7 @@ typedef enum X86Seg {
 #define CR4_PKS_MASK   (1U << 24)
 #define CR4_LAM_SUP_MASK (1U << 28)
 
-#ifdef COMPILING_HOST_ACCEL
+#ifdef COMPILING_PER_TARGET_BASE
 #define CR4_FRED_MASK   (1ULL << 32)
 #elif defined(TARGET_X86_64)
 #define CR4_FRED_MASK   (1ULL << 32)
@@ -1765,7 +1765,7 @@ typedef struct {
 #define CPU_NB_REGS64 16
 #define CPU_NB_REGS32 8
 
-#ifdef COMPILING_HOST_ACCEL
+#ifdef COMPILING_PER_TARGET_BASE
 #define CPU_NB_EREGS_T CPU_NB_EREGS64
 #define CPU_NB_REGS_T  CPU_NB_REGS64
 #elif defined(TARGET_X86_64)
@@ -2828,7 +2828,7 @@ uint64_t cpu_get_tsc(CPUX86State *env);
 
 #define CPU_RESOLVING_TYPE TYPE_X86_CPU
 
-#ifdef COMPILING_HOST_ACCEL
+#ifdef COMPILING_PER_TARGET_BASE
 #define TARGET_DEFAULT_CPU_TYPE X86_CPU_TYPE_NAME("qemu32")
 #elif defined(TARGET_X86_64)
 #define TARGET_DEFAULT_CPU_TYPE X86_CPU_TYPE_NAME("qemu64")
@@ -2847,7 +2847,7 @@ uint64_t cpu_get_tsc(CPUX86State *env);
 #define MMU_NESTED_IDX     7
 
 #ifdef CONFIG_USER_ONLY
-#ifdef COMPILING_HOST_ACCEL
+#ifdef COMPILING_PER_TARGET_BASE
 #define MMU_USER_IDX MMU_USER64_IDX
 #elif defined(TARGET_X86_64)
 #define MMU_USER_IDX MMU_USER64_IDX
@@ -3140,7 +3140,7 @@ static inline bool x86_cpu_interrupts_enabled(const CPUX86State *env)
            (env->hflags2 & HF2_HYPERV_HLT_MASK);
 }
 
-#ifdef COMPILING_HOST_ACCEL
+#ifdef COMPILING_PER_TARGET_BASE
 #elif defined(TARGET_X86_64) && \
     defined(CONFIG_USER_ONLY) && \
     defined(CONFIG_LINUX)
