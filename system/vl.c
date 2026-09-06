@@ -2628,6 +2628,18 @@ static int do_configure_accelerator(void *opaque, QemuOpts *opts, Error **errp)
         }
         goto bad;
     }
+
+    {
+        TypeIsAvailable *is_available =
+            object_class_get_is_available(OBJECT_CLASS(ac));
+
+        if (is_available && !is_available(target_info())) {
+            error_report("%s accelerator is not available for target %s",
+                         acc, target_name());
+            goto bad;
+        }
+    }
+
     accel = ACCEL(object_new_with_class(OBJECT_CLASS(ac)));
     object_apply_compat_props(OBJECT(accel));
     qemu_opt_foreach(opts, accelerator_set_property,

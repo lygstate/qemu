@@ -12,6 +12,8 @@
 #include "gdbstub/helpers.h"
 #include "qemu/accel.h"
 #include "accel/accel-ops.h"
+#include "qemu/target-info-impl.h"
+#include "qemu/base-arch-defs.h"
 #include "system/memory.h"
 #include "system/whpx.h"
 #include "system/cpus.h"
@@ -520,6 +522,11 @@ static const TypeInfo whpx_cpu_accel_type = {
     .abstract = true,
 };
 
+static bool whpx_accel_is_available(const TargetInfo *ti)
+{
+    return ti->target_arch == qemu_host_arch();
+}
+
 static void whpx_accel_class_init(ObjectClass *oc, const void *data)
 {
     AccelClass *ac = ACCEL_CLASS(oc);
@@ -564,6 +571,7 @@ static const TypeInfo whpx_accel_type = {
     .parent = TYPE_ACCEL,
     .instance_init = whpx_accel_instance_init,
     .class_init = whpx_accel_class_init,
+    .is_available = whpx_accel_is_available,
 };
 
 static void whpx_type_init(void)
