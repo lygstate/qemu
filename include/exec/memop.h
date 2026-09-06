@@ -35,7 +35,7 @@ typedef enum MemOp {
     MO_LE    = 0,
     MO_BE    = MO_BSWAP,
 #endif
-#ifdef COMPILING_PER_TARGET
+#if defined(COMPILING_PER_TARGET) && !defined(COMPILING_PER_TARGET_BASE)
 #ifndef TARGET_NOT_USING_LEGACY_NATIVE_ENDIAN_API
 #if TARGET_BIG_ENDIAN
     MO_TE    = MO_BE,
@@ -44,6 +44,7 @@ typedef enum MemOp {
 #endif
 #endif
 #endif
+    /* COMPILING_PER_TARGET_BASE: no MO_TE enumerator; see mo_te() below. */
 
     /*
      * MO_UNALN accesses are never checked for alignment.
@@ -151,7 +152,7 @@ typedef enum MemOp {
     MO_BESL  = MO_BE | MO_SL,
     MO_BESQ  = MO_BE | MO_SQ,
 
-#ifdef COMPILING_PER_TARGET
+#if defined(COMPILING_PER_TARGET) && !defined(COMPILING_PER_TARGET_BASE)
 #ifndef TARGET_NOT_USING_LEGACY_NATIVE_ENDIAN_API
     MO_TEUW  = MO_TE | MO_UW,
     MO_TEUL  = MO_TE | MO_UL,
@@ -165,6 +166,27 @@ typedef enum MemOp {
 
     MO_SSIZE = MO_SIZE | MO_SIGN,
 } MemOp;
+
+#ifdef COMPILING_PER_TARGET_BASE
+#include "qemu/target-info.h"
+
+/*
+ * Guest endian is runtime (TARGET_BIG_ENDIAN is poisoned).
+ * MO_TE is not an enumerator here.
+ */
+static inline MemOp mo_te(void)
+{
+    return target_big_endian() ? MO_BE : MO_LE;
+}
+#define MO_TE   mo_te()
+#define MO_TEUW (MO_TE | MO_UW)
+#define MO_TEUL (MO_TE | MO_UL)
+#define MO_TEUQ (MO_TE | MO_UQ)
+#define MO_TEUO (MO_TE | MO_UO)
+#define MO_TESW (MO_TE | MO_SW)
+#define MO_TESL (MO_TE | MO_SL)
+#define MO_TESQ (MO_TE | MO_SQ)
+#endif
 
 /* MemOp to size in bytes.  */
 static inline unsigned memop_size(MemOp op)
