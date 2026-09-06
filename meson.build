@@ -3233,6 +3233,10 @@ config_devices_h = {}
 config_target_h = {}
 config_target_mak = {}
 config_base_arch_mak = {}
+config_base_arch_target_union = {}
+config_base_arch_devices_union = {}
+config_base_arch_target_h = {}
+config_base_arch_devices_h = {}
 config_target_info = {}
 
 disassemblers = {
@@ -3387,7 +3391,18 @@ foreach target : target_dirs
   config_target_h += {target: configure_file(output: target + '-config-target.h',
                                                configuration: config_target_data)}
 
+  target_base_arch = config_target['TARGET_BASE_ARCH']
   if target.endswith('-softmmu')
+    t_union = config_base_arch_target_union.get(target_base_arch, {})
+    foreach k, v : config_target
+      if not k.startswith('TARGET_')
+        if k not in t_union or v == 'y'
+          t_union += {k: v}
+        endif
+      endif
+    endforeach
+    config_base_arch_target_union += {target_base_arch: t_union}
+
     target_kconfig += 'CONFIG_' + config_target['TARGET_ARCH'].to_upper() + '=y'
     target_kconfig += 'CONFIG_TARGET_BIG_ENDIAN=' + config_target['TARGET_BIG_ENDIAN']
 
@@ -3417,17 +3432,52 @@ foreach target : target_dirs
     config_devices_mak_list += config_devices_mak
     config_devices_h += {target: configure_file(output: target + '-config-devices.h',
                                                 configuration: config_devices_data)}
+    d_union = config_base_arch_devices_union.get(target_base_arch, {})
+    foreach k, v : config_devices
+      if k not in d_union or v == 'y'
+        d_union += {k: v}
+      endif
+    endforeach
+    config_base_arch_devices_union += {target_base_arch: d_union}
     config_target += config_devices
     config_all_devices += config_devices
   endif
   config_target_mak += {target: config_target}
 
   # build a merged config for all targets with the same TARGET_BASE_ARCH
-  target_base_arch = config_target['TARGET_BASE_ARCH']
   config_base_arch = config_base_arch_mak.get(target_base_arch, {}) + config_target
   config_base_arch_mak += {target_base_arch: config_base_arch}
 endforeach
 target_dirs = actual_target_dirs
+
+foreach base, union : config_base_arch_target_union
+  data = configuration_data()
+  foreach k, v : union
+    if ignored.contains(k)
+      # do nothing
+    elif v == 'y'
+      data.set(k, 1)
+    elif v == 'n'
+      data.set(k, 0)
+    elif k.startswith('CONFIG_')
+      data.set(k, v)
+    endif
+  endforeach
+  config_base_arch_target_h += {
+    base: configure_file(output: base + '-base-config-target.h',
+                         configuration: data)}
+endforeach
+foreach base, union : config_base_arch_devices_union
+  data = configuration_data()
+  foreach k, v : union
+    if v == 'y' or v == '1'
+      data.set(k, 1)
+    endif
+  endforeach
+  config_base_arch_devices_h += {
+    base: configure_file(output: base + '-base-config-devices.h',
+                         configuration: data)}
+endforeach
 
 target_configs_h = []
 foreach target: target_dirs
@@ -3715,6 +3765,17 @@ trace_ss = ss.source_set()
 user_ss = ss.source_set()
 util_ss = ss.source_set()
 
+# Host-accel sourcesets: accel_common_ss for KVM/HVF/WHPX/MSHV/Xen/Nitro,
+# plus one per TARGET_BASE_ARCH with KVM/HVF/WHPX/NVMM/MSHV guest glue.
+# Built as host-accel-$base under COMPILING_PER_TARGET_BASE.
+accel_common_ss = ss.source_set()
+accel_arm_ss = ss.source_set()
+accel_i386_ss = ss.source_set()
+accel_loongarch_ss = ss.source_set()
+accel_ppc_ss = ss.source_set()
+accel_riscv_ss = ss.source_set()
+accel_s390x_ss = ss.source_set()
+
 # accel modules
 qtest_module_ss = ss.source_set()
 
@@ -3726,6 +3787,14 @@ target_arch = {}
 target_system_arch = {}
 target_user_arch = {}
 hw_common_arch = {}
+target_accel_arch = {
+  'arm': accel_arm_ss,
+  'i386': accel_i386_ss,
+  'loongarch': accel_loongarch_ss,
+  'ppc': accel_ppc_ss,
+  'riscv': accel_riscv_ss,
+  's390x': accel_s390x_ss,
+}
 target_common_arch = {}
 target_common_system_arch = {}
 target_stubs_arch = {}
@@ -4134,6 +4203,9 @@ common_all = static_library('common',
 target_common_arch_libs = {}
 target_common_system_arch_libs = {}
 target_stubs_arch_libs = {}
+target_base_arch_objects = {}
+target_base_arch_deps = {}
+lib_host_accel = {}
 foreach target_base_arch, config_base_arch : config_base_arch_mak
   target_inc = [include_directories('target' / target_base_arch)]
   inc = [common_user_inc + target_inc]
@@ -4202,7 +4274,88 @@ foreach target_base_arch, config_base_arch : config_base_arch_mak
                          c_args: target_system_c_args)
     target_stubs_arch_libs += {target_base_arch: lib}
   endif
+
+  # One host-accel lib per TARGET_BASE_ARCH. apply() uses the
+  # target CONFIG_* union plus the devices union (y wins).
+  # extract_objects so these objects outrank stub archives.
+  host_accel_srcs = []
+  host_accel_deps = []
+  if target_base_arch in config_base_arch_target_union
+    union = config_base_arch_target_union[target_base_arch]
+    if target_base_arch in config_base_arch_devices_union
+      union += config_base_arch_devices_union[target_base_arch]
+    endif
+    common_accel = accel_common_ss.apply(union, strict: false)
+    host_accel_srcs += common_accel.sources()
+    host_accel_deps += common_accel.dependencies()
+    if target_base_arch in target_accel_arch
+      target_accel = target_accel_arch[target_base_arch].apply(
+        union, strict: false)
+      host_accel_srcs += target_accel.sources()
+      host_accel_deps += target_accel.dependencies()
+    endif
+  endif
+  if host_accel_srcs.length() != 0
+    accel_inc = inc
+    if host_os == 'linux'
+      accel_inc += include_directories('linux-headers', is_system: true)
+    endif
+    host_accel_c_args = [
+      '-DCOMPILING_PER_TARGET',
+      '-DCOMPILING_PER_TARGET_BASE',
+      '-DCONFIG_TARGET="@0@-base-config-target.h"'.format(target_base_arch),
+      '-DCONFIG_DEVICES="@0@-base-config-devices.h"'.format(target_base_arch),
+    ]
+    host_accel_lib_deps = []
+    foreach dep : host_accel_deps
+      host_accel_lib_deps += dep.partial_dependency(
+        compile_args: true, includes: true)
+    endforeach
+    lib = static_library(
+      'host-accel-' + target_base_arch,
+      build_by_default: false,
+      sources: host_accel_srcs + genh +
+                config_base_arch_target_h[target_base_arch] +
+                config_base_arch_devices_h[target_base_arch],
+      include_directories: accel_inc,
+      c_args: host_accel_c_args,
+      dependencies: host_accel_lib_deps + common_deps + system_deps)
+    lib_host_accel += {target_base_arch: lib}
+    target_base_arch_objects += {
+      target_base_arch: lib.extract_objects(host_accel_srcs)
+    }
+    target_base_arch_deps += {
+      target_base_arch: host_accel_deps
+    }
+  endif
 endforeach
+
+# Host accelerators match this build's host CPU. The expected
+# TARGET_BASE_ARCH is that CPU's softmmu family (x86_64-softmmu
+# -> i386). lib_host_accel may be empty (TCG-only or no host
+# accel on this CPU). If present, at most that one key may
+# appear. target_base_arch_objects may grow other extracts later.
+# A second or wrong lib_host_accel key means accelerator_targets
+# enabled KVM/WHPX/HVF for another family.
+host_accel_host_softmmu = host_arch + '-softmmu'
+host_accel_expected_base = ''
+if host_accel_host_softmmu in config_target_mak
+  host_accel_expected_base = config_target_mak[host_accel_host_softmmu]['TARGET_BASE_ARCH']
+endif
+host_accel_got = lib_host_accel.keys()
+if host_accel_got.length() > 1
+  error('host-accel for more than one TARGET_BASE_ARCH: '
+        + ', '.join(host_accel_got)
+        + ' (host cpu ' + host_arch
+        + ', expected ' + host_accel_expected_base + ')')
+elif host_accel_got.length() == 1
+  host_accel_base = host_accel_got[0]
+  if host_accel_expected_base != '' and host_accel_base != host_accel_expected_base
+    error('host-accel for ' + host_accel_base
+          + ' but host cpu is ' + host_arch
+          + ' (expected ' + host_accel_expected_base + ')')
+  endif
+endif
 
 if have_rust
   bindings_incdir = include_directories('.', 'include')
@@ -4358,6 +4511,10 @@ foreach target : target_dirs
     lib = target_common_system_arch_libs[target_base_arch]
     objects += lib.extract_objects(src.sources())
     arch_deps += src.dependencies()
+  endif
+  if target_type == 'system' and target_base_arch in target_base_arch_objects
+    objects += target_base_arch_objects[target_base_arch]
+    arch_deps += target_base_arch_deps[target_base_arch]
   endif
   lib_target_stubs = []
   if target_base_arch in target_stubs_arch_libs
