@@ -4,4 +4,4 @@ whpx_ss.add(files(
   'whpx-common.c'
 ))
 
-specific_ss.add_all(when: 'CONFIG_WHPX', if_true: whpx_ss)
+accel_common_ss.add_all(when: 'CONFIG_WHPX', if_true: whpx_ss)
