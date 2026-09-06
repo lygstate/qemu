@@ -4407,12 +4407,27 @@ if host_os == 'darwin'
 endif
 
 traceable = []
+single_binary_target_info_objects = []
+single_binary_config = {}
+single_binary_bases = {}
+single_binary_deps = []
+single_binary_crates = []
+single_binary_available = false
+
+single_binary_supported_targets = [
+  'aarch64-softmmu',
+  'arm-softmmu',
+  'riscv32-softmmu',
+  'riscv64-softmmu',
+]
+
 emulators = {}
 foreach target : target_dirs
   config_target = config_target_mak[target]
   target_name = config_target['TARGET_NAME']
   target_base_arch = config_target['TARGET_BASE_ARCH']
   arch_srcs = [config_target_h[target]]
+  per_target_srcs = []
   arch_deps = []
   c_args = ['-DCOMPILING_PER_TARGET',
             '-DCONFIG_TARGET="@0@-config-target.h"'.format(target),
@@ -4427,14 +4442,14 @@ foreach target : target_dirs
     target_type='system'
     if target_base_arch in target_system_arch
       t = target_system_arch[target_base_arch].apply(config_target, strict: false)
-      arch_srcs += t.sources()
+      per_target_srcs += t.sources()
       arch_deps += t.dependencies()
     endif
 
     hw_dir = target_name == 'sparc64' ? 'sparc64' : target_base_arch
     if hw_arch.has_key(hw_dir)
       hw = hw_arch[hw_dir].apply(config_target, strict: false)
-      arch_srcs += hw.sources()
+      per_target_srcs += hw.sources()
       arch_deps += hw.dependencies()
     endif
 
@@ -4479,11 +4494,12 @@ foreach target : target_dirs
     endif
   endif
 
-  arch_srcs += files('target-info-def.c')
+  target_info_src = files('target-info-def.c')
+  arch_srcs += target_info_src
 
   if target_base_arch in target_arch
     t = target_arch[target_base_arch].apply(config_target, strict: false)
-    arch_srcs += t.sources()
+    per_target_srcs += t.sources()
     arch_deps += t.dependencies()
   endif
 
@@ -4523,8 +4539,9 @@ foreach target : target_dirs
   target_stubs = declare_dependency(link_with: lib_target_stubs)
 
   target_specific = specific_ss.apply(config_target, strict: false)
-  arch_srcs += target_specific.sources()
+  per_target_srcs += target_specific.sources()
   arch_deps += target_specific.dependencies()
+  arch_srcs += per_target_srcs
 
   main_rs = []
   crates = []
@@ -4562,6 +4579,25 @@ foreach target : target_dirs
                  build_by_default: false)
 
   if target.endswith('-softmmu')
+    if target in single_binary_supported_targets
+      if per_target_srcs.length() != 0
+        error('combined qemu-system leftover requires empty per_target_srcs for '
+              + target)
+      endif
+      foreach k, v : config_target
+        if not k.startswith('TARGET_')
+          if k not in single_binary_config or v == 'y'
+            single_binary_config += {k: v}
+          endif
+        endif
+      endforeach
+      single_binary_target_info_objects += lib.extract_objects(target_info_src)
+      single_binary_bases += {target_base_arch: true}
+      single_binary_deps += arch_deps
+      single_binary_deps += target_stubs
+      single_binary_crates += main_rs
+      single_binary_available = true
+    endif
     execs = [{
       'name': 'qemu-system-' + target_name,
       'win_subsystem': 'console',
@@ -4642,6 +4678,64 @@ foreach target : target_dirs
 
   endforeach
 endforeach
+
+# Same apply + extract as qemu-system-$target, but for the combined
+# qemu-system binary. single_binary_config turns on every CONFIG_* that
+# any participating target enabled, so we pull one copy of shared code.
+# single_binary_bases is each CPU family once. Each qemu-* lib
+# contributes target-info-def.c. Host-accel objects come from
+# target_base_arch_objects / target_base_arch_deps (already extracted).
+if single_binary_available
+  single_binary_objects = []
+  target_common = common_ss.apply(single_binary_config, strict: false)
+  single_binary_objects += common_all.extract_objects(target_common.sources())
+  single_binary_deps += target_common.dependencies()
+
+  src = system_ss.apply(single_binary_config, strict: false)
+  single_binary_objects += libsystem.extract_objects(src.sources())
+  single_binary_deps += src.dependencies()
+
+  foreach base, _ : single_binary_bases
+    config_base = config_base_arch_mak[base]
+    if base in target_common_arch_libs
+      src = target_common_arch[base].apply(config_base, strict: false)
+      single_binary_objects += target_common_arch_libs[base].extract_objects(
+        src.sources())
+      single_binary_deps += src.dependencies()
+    endif
+    if base in target_common_system_arch_libs
+      src = target_common_system_arch[base].apply(config_base, strict: false)
+      single_binary_objects += target_common_system_arch_libs[base].extract_objects(
+        src.sources())
+      single_binary_deps += src.dependencies()
+    endif
+    if base in target_base_arch_objects
+      single_binary_objects += target_base_arch_objects[base]
+      single_binary_deps += target_base_arch_deps[base]
+    endif
+  endforeach
+  single_binary_objects += single_binary_target_info_objects
+
+  single_binary_link_args = emulator_link_args
+  single_binary_link_args += enable_modules ? ['@block.syms', '@qemu.syms'] : []
+  qemu_system = executable('qemu-system',
+                           sources: [single_binary_crates, files('system/main.c')],
+                           dependencies: single_binary_deps,
+                           objects: single_binary_objects,
+                           link_depends: [block_syms, qemu_syms],
+                           link_args: single_binary_link_args,
+                           build_by_default: false)
+  emulators += {'qemu-system': qemu_system}
+else
+  error_str = f'''qemu-system only support targets:
+@single_binary_supported_targets@
+
+use ./configure --target-list= to choose at least one of them'''
+  t = custom_target(command: ['sh', '-c', 'echo "' + error_str + '" && exit 1'],
+                    output: 'none',
+                    build_by_default: false)
+  alias_target('qemu-system', t)
+endif
 
 # Other build targets
 
