@@ -1,4 +1,4 @@
-i386_system_ss.add(when: 'CONFIG_WHPX', if_true: files(
+i386_accel_ss.add(when: 'CONFIG_WHPX', if_true: files(
   'whpx-all.c',
   'whpx-apic.c',
   'whpx-cpu-legacy.c'

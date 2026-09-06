@@ -3732,6 +3732,7 @@ target_common_system_arch = {}
 target_stubs_arch = {}
 target_accel_arch = {}
 arm_accel_ss = ss.source_set()
+i386_accel_ss = ss.source_set()
 
 # NOTE: the trace/ subdirectory needs the qapi_trace_events variable
 # that is filled in by qapi/.
