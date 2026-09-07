@@ -411,7 +411,7 @@ uint64_t helper_pdep(uint64_t src, uint64_t mask)
     return dest;
 }
 
-uint64_t helper_pext(uint64_t src, uint64_t mask)
+uint64_t helper_i386_pext(uint64_t src, uint64_t mask)
 {
     uint64_t dest = 0;
     int i, o;
