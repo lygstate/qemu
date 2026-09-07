@@ -2105,7 +2105,7 @@ void glue(helper_pcmpistrm, SUFFIX)(CPUX86State *env, Reg *d, Reg *s,
 
 #define CRCPOLY        0x1edc6f41
 #define CRCPOLY_BITREV 0x82f63b78
-uint64_t helper_crc32(uint32_t crc1, uint64_t msg, uint32_t len)
+uint64_t helper_i386_crc32(uint32_t crc1, uint64_t msg, uint32_t len)
 {
     uint64_t crc = (msg & ((uint64_t) -1 >>
                                (TCG_TL_BITS - len))) ^ crc1;
