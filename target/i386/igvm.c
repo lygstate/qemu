@@ -108,7 +108,6 @@ static void qigvm_x86_load_context(struct IgvmNativeVpContextX64 *context,
     env->regs[R_EBP] = context->rbp;
     env->regs[R_ESI] = context->rsi;
     env->regs[R_EDI] = context->rdi;
-#ifdef TARGET_X86_64
     env->regs[R_R8] = context->r8;
     env->regs[R_R9] = context->r9;
     env->regs[R_R10] = context->r10;
@@ -117,7 +116,6 @@ static void qigvm_x86_load_context(struct IgvmNativeVpContextX64 *context,
     env->regs[R_R13] = context->r13;
     env->regs[R_R14] = context->r14;
     env->regs[R_R15] = context->r15;
-#endif
     env->eip = context->rip;
     env->eflags = context->rflags;
 }

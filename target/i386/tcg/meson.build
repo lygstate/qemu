@@ -1,4 +1,4 @@
-i386_ss.add(when: 'CONFIG_TCG', if_false: files('tcg-stub.c'))
+i386_stubs_ss.add(when: 'CONFIG_TCG', if_false: files('tcg-stub.c'))
 
 if 'CONFIG_TCG' not in config_all_accel
   subdir_done()

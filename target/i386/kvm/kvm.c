@@ -14,6 +14,7 @@
 
 #include "qemu/osdep.h"
 #include "qapi/qapi-events-run-state.h"
+#include "qapi/qapi-types-run-state.h"
 #include "qapi/error.h"
 #include "qapi/visitor.h"
 #include <math.h>
@@ -273,6 +274,34 @@ bool kvm_has_adjust_clock_stable(void)
 bool kvm_has_exception_payload(void)
 {
     return has_exception_payload;
+}
+
+bool kvm_nested_guest_mode_consistent(CPUX86State *env)
+{
+    if (!(env->hflags & HF_GUEST_MASK)) {
+        return true;
+    }
+    return env->nested_state &&
+           (env->nested_state->flags & KVM_STATE_NESTED_GUEST_MODE);
+}
+
+GuestPanicInformation *kvm_arch_get_crash_info(CPUState *cs)
+{
+    struct kvm_run *run = cs->kvm_run;
+    GuestPanicInformation *panic_info = NULL;
+
+    if (run->exit_reason == KVM_EXIT_SYSTEM_EVENT &&
+        run->system_event.type == KVM_SYSTEM_EVENT_SEV_TERM) {
+        panic_info = g_new0(GuestPanicInformation, 1);
+        panic_info->type = GUEST_PANIC_INFORMATION_TYPE_SEV;
+        if (run->system_event.ndata > 0) {
+            panic_info->u.sev.set = (run->system_event.data[0] >> 12) & 0xf;
+            panic_info->u.sev.code = (run->system_event.data[0] >> 16) & 0xff;
+        } else {
+            warn_report("Hypervisor did not provide any data for SEV-ES termination");
+        }
+    }
+    return panic_info;
 }
 
 static bool kvm_x2apic_api_set_flags(uint64_t flags)
