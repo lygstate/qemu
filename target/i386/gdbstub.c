@@ -22,22 +22,13 @@
 #include "cpu.h"
 #include "exec/gdbstub.h"
 #include "gdbstub/helpers.h"
-#ifdef CONFIG_LINUX_USER
-#include "linux-user/qemu.h"
-#endif
 
-/* TARGET_X86_64 begin */
-#ifdef TARGET_X86_64
 static const int gpr_map[CPU_NB_EREGS64] = {
     R_EAX, R_EBX, R_ECX, R_EDX, R_ESI, R_EDI, R_EBP, R_ESP,
     R_R8, R_R9, R_R10, R_R11, R_R12, R_R13, R_R14, R_R15,
     R_R16, R_R17, R_R18, R_R19, R_R20, R_R21, R_R22, R_R23,
     R_R24, R_R25, R_R26, R_R27, R_R28, R_R29, R_R30, R_R31,
 };
-#else
-#define gpr_map gpr_map32
-#endif
-/* TARGET_X86_64 end */
 static const int gpr_map32[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
 
 /*
@@ -92,9 +83,9 @@ static const int gpr_map32[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
 #define IDX_CTL_CR8_REG     (cpu_nb_regs() + IDX_OFF_CR8)
 #define IDX_CTL_EFER_REG    (cpu_nb_regs() + IDX_OFF_EFER)
 
-static int gdb_read_reg_cs64(uint32_t hflags, GByteArray *buf, target_ulong val)
+static int gdb_read_reg_cs64(uint32_t hflags, GByteArray *buf, uint64_t val)
 {
-    if ((hflags & HF_CS64_MASK) || TARGET_LONG_BITS == 64) {
+    if ((hflags & HF_CS64_MASK) || target_x86_64()) {
         return gdb_get_reg64(buf, val);
     }
     return gdb_get_reg32(buf, val);
@@ -110,9 +101,9 @@ static int gdb_write_reg_cs64(uint32_t hflags, uint8_t *buf, uint64_t *val)
     return 4;
 }
 
-static int gdb_get_reg(CPUX86State *env, GByteArray *mem_buf, target_ulong val)
+static int gdb_get_reg(CPUX86State *env, GByteArray *mem_buf, uint64_t val)
 {
-    if (TARGET_LONG_BITS == 64) {
+    if (target_x86_64()) {
         if (env->hflags & HF_CS64_MASK) {
             return gdb_get_reg64(mem_buf, val);
         } else {
@@ -135,7 +126,7 @@ int x86_cpu_gdb_read_register(CPUState *cs, GByteArray *mem_buf, int n)
        as if we're on a 64-bit cpu. */
 
     if (n < cpu_nb_regs()) {
-        if (TARGET_LONG_BITS == 64) {
+        if (target_x86_64()) {
             if (env->hflags & HF_CS64_MASK) {
                 return gdb_get_reg64(mem_buf, env->regs[gpr_map[n]]);
             } else if (n < CPU_NB_REGS32) {
@@ -156,7 +147,7 @@ int x86_cpu_gdb_read_register(CPUState *cs, GByteArray *mem_buf, int n)
         return len;
     } else if (n >= IDX_XMM_REGS && n < IDX_XMM_REGS + cpu_nb_regs()) {
         n -= IDX_XMM_REGS;
-        if (n < CPU_NB_REGS32 || TARGET_LONG_BITS == 64) {
+        if (n < CPU_NB_REGS32 || target_x86_64()) {
             return gdb_get_reg128(mem_buf,
                                   env->xmm_regs[n].ZMM_Q(1),
                                   env->xmm_regs[n].ZMM_Q(0));
@@ -189,11 +180,11 @@ int x86_cpu_gdb_read_register(CPUState *cs, GByteArray *mem_buf, int n)
             return gdb_read_reg_cs64(env->hflags, mem_buf, env->segs[R_GS].base);
 
         case IDX_OFF_SEG + 8:
-#ifdef TARGET_X86_64
-            return gdb_read_reg_cs64(env->hflags, mem_buf, env->kernelgsbase);
-#else
+            if (target_x86_64()) {
+                return gdb_read_reg_cs64(env->hflags, mem_buf,
+                                         env->kernelgsbase);
+            }
             return gdb_get_reg32(mem_buf, 0);
-#endif
 
         case IDX_OFF_FP + 8:
             return gdb_get_reg32(mem_buf, env->fpuc);
@@ -268,7 +259,7 @@ static int x86_cpu_gdb_load_seg(X86CPU *cpu, X86Seg sreg, uint8_t *mem_buf)
 
 static int gdb_write_reg(CPUX86State *env, uint8_t *mem_buf, uint64_t *val)
 {
-    if (TARGET_LONG_BITS == 64) {
+    if (target_x86_64()) {
         if (env->hflags & HF_CS64_MASK) {
             *val = ldq_p(mem_buf);
         } else {
@@ -293,13 +284,13 @@ int x86_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
        as if we're on a 64-bit cpu. */
 
     if (n < cpu_nb_regs()) {
-        if (TARGET_LONG_BITS == 64) {
+        if (target_x86_64()) {
             if (env->hflags & HF_CS64_MASK) {
                 env->regs[gpr_map[n]] = ldq_p(mem_buf);
             } else if (n < CPU_NB_REGS32) {
                 env->regs[gpr_map[n]] = ldq_p(mem_buf) & 0xffffffffUL;
             }
-            return sizeof(target_ulong);
+            return 8;
         } else if (n < CPU_NB_REGS32) {
             n = gpr_map32[n];
             env->regs[n] &= ~0xffffffffUL;
@@ -313,7 +304,7 @@ int x86_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
         return 10;
     } else if (n >= IDX_XMM_REGS && n < IDX_XMM_REGS + cpu_nb_regs()) {
         n -= IDX_XMM_REGS;
-        if (n < CPU_NB_REGS32 || TARGET_LONG_BITS == 64) {
+        if (n < CPU_NB_REGS32 || target_x86_64()) {
             env->xmm_regs[n].ZMM_Q(0) = ldq_p(mem_buf);
             env->xmm_regs[n].ZMM_Q(1) = ldq_p(mem_buf + 8);
             return 16;
@@ -346,9 +337,10 @@ int x86_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
         case IDX_OFF_SEG + 7:
             return gdb_write_reg_cs64(env->hflags, mem_buf, &env->segs[R_GS].base);
         case IDX_OFF_SEG + 8:
-#ifdef TARGET_X86_64
-            return gdb_write_reg_cs64(env->hflags, mem_buf, &env->kernelgsbase);
-#endif
+            if (target_x86_64()) {
+                return gdb_write_reg_cs64(env->hflags, mem_buf,
+                                          &env->kernelgsbase);
+            }
             return 4;
 
         case IDX_OFF_FP + 8:
@@ -419,44 +411,6 @@ int x86_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
     return 0;
 }
 
-#ifdef CONFIG_LINUX_USER
-
-#define IDX_ORIG_AX 0
-
-static int x86_cpu_gdb_read_linux_register(CPUState *cs, GByteArray *mem_buf,
-                                           int n)
-{
-    X86CPU *cpu = X86_CPU(cs);
-    CPUX86State *env = &cpu->env;
-
-    switch (n) {
-    case IDX_ORIG_AX:
-        return gdb_get_reg(env, mem_buf, get_task_state(cs)->orig_ax);
-    }
-    return 0;
-}
-
-static int x86_cpu_gdb_write_linux_register(CPUState *cs, uint8_t *mem_buf,
-                                            int n)
-{
-    X86CPU *cpu = X86_CPU(cs);
-    CPUX86State *env = &cpu->env;
-
-    switch (n) {
-    case IDX_ORIG_AX: {
-        uint64_t tmp = get_task_state(cs)->orig_ax;
-        int len = gdb_write_reg(env, mem_buf, &tmp);
-
-        get_task_state(cs)->orig_ax = tmp;
-        return len;
-    }
-    }
-    return 0;
-}
-
-#endif
-
-#ifdef TARGET_X86_64
 static int i386_cpu_gdb_get_egprs(CPUState *cs, GByteArray *mem_buf, int n)
 {
     CPUX86State *env = &X86_CPU(cs)->env;
@@ -465,7 +419,7 @@ static int i386_cpu_gdb_get_egprs(CPUState *cs, GByteArray *mem_buf, int n)
         /* EGPRs can be only directly accessible in 64-bit mode. */
         if (env->hflags & HF_CS64_MASK) {
             return gdb_get_reg64(mem_buf, env->regs[gpr_map[n + cpu_nb_regs()]]);
-        } else if (TARGET_LONG_BITS == 64) {
+        } else if (target_x86_64()) {
             return gdb_get_reg64(mem_buf, 0);
         } else {
             return gdb_get_reg32(mem_buf, 0);
@@ -509,27 +463,15 @@ static int i386_cpu_gdb_set_egprs(CPUState *cs, uint8_t *mem_buf, int n)
     }
     return 0;
 }
-#endif
 
 void x86_cpu_gdb_init(CPUState *cs)
 {
-#ifdef TARGET_X86_64
     CPUX86State *env = &X86_CPU(cs)->env;
 
-    if (env->features[FEAT_7_1_EDX] & CPUID_7_1_EDX_APXF) {
+    if (target_x86_64() &&
+        (env->features[FEAT_7_1_EDX] & CPUID_7_1_EDX_APXF)) {
         gdb_register_coprocessor(cs, i386_cpu_gdb_get_egprs,
                                  i386_cpu_gdb_set_egprs,
                                  gdb_find_static_feature("i386-64bit-apx.xml"));
     }
-#endif
-
-#ifdef CONFIG_LINUX_USER
-    gdb_register_coprocessor(cs, x86_cpu_gdb_read_linux_register,
-                             x86_cpu_gdb_write_linux_register,
-#ifdef TARGET_X86_64
-                             gdb_find_static_feature("i386-64bit-linux.xml"));
-#else
-                             gdb_find_static_feature("i386-32bit-linux.xml"));
-#endif
-#endif
 }

@@ -22,8 +22,7 @@
 #include "cpu.h"
 #include "accel/tcg/cpu-mmu-index.h"
 #include "exec/translation-block.h"
-#include "tcg/tcg-op.h"
-#include "tcg/tcg-op-gvec.h"
+#include "tcg-op-i386.h"
 #include "exec/translator.h"
 #include "exec/target_page.h"
 #include "fpu/softfloat.h"
@@ -51,13 +50,8 @@
 #define PREFIX_VEX    0x20
 #define PREFIX_REX    0x40
 
-#ifdef TARGET_X86_64
-# define ctztl  ctz64
-# define clztl  clz64
-#else
-# define ctztl  ctz32
-# define clztl  clz32
-#endif
+#define ctztl  ctz64
+#define clztl  clz64
 
 /* For a switch indexed by MODRM, match all memory operands for a given OP.  */
 #define CASE_MODRM_MEM_OP(OP) \
@@ -85,9 +79,9 @@ static TCGv_i64 cpu_bndu[4];
 typedef struct DisasContext {
     DisasContextBase base;
 
-    target_ulong pc;       /* pc = eip + cs_base */
-    target_ulong cs_base;  /* base of CS segment */
-    target_ulong pc_save;
+    uint64_t pc;       /* pc = eip + cs_base */
+    uint64_t cs_base;  /* base of CS segment */
+    uint64_t pc_save;
 
     MemOp aflag;
     MemOp dflag;
@@ -107,11 +101,9 @@ typedef struct DisasContext {
     uint8_t popl_esp_hack; /* for correct popl with esp base handling */
     uint8_t rip_offset; /* only used in x86_64, but left for simplicity */
 
-#ifdef TARGET_X86_64
     uint8_t rex_r;
     uint8_t rex_x;
     uint8_t rex_b;
-#endif
     bool vex_w; /* used by AVX even on 32-bit processors */
     bool jmp_opt; /* use direct block chaining for direct jumps */
     bool cc_op_dirty;
@@ -183,43 +175,18 @@ typedef struct DisasContext {
 #define SVME(S)   (((S)->flags & HF_SVME_MASK) != 0)
 #define GUEST(S)  (((S)->flags & HF_GUEST_MASK) != 0)
 #endif
-#if defined(CONFIG_USER_ONLY) && defined(TARGET_X86_64)
-#define VM86(S)   false
-#define CODE32(S) true
-#define SS32(S)   true
-#define ADDSEG(S) false
-#else
 #define VM86(S)   (((S)->flags & HF_VM_MASK) != 0)
 #define CODE32(S) (((S)->flags & HF_CS32_MASK) != 0)
 #define SS32(S)   (((S)->flags & HF_SS32_MASK) != 0)
 #define ADDSEG(S) (((S)->flags & HF_ADDSEG_MASK) != 0)
-#endif
-#if !defined(TARGET_X86_64)
-#define CODE64(S) false
-#elif defined(CONFIG_USER_ONLY)
-#define CODE64(S) true
-#else
 #define CODE64(S) (((S)->flags & HF_CS64_MASK) != 0)
-#endif
-#if defined(CONFIG_USER_ONLY) || defined(TARGET_X86_64)
 #define LMA(S)    (((S)->flags & HF_LMA_MASK) != 0)
-#else
-#define LMA(S)    false
-#endif
 
-#ifdef TARGET_X86_64
 #define REX_PREFIX(S)  (((S)->prefix & (PREFIX_REX | PREFIX_VEX)) != 0)
 #define REX_W(S)       ((S)->vex_w)
 #define REX_R(S)       ((S)->rex_r + 0)
 #define REX_X(S)       ((S)->rex_x + 0)
 #define REX_B(S)       ((S)->rex_b + 0)
-#else
-#define REX_PREFIX(S)  false
-#define REX_W(S)       false
-#define REX_R(S)       0
-#define REX_X(S)       0
-#define REX_B(S)       0
-#endif
 
 /*
  * Many system-only helpers are not reachable for user-only.
@@ -430,12 +397,10 @@ static TCGv gen_op_deposit_reg_v(DisasContext *s, MemOp ot, int reg, TCGv dest, 
         tcg_gen_deposit_tl(dest, cpu_regs[reg], t0, 0, 16);
         break;
     case MO_32:
-#ifdef TARGET_X86_64
         dest = dest ? dest : cpu_regs[reg];
         tcg_gen_ext32u_tl(dest, t0);
         break;
     case MO_64:
-#endif
         dest = dest ? dest : cpu_regs[reg];
         tcg_gen_mov_tl(dest, t0);
         break;
@@ -685,7 +650,7 @@ static void gen_reset_hflag(DisasContext *s, uint32_t mask)
     }
 }
 
-static void gen_set_eflags(DisasContext *s, target_ulong mask)
+static void gen_set_eflags(DisasContext *s, uint64_t mask)
 {
     TCGv t = tcg_temp_new();
 
@@ -694,7 +659,7 @@ static void gen_set_eflags(DisasContext *s, target_ulong mask)
     tcg_gen_st_tl(t, tcg_env, offsetof(CPUX86State, eflags));
 }
 
-static void gen_reset_eflags(DisasContext *s, target_ulong mask)
+static void gen_reset_eflags(DisasContext *s, uint64_t mask)
 {
     TCGv t = tcg_temp_new();
 
@@ -841,7 +806,7 @@ typedef struct CCPrepare {
     TCGCond cond;
     TCGv reg;
     TCGv reg2;
-    target_ulong imm;
+    uint64_t imm;
     CCPrepareRHS rhs_type;
 } CCPrepare;
 
@@ -1309,7 +1274,7 @@ static void do_gen_rep(DisasContext *s, MemOp ot, TCGv dshift,
     TCGLabel *loop = gen_new_label();
     TCGLabel *done = gen_new_label();
 
-    target_ulong cx_mask = MAKE_64BIT_MASK(0, 8 << s->aflag);
+    uint64_t cx_mask = MAKE_64BIT_MASK(0, 8 << s->aflag);
     TCGv cx_next = tcg_temp_new();
 
     /*
@@ -1351,12 +1316,10 @@ static void do_gen_rep(DisasContext *s, MemOp ot, TCGv dshift,
      * extend here if needed and not do any expensive deposit operations later.
      */
     tcg_gen_subi_tl(cx_next, cpu_regs[R_ECX], 1);
-#ifdef TARGET_X86_64
     if (s->aflag == MO_32) {
         tcg_gen_ext32u_tl(cx_next, cx_next);
         cx_mask = ~0;
     }
-#endif
 
     /*
      * The last iteration is handled outside the loop, so that cx_next
@@ -1537,7 +1500,7 @@ static bool check_cpl0(DisasContext *s)
 static TCGv gen_shiftd_rm_T1(DisasContext *s, MemOp ot,
                              bool is_right, TCGv count)
 {
-    target_ulong mask = (ot == MO_64 ? 63 : 31);
+    uint64_t mask = (ot == MO_64 ? 63 : 31);
     TCGv cc_src = tcg_temp_new();
     TCGv tmp = tcg_temp_new();
     TCGv hishift;
@@ -1559,7 +1522,6 @@ static TCGv gen_shiftd_rm_T1(DisasContext *s, MemOp ot,
          * otherwise fall through default case.
          */
     case MO_32:
-#ifdef TARGET_X86_64
         /* Concatenate the two 32-bit values and use a 64-bit shift.  */
         tcg_gen_subi_tl(tmp, count, 1);
         if (is_right) {
@@ -1575,7 +1537,6 @@ static TCGv gen_shiftd_rm_T1(DisasContext *s, MemOp ot,
         }
         break;
     case MO_64:
-#endif
         hishift = tcg_temp_new();
         tcg_gen_subi_tl(tmp, count, 1);
         if (is_right) {
@@ -1696,7 +1657,7 @@ static void gen_st_modrm(DisasContext *s, X86DecodedInsn *decode, MemOp ot)
     }
 }
 
-static void gen_conditional_jump_labels(DisasContext *s, target_long diff,
+static void gen_conditional_jump_labels(DisasContext *s, int64_t diff,
                                         TCGLabel *not_taken, TCGLabel *taken)
 {
     if (not_taken) {
@@ -1808,7 +1769,7 @@ static inline void gen_stack_update(DisasContext *s, int addend)
     gen_op_add_reg_im(s, mo_stacksize(s), R_ESP, addend);
 }
 
-static void gen_lea_ss_ofs(DisasContext *s, TCGv dest, TCGv src, target_ulong offset)
+static void gen_lea_ss_ofs(DisasContext *s, TCGv dest, TCGv src, uint64_t offset)
 {
     if (offset) {
         tcg_gen_addi_tl(dest, src, offset);
@@ -2004,9 +1965,9 @@ gen_eob(DisasContext *s, int mode)
 static void gen_jmp_rel(DisasContext *s, MemOp ot, int diff, int tb_num)
 {
     bool use_goto_tb = s->jmp_opt;
-    target_ulong mask = -1;
-    target_ulong new_pc = s->pc + diff;
-    target_ulong new_eip = new_pc - s->cs_base;
+    uint64_t mask = -1;
+    uint64_t new_pc = s->pc + diff;
+    uint64_t new_eip = new_pc - s->cs_base;
 
     assert(!s->cc_op_dirty);
 
@@ -3111,7 +3072,6 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             break;
 
         case 0xf8: /* swapgs */
-#ifdef TARGET_X86_64
             if (CODE64(s)) {
                 if (check_cpl0(s)) {
                     tcg_gen_mov_tl(s->T0, cpu_seg_base[R_GS]);
@@ -3122,7 +3082,6 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
                 }
                 break;
             }
-#endif
             goto illegal_op;
 
         case 0xf9: /* rdtscp */
@@ -3337,7 +3296,6 @@ void tcg_x86_init(void)
 {
     static const char reg_names[CPU_NB_REGS_MAX][4] = {
         /* TARGET_X86_64 begin */
-#ifdef TARGET_X86_64
         [R_EAX] = "rax",
         [R_EBX] = "rbx",
         [R_ECX] = "rcx",
@@ -3355,25 +3313,11 @@ void tcg_x86_init(void)
         [14] = "r14",
         [15] = "r15",
         /* TARGET_X86_64 end */
-#else
-        [R_EAX] = "eax",
-        [R_EBX] = "ebx",
-        [R_ECX] = "ecx",
-        [R_EDX] = "edx",
-        [R_ESI] = "esi",
-        [R_EDI] = "edi",
-        [R_EBP] = "ebp",
-        [R_ESP] = "esp",
-#endif
     };
     static const char eip_name[] = {
         /* TARGET_X86_64 begin */
-#ifdef TARGET_X86_64
         "rip"
         /* TARGET_X86_64 end */
-#else
-        "eip"
-#endif
     };
     static const char seg_base_names[6][8] = {
         [R_CS] = "cs_base",
@@ -3485,7 +3429,7 @@ static void i386_tr_tb_start(DisasContextBase *db, CPUState *cpu)
 static void i386_tr_insn_start(DisasContextBase *dcbase, CPUState *cpu)
 {
     DisasContext *dc = container_of(dcbase, DisasContext, base);
-    target_ulong pc_arg = dc->base.pc_next;
+    uint64_t pc_arg = dc->base.pc_next;
 
     dc->prev_insn_start = dc->base.insn_start;
     dc->prev_insn_end = tcg_last_op();
@@ -3500,7 +3444,7 @@ static void i386_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
     DisasContext *dc = container_of(dcbase, DisasContext, base);
     bool orig_cc_op_dirty = dc->cc_op_dirty;
     CCOp orig_cc_op = dc->cc_op;
-    target_ulong orig_pc_save = dc->pc_save;
+    uint64_t orig_pc_save = dc->pc_save;
 
 #ifdef TARGET_VSYSCALL_PAGE
     /*

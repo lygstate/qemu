@@ -19,7 +19,7 @@
 
 #include "qemu/osdep.h"
 #include "cpu.h"
-#include "accel/tcg/cpu-ldst.h"
+#include "tcg/cpu-ldst-i386.h"
 #include "accel/tcg/probe.h"
 #include "exec/cputlb.h"
 #include "exec/page-protection.h"
@@ -28,8 +28,8 @@
 #include "tcg/helper-tcg.h"
 
 typedef struct TranslateParams {
-    target_ulong addr;
-    target_ulong cr3;
+    uint64_t addr;
+    uint64_t cr3;
     int pg_mode;
     int mmu_idx;
     int ptw_idx;
@@ -51,7 +51,7 @@ typedef enum TranslateFaultStage2 {
 typedef struct TranslateFault {
     int exception_index;
     int error_code;
-    target_ulong cr2;
+    uint64_t cr2;
     TranslateFaultStage2 stage2;
 } TranslateFault;
 
@@ -143,7 +143,7 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
                           TranslateResult *out, TranslateFault *err,
                           uint64_t ra)
 {
-    const target_ulong addr = in->addr;
+    const uint64_t addr = in->addr;
     const int pg_mode = in->pg_mode;
     const bool is_user = is_mmu_index_user(in->mmu_idx);
     const MMUAccessType access_type = in->access_type;
@@ -167,7 +167,6 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
     }
 
     if (pg_mode & PG_MODE_PAE) {
-#ifdef TARGET_X86_64
         if (pg_mode & PG_MODE_LMA) {
             if (pg_mode & PG_MODE_LA57) {
                 /*
@@ -239,7 +238,6 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
                 goto do_check_protect;
             }
         } else
-#endif
         {
             /*
              * Page table level 3

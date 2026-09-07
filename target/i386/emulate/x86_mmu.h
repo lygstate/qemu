@@ -46,14 +46,14 @@ typedef enum MMUTranslateResult {
     MMU_TRANSLATE_GPA_NO_WRITE_ACCESS = 6
 } MMUTranslateResult;
 
-MMUTranslateResult mmu_gva_to_gpa(CPUState *cpu, target_ulong gva, uint64_t *gpa, MMUTranslateFlags flags);
+MMUTranslateResult mmu_gva_to_gpa(CPUState *cpu, uint64_t gva, uint64_t *gpa, MMUTranslateFlags flags);
 
 /* Thin wrappers x86_write_mem_ex/x86_read_mem_ex for code readability */
-MMUTranslateResult x86_write_mem(CPUState *cpu, void *data, target_ulong gva, int bytes);
-MMUTranslateResult x86_read_mem(CPUState *cpu, void *data, target_ulong gva, int bytes);
+MMUTranslateResult x86_write_mem(CPUState *cpu, void *data, uint64_t gva, int bytes);
+MMUTranslateResult x86_read_mem(CPUState *cpu, void *data, uint64_t gva, int bytes);
 
-MMUTranslateResult x86_write_mem_priv(CPUState *cpu, void *data, target_ulong gva, int bytes);
-MMUTranslateResult x86_read_mem_priv(CPUState *cpu, void *data, target_ulong gva, int bytes);
+MMUTranslateResult x86_write_mem_priv(CPUState *cpu, void *data, uint64_t gva, int bytes);
+MMUTranslateResult x86_read_mem_priv(CPUState *cpu, void *data, uint64_t gva, int bytes);
 
 
 #endif /* X86_MMU_H */

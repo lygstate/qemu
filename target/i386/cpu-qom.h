@@ -24,7 +24,9 @@
 
 #define TYPE_I386_CPU "i386-cpu"
 #define TYPE_X86_64_CPU "x86_64-cpu"
-#ifdef TARGET_X86_64
+#ifdef CPU_DEFS_H
+#define TYPE_X86_CPU (target_x86_64() ? TYPE_X86_64_CPU : TYPE_I386_CPU)
+#elif defined(TARGET_X86_64)
 #define TYPE_X86_CPU TYPE_X86_64_CPU
 #else
 #define TYPE_X86_CPU TYPE_I386_CPU

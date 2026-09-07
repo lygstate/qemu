@@ -20,13 +20,13 @@
 #include "qemu/osdep.h"
 #include "cpu.h"
 #include "exec/helper-proto.h"
-#include "accel/tcg/cpu-ldst.h"
+#include "tcg/cpu-ldst-i386.h"
 #include "qemu/int128.h"
 #include "qemu/atomic128.h"
 #include "tcg/tcg.h"
 #include "helper-tcg.h"
 
-void helper_boundw(CPUX86State *env, target_ulong a0, int v)
+void helper_boundw(CPUX86State *env, uint64_t a0, int v)
 {
     int low, high;
 
@@ -41,7 +41,7 @@ void helper_boundw(CPUX86State *env, target_ulong a0, int v)
     }
 }
 
-void helper_boundl(CPUX86State *env, target_ulong a0, int v)
+void helper_boundl(CPUX86State *env, uint64_t a0, int v)
 {
     int low, high;
 

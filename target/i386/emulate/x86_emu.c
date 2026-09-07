@@ -104,7 +104,7 @@
     }                                                   \
 }                                                       \
 
-target_ulong read_reg(CPUX86State *env, int reg, int size)
+uint64_t read_reg(CPUX86State *env, int reg, int size)
 {
     switch (size) {
     case 1:
@@ -121,7 +121,7 @@ target_ulong read_reg(CPUX86State *env, int reg, int size)
     return 0;
 }
 
-void write_reg(CPUX86State *env, int reg, target_ulong val, int size)
+void write_reg(CPUX86State *env, int reg, uint64_t val, int size)
 {
     switch (size) {
     case 1:
@@ -141,9 +141,9 @@ void write_reg(CPUX86State *env, int reg, target_ulong val, int size)
     }
 }
 
-target_ulong read_val_from_reg(void *reg_ptr, int size)
+uint64_t read_val_from_reg(void *reg_ptr, int size)
 {
-    target_ulong val;
+    uint64_t val;
     
     switch (size) {
     case 1:
@@ -164,7 +164,7 @@ target_ulong read_val_from_reg(void *reg_ptr, int size)
     return val;
 }
 
-void write_val_to_reg(void *reg_ptr, target_ulong val, int size)
+void write_val_to_reg(void *reg_ptr, uint64_t val, int size)
 {
     switch (size) {
     case 1:
@@ -184,7 +184,7 @@ void write_val_to_reg(void *reg_ptr, target_ulong val, int size)
     }
 }
 
-bool write_val_ext(CPUX86State *env, struct x86_decode_op *decode, target_ulong val, int size)
+bool write_val_ext(CPUX86State *env, struct x86_decode_op *decode, uint64_t val, int size)
 {
     if (decode->type == X86_VAR_REG) {
         write_val_to_reg(decode->regptr, val, size);
@@ -200,7 +200,7 @@ bool write_val_ext(CPUX86State *env, struct x86_decode_op *decode, target_ulong 
     return 0;
 }
 
-uint8_t *read_mmio(CPUX86State *env, target_ulong ptr, int bytes)
+uint8_t *read_mmio(CPUX86State *env, uint64_t ptr, int bytes)
 {
     MMUTranslateResult res = x86_read_mem(env_cpu(env), env->emu_mmio_buf, ptr, bytes);
     if (res) {
@@ -214,7 +214,7 @@ uint8_t *read_mmio(CPUX86State *env, target_ulong ptr, int bytes)
 }
 
 
-static bool read_val_from_mem(CPUX86State *env, target_long ptr, int size, target_ulong* val)
+static bool read_val_from_mem(CPUX86State *env, uint64_t ptr, int size, uint64_t* val)
 {
     uint8_t *mmio_ptr;
 
@@ -242,7 +242,7 @@ static bool read_val_from_mem(CPUX86State *env, target_long ptr, int size, targe
     return 0;
 }
 
-bool read_val_ext(CPUX86State *env, struct x86_decode_op *decode, int size, target_ulong* val)
+bool read_val_ext(CPUX86State *env, struct x86_decode_op *decode, int size, uint64_t* val)
 {
     if (decode->type == X86_VAR_REG) {
         *val = read_val_from_reg(decode->regptr, size);
@@ -478,7 +478,7 @@ static bool exec_out(CPUX86State *env, struct x86_decode *decode)
 
 static bool exec_in(CPUX86State *env, struct x86_decode *decode)
 {
-    target_ulong val = 0;
+    uint64_t val = 0;
     switch (decode->opcode[0]) {
     case 0xe4:
         emul_ops->handle_io(env_cpu(env), decode->op[0].val, &AL(env), 0, 1, 1);
@@ -517,7 +517,7 @@ static bool exec_in(CPUX86State *env, struct x86_decode *decode)
 static inline void string_increment_reg(CPUX86State *env, int reg,
                                         struct x86_decode *decode)
 {
-    target_ulong val = read_reg(env, reg, decode->addressing_size);
+    uint64_t val = read_reg(env, reg, decode->addressing_size);
     if (env->eflags & DF_MASK) {
         val -= decode->operand_size;
     } else {
@@ -534,7 +534,7 @@ static inline bool string_rep(CPUX86State *env, struct x86_decode *decode,
                               bool (*func)(CPUX86State *env,
                                            struct x86_decode *ins), int rep)
 {
-    target_ulong rcx = read_reg(env, R_ECX, decode->addressing_size);
+    uint64_t rcx = read_reg(env, R_ECX, decode->addressing_size);
 
     while (rcx != 0) {
         bool is_cmps_or_scas = decode->cmd == X86_DECODE_CMD_CMPS || decode->cmd == X86_DECODE_CMD_SCAS;
@@ -557,7 +557,7 @@ static bool exec_ins_single(CPUX86State *env, struct x86_decode *decode)
 {
     MMUTranslateResult res;
 
-    target_ulong addr = linear_addr_size(env_cpu(env), RDI(env),
+    uint64_t addr = linear_addr_size(env_cpu(env), RDI(env),
                                          decode->addressing_size, R_ES);
 
     emul_ops->handle_io(env_cpu(env), DX(env), env->emu_mmio_buf, 0,
@@ -590,7 +590,7 @@ static bool exec_ins(CPUX86State *env, struct x86_decode *decode)
 
 static bool exec_outs_single(CPUX86State *env, struct x86_decode *decode)
 {
-    target_ulong addr = decode_linear_addr(env, decode, RSI(env), R_DS);
+    uint64_t addr = decode_linear_addr(env, decode, RSI(env), R_DS);
 
     x86_read_mem(env_cpu(env), env->emu_mmio_buf, addr,
                        decode->operand_size);
@@ -619,9 +619,9 @@ static bool exec_outs(CPUX86State *env, struct x86_decode *decode)
 
 static bool exec_movs_single(CPUX86State *env, struct x86_decode *decode)
 {
-    target_ulong src_addr;
-    target_ulong dst_addr;
-    target_ulong val;
+    uint64_t src_addr;
+    uint64_t dst_addr;
+    uint64_t val;
     MMUTranslateResult res;
 
     src_addr = decode_linear_addr(env, decode, RSI(env), R_DS);
@@ -659,8 +659,8 @@ static bool exec_movs(CPUX86State *env, struct x86_decode *decode)
 
 static bool exec_cmps_single(CPUX86State *env, struct x86_decode *decode)
 {
-    target_ulong src_addr;
-    target_ulong dst_addr;
+    uint64_t src_addr;
+    uint64_t dst_addr;
 
     src_addr = decode_linear_addr(env, decode, RSI(env), R_DS);
     dst_addr = linear_addr_size(env_cpu(env), RDI(env),
@@ -696,8 +696,8 @@ static bool exec_cmps(CPUX86State *env, struct x86_decode *decode)
 
 static bool exec_stos_single(CPUX86State *env, struct x86_decode *decode)
 {
-    target_ulong addr;
-    target_ulong val;
+    uint64_t addr;
+    uint64_t val;
     MMUTranslateResult res;
 
     addr = linear_addr_size(env_cpu(env), RDI(env),
@@ -727,7 +727,7 @@ static bool exec_stos(CPUX86State *env, struct x86_decode *decode)
 
 static bool exec_scas_single(CPUX86State *env, struct x86_decode *decode)
 {
-    target_ulong addr;
+    uint64_t addr;
 
     addr = linear_addr_size(env_cpu(env), RDI(env),
                             decode->addressing_size, R_ES);
@@ -757,8 +757,8 @@ static bool exec_scas(CPUX86State *env, struct x86_decode *decode)
 
 static bool exec_lods_single(CPUX86State *env, struct x86_decode *decode)
 {
-    target_ulong addr;
-    target_ulong val = 0;
+    uint64_t addr;
+    uint64_t val = 0;
 
     addr = decode_linear_addr(env, decode, RSI(env), R_DS);
     x86_read_mem(env_cpu(env), &val, addr,  decode->operand_size);
@@ -968,7 +968,7 @@ bool exec_movsx(CPUX86State *env, struct x86_decode *decode)
 {
     int src_op_size;
     int op_size = decode->operand_size;
-    target_ulong val;
+    uint64_t val;
 
     fetch_operands(env, decode, 2, false, false, false);
 

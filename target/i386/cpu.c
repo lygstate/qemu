@@ -9381,7 +9381,7 @@ static void x86_cpu_reset_hold(Object *obj, ResetType type)
     X86CPU *cpu = X86_CPU(cs);
     X86CPUClass *xcc = X86_CPU_GET_CLASS(obj);
     CPUX86State *env = &cpu->env;
-    target_ulong cr4;
+    uint64_t cr4;
     uint64_t xcr0;
     int i;
 
