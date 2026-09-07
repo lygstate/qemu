@@ -202,6 +202,8 @@ void hmp_info_cryptodev(MonitorHMP *hmp, const QDict *qdict);
 void hmp_dumpdtb(MonitorHMP *hmp, const QDict *qdict);
 void hmp_info_firmware_log(MonitorHMP *hmp, const QDict *qdict);
 void hmp_info_mem(MonitorHMP *hmp, const QDict *qdict);
+void hmp_info_mem_i386(MonitorHMP *hmp, const QDict *qdict);
+void hmp_info_mem_riscv(MonitorHMP *hmp, const QDict *qdict);
 void hmp_info_tlb(MonitorHMP *hmp, const QDict *qdict);
 void hmp_mce(MonitorHMP *hmp, const QDict *qdict);
 void hmp_info_local_apic(MonitorHMP *hmp, const QDict *qdict);

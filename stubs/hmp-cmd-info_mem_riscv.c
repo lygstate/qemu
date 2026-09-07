@@ -1,5 +1,5 @@
 /*
- * Human Monitor 'info mem' stub
+ * Human Monitor 'info mem' RISC-V stub
  *
  * Copyright (c) Linaro
  *
@@ -9,4 +9,4 @@
 #include "qemu/osdep.h"
 #include "monitor/hmp.h"
 
-HMP_STUB(info_mem_i386)
+HMP_STUB(info_mem_riscv)
