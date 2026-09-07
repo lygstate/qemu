@@ -23,6 +23,7 @@
 #include "vmx.h"
 #include "vmcs.h"
 #include "cpu.h"
+#include "qemu/target-info.h"
 #include "x86_descr.h"
 #include "emulate/x86_decode.h"
 #include "system/hw_accel.h"
@@ -139,12 +140,12 @@ void hvf_put_msrs(CPUState *cs)
 
     hv_vcpu_write_msr(cs->accel->fd, MSR_STAR, env->star);
 
-#ifdef TARGET_X86_64
-    hv_vcpu_write_msr(cs->accel->fd, MSR_CSTAR, env->cstar);
-    hv_vcpu_write_msr(cs->accel->fd, MSR_KERNELGSBASE, env->kernelgsbase);
-    hv_vcpu_write_msr(cs->accel->fd, MSR_FMASK, env->fmask);
-    hv_vcpu_write_msr(cs->accel->fd, MSR_LSTAR, env->lstar);
-#endif
+    if (target_x86_64()) {
+        hv_vcpu_write_msr(cs->accel->fd, MSR_CSTAR, env->cstar);
+        hv_vcpu_write_msr(cs->accel->fd, MSR_KERNELGSBASE, env->kernelgsbase);
+        hv_vcpu_write_msr(cs->accel->fd, MSR_FMASK, env->fmask);
+        hv_vcpu_write_msr(cs->accel->fd, MSR_LSTAR, env->lstar);
+    }
 
     hv_vcpu_write_msr(cs->accel->fd, MSR_GSBASE, env->segs[R_GS].base);
     hv_vcpu_write_msr(cs->accel->fd, MSR_FSBASE, env->segs[R_FS].base);
@@ -224,12 +225,12 @@ void hvf_get_msrs(CPUState *cs)
 
     hv_vcpu_read_msr(cs->accel->fd, MSR_STAR, &env->star);
 
-#ifdef TARGET_X86_64
-    hv_vcpu_read_msr(cs->accel->fd, MSR_CSTAR, &env->cstar);
-    hv_vcpu_read_msr(cs->accel->fd, MSR_KERNELGSBASE, &env->kernelgsbase);
-    hv_vcpu_read_msr(cs->accel->fd, MSR_FMASK, &env->fmask);
-    hv_vcpu_read_msr(cs->accel->fd, MSR_LSTAR, &env->lstar);
-#endif
+    if (target_x86_64()) {
+        hv_vcpu_read_msr(cs->accel->fd, MSR_CSTAR, &env->cstar);
+        hv_vcpu_read_msr(cs->accel->fd, MSR_KERNELGSBASE, &env->kernelgsbase);
+        hv_vcpu_read_msr(cs->accel->fd, MSR_FMASK, &env->fmask);
+        hv_vcpu_read_msr(cs->accel->fd, MSR_LSTAR, &env->lstar);
+    }
 
     hv_vcpu_read_msr(cs->accel->fd, MSR_IA32_APICBASE, &tmp);
     

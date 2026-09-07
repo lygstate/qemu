@@ -474,10 +474,10 @@ void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
                      (uint32_t)env->cr[3],
                      (uint32_t)env->cr[4]);
         for(i = 0; i < 4; i++) {
-            qemu_fprintf(f, "DR%d=" TARGET_FMT_lx " ", i, env->dr[i]);
+            qemu_fprintf(f, "DR%d=%08x ", i, (uint32_t)env->dr[i]);
         }
-        qemu_fprintf(f, "\nDR6=" TARGET_FMT_lx " DR7=" TARGET_FMT_lx "\n",
-                     env->dr[6], env->dr[7]);
+        qemu_fprintf(f, "\nDR6=%08x DR7=%08x\n",
+                     (uint32_t)env->dr[6], (uint32_t)env->dr[7]);
     }
     if (flags & CPU_DUMP_CCOP) {
         const char *cc_op_name = NULL;

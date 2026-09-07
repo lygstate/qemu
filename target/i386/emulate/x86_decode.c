@@ -26,7 +26,7 @@
 
 static void decode_invalid(CPUX86State *env, struct x86_decode *decode)
 {
-    printf(TARGET_FMT_lx ": failed to decode instruction ", env->eip);
+    printf("%" PRIx64 ": failed to decode instruction ", env->eip);
     for (int i = 0; i < decode->opcode_len; i++) {
         printf("%x ", decode->opcode[i]);
     }

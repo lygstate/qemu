@@ -2,7 +2,8 @@
 #include "cpu.h"
 #include "exec/cputlb.h"
 #include "hw/isa/isa.h"
-#include "migration/cpu.h"
+#include "migration/qemu-file-types.h"
+#include "migration/vmstate.h"
 #include "kvm/hyperv.h"
 #include "hw/i386/x86.h"
 #include "kvm/kvm_i386.h"
@@ -14,6 +15,78 @@
 #include "system/tcg.h"
 
 #include "qemu/error-report.h"
+
+static bool x86_64_vmsd_needed(void *opaque, int version_id)
+{
+    return target_x86_64();
+}
+
+static int get_uinttl(QEMUFile *f, void *pv, size_t size,
+                      const VMStateField *field)
+{
+    uint64_t v = target_x86_64() ? qemu_get_be64(f) : qemu_get_be32(f);
+
+    if (size == 8) {
+        *(uint64_t *)pv = v;
+    } else {
+        *(uint32_t *)pv = v;
+    }
+    return 0;
+}
+
+static int put_uinttl(QEMUFile *f, void *pv, size_t size,
+                      const VMStateField *field, JSONWriter *vmdesc)
+{
+    uint64_t v = size == 8 ? *(uint64_t *)pv : *(uint32_t *)pv;
+
+    if (target_x86_64()) {
+        qemu_put_be64(f, v);
+    } else {
+        qemu_put_be32(f, v);
+    }
+    return 0;
+}
+
+static const VMStateInfo vmstate_info_uinttl = {
+    .name = "uinttl",
+    .get = get_uinttl,
+    .put = put_uinttl,
+};
+
+#define VMSTATE_UINTTL_V(_f, _s, _v) \
+    VMSTATE_SINGLE(_f, _s, _v, vmstate_info_uinttl, uint64_t)
+#define VMSTATE_UINTTL(_f, _s) \
+    VMSTATE_UINTTL_V(_f, _s, 0)
+#define VMSTATE_UINTTL_ARRAY_V(_f, _s, _n, _v) \
+    VMSTATE_ARRAY(_f, _s, _n, _v, vmstate_info_uinttl, uint64_t)
+#define VMSTATE_UINTTL_ARRAY(_f, _s, _n) \
+    VMSTATE_UINTTL_ARRAY_V(_f, _s, _n, 0)
+#define VMSTATE_UINTTL_SUB_ARRAY(_f, _s, _start, _num) \
+    VMSTATE_SUB_ARRAY(_f, _s, _start, _num, 0, vmstate_info_uinttl, \
+                      uint64_t)
+#define VMSTATE_UINTTL_SUB_ARRAY_TEST(_f, _s, _start, _num, _test) { \
+    .name         = (stringify(_f)),                                 \
+    .field_exists = (_test),                                         \
+    .num          = (_num),                                          \
+    .info         = &vmstate_info_uinttl,                            \
+    .size         = sizeof(uint64_t),                                \
+    .flags        = VMS_ARRAY,                                       \
+    .offset       = vmstate_offset_sub_array(_s, _f, uint64_t,       \
+                                             _start),                \
+}
+
+#define VMSTATE_STRUCT_SUB_ARRAY_TEST(_field, _state, _start, _num, _test, \
+                                      _version, _vmsd, _type) {      \
+    .name         = (stringify(_field)),                             \
+    .version_id   = (_version),                                      \
+    .num          = (_num),                                          \
+    .field_exists = (_test),                                         \
+    .vmsd         = &(_vmsd),                                        \
+    .size         = sizeof(_type),                                   \
+    .flags        = VMS_STRUCT | VMS_ARRAY,                          \
+    .offset       = vmstate_offset_sub_array(_state, _field, _type,  \
+                                             _start),                \
+}
 
 static const VMStateDescription vmstate_segment = {
     .name = "segment",
@@ -52,8 +125,13 @@ static const VMStateDescription vmstate_xmm_reg = {
 };
 
 #define VMSTATE_XMM_REGS(_field, _state, _start)                         \
-    VMSTATE_STRUCT_SUB_ARRAY(_field, _state, _start, CPU_NB_REGS, 0,     \
-                             vmstate_xmm_reg, ZMMReg)
+    VMSTATE_STRUCT_SUB_ARRAY(_field, _state, _start, CPU_NB_REGS32, 0,    \
+                             vmstate_xmm_reg, ZMMReg),                   \
+    VMSTATE_STRUCT_SUB_ARRAY_TEST(_field, _state,                        \
+                                  (_start) + CPU_NB_REGS32,              \
+                                  CPU_NB_REGS64 - CPU_NB_REGS32,         \
+                                  x86_64_vmsd_needed, 0,                 \
+                                  vmstate_xmm_reg, ZMMReg)
 
 /* YMMH format is the same as XMM, but for bits 128-255 */
 static const VMStateDescription vmstate_ymmh_reg = {
@@ -68,8 +146,13 @@ static const VMStateDescription vmstate_ymmh_reg = {
 };
 
 #define VMSTATE_YMMH_REGS_VARS(_field, _state, _start, _v)               \
-    VMSTATE_STRUCT_SUB_ARRAY(_field, _state, _start, CPU_NB_REGS, _v,    \
-                             vmstate_ymmh_reg, ZMMReg)
+    VMSTATE_STRUCT_SUB_ARRAY(_field, _state, _start, CPU_NB_REGS32, _v,  \
+                             vmstate_ymmh_reg, ZMMReg),                  \
+    VMSTATE_STRUCT_SUB_ARRAY_TEST(_field, _state,                        \
+                                  (_start) + CPU_NB_REGS32,              \
+                                  CPU_NB_REGS64 - CPU_NB_REGS32,         \
+                                  x86_64_vmsd_needed, _v,                \
+                                  vmstate_ymmh_reg, ZMMReg)
 
 static const VMStateDescription vmstate_zmmh_reg = {
     .name = "zmmh_reg",
@@ -85,10 +168,14 @@ static const VMStateDescription vmstate_zmmh_reg = {
 };
 
 #define VMSTATE_ZMMH_REGS_VARS(_field, _state, _start)                   \
-    VMSTATE_STRUCT_SUB_ARRAY(_field, _state, _start, CPU_NB_REGS, 0,     \
-                             vmstate_zmmh_reg, ZMMReg)
+    VMSTATE_STRUCT_SUB_ARRAY(_field, _state, _start, CPU_NB_REGS32, 0,   \
+                             vmstate_zmmh_reg, ZMMReg),                  \
+    VMSTATE_STRUCT_SUB_ARRAY_TEST(_field, _state,                        \
+                                  (_start) + CPU_NB_REGS32,              \
+                                  CPU_NB_REGS64 - CPU_NB_REGS32,         \
+                                  x86_64_vmsd_needed, 0,                 \
+                                  vmstate_zmmh_reg, ZMMReg)
 
-#ifdef TARGET_X86_64
 static const VMStateDescription vmstate_hi16_zmm_reg = {
     .name = "hi16_zmm_reg",
     .version_id = 1,
@@ -107,9 +194,9 @@ static const VMStateDescription vmstate_hi16_zmm_reg = {
 };
 
 #define VMSTATE_Hi16_ZMM_REGS_VARS(_field, _state, _start)               \
-    VMSTATE_STRUCT_SUB_ARRAY(_field, _state, _start, CPU_NB_REGS, 0,     \
-                             vmstate_hi16_zmm_reg, ZMMReg)
-#endif
+    VMSTATE_STRUCT_SUB_ARRAY_TEST(_field, _state, _start, CPU_NB_REGS_MAX, \
+                                  x86_64_vmsd_needed, 0,                 \
+                                  vmstate_hi16_zmm_reg, ZMMReg)
 
 static const VMStateDescription vmstate_bnd_regs = {
     .name = "bnd_regs",
@@ -1005,20 +1092,19 @@ static bool avx512_needed(void *opaque)
         }
     }
 
-    for (i = 0; i < CPU_NB_REGS; i++) {
+    for (i = 0; i < cpu_nb_regs(); i++) {
 #define ENV_XMM(reg, field) (env->xmm_regs[reg].ZMM_Q(field))
         if (ENV_XMM(i, 4) || ENV_XMM(i, 6) ||
             ENV_XMM(i, 5) || ENV_XMM(i, 7)) {
             return true;
         }
-#ifdef TARGET_X86_64
-        if (ENV_XMM(i+16, 0) || ENV_XMM(i+16, 1) ||
-            ENV_XMM(i+16, 2) || ENV_XMM(i+16, 3) ||
-            ENV_XMM(i+16, 4) || ENV_XMM(i+16, 5) ||
-            ENV_XMM(i+16, 6) || ENV_XMM(i+16, 7)) {
+        if (target_x86_64() &&
+            (ENV_XMM(i + 16, 0) || ENV_XMM(i + 16, 1) ||
+             ENV_XMM(i + 16, 2) || ENV_XMM(i + 16, 3) ||
+             ENV_XMM(i + 16, 4) || ENV_XMM(i + 16, 5) ||
+             ENV_XMM(i + 16, 6) || ENV_XMM(i + 16, 7))) {
             return true;
         }
-#endif
     }
 
     return false;
@@ -1032,9 +1118,7 @@ static const VMStateDescription vmstate_avx512 = {
     .fields = (const VMStateField[]) {
         VMSTATE_UINT64_ARRAY(env.opmask_regs, X86CPU, NB_OPMASK_REGS),
         VMSTATE_ZMMH_REGS_VARS(env.xmm_regs, X86CPU, 0),
-#ifdef TARGET_X86_64
         VMSTATE_Hi16_ZMM_REGS_VARS(env.xmm_regs, X86CPU, 16),
-#endif
         VMSTATE_END_OF_LIST()
     }
 };
@@ -1494,13 +1578,12 @@ static const VMStateDescription vmstate_svm_guest = {
     }
 };
 
-#ifndef TARGET_X86_64
 static bool intel_efer32_needed(void *opaque)
 {
     X86CPU *cpu = opaque;
     CPUX86State *env = &cpu->env;
 
-    return env->efer != 0;
+    return !target_x86_64() && env->efer != 0;
 }
 
 static const VMStateDescription vmstate_efer32 = {
@@ -1513,7 +1596,6 @@ static const VMStateDescription vmstate_efer32 = {
         VMSTATE_END_OF_LIST()
     }
 };
-#endif
 
 static bool msr_tsx_ctrl_needed(void *opaque)
 {
@@ -1620,13 +1702,13 @@ static const VMStateDescription vmstate_msr_hwcr = {
     }
 };
 
-#ifdef TARGET_X86_64
 static bool intel_fred_msrs_needed(void *opaque)
 {
     X86CPU *cpu = opaque;
     CPUX86State *env = &cpu->env;
 
-    return !!(env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_FRED);
+    return target_x86_64() &&
+           !!(env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_FRED);
 }
 
 static const VMStateDescription vmstate_msr_fred = {
@@ -1653,7 +1735,8 @@ static bool amx_xtile_needed(void *opaque)
     X86CPU *cpu = opaque;
     CPUX86State *env = &cpu->env;
 
-    return !!(env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_AMX_TILE);
+    return target_x86_64() &&
+           !!(env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_AMX_TILE);
 }
 
 static const VMStateDescription vmstate_amx_xtile = {
@@ -1667,7 +1750,6 @@ static const VMStateDescription vmstate_amx_xtile = {
         VMSTATE_END_OF_LIST()
     }
 };
-#endif
 
 static bool arch_lbr_needed(void *opaque)
 {
@@ -1749,9 +1831,7 @@ static const VMStateDescription vmstate_shstk = {
         VMSTATE_UINT64(env.pl1_ssp, X86CPU),
         VMSTATE_UINT64(env.pl2_ssp, X86CPU),
         VMSTATE_UINT64(env.pl3_ssp, X86CPU),
-#ifdef TARGET_X86_64
-        VMSTATE_UINT64(env.int_ssp_table, X86CPU),
-#endif
+        VMSTATE_UINT64_TEST(env.int_ssp_table, X86CPU, x86_64_vmsd_needed),
         VMSTATE_UINT64(env.guest_ssp, X86CPU),
         VMSTATE_END_OF_LIST()
     }
@@ -1782,13 +1862,13 @@ static const VMStateDescription vmstate_cet = {
     },
 };
 
-#ifdef TARGET_X86_64
 static bool apx_needed(void *opaque)
 {
     X86CPU *cpu = opaque;
     CPUX86State *env = &cpu->env;
 
-    return !!(env->features[FEAT_7_1_EDX] & CPUID_7_1_EDX_APXF);
+    return target_x86_64() &&
+           !!(env->features[FEAT_7_1_EDX] & CPUID_7_1_EDX_APXF);
 }
 
 static const VMStateDescription vmstate_apx = {
@@ -1797,12 +1877,11 @@ static const VMStateDescription vmstate_apx = {
     .minimum_version_id = 1,
     .needed = apx_needed,
     .fields = (VMStateField[]) {
-        VMSTATE_UINT64_SUB_ARRAY(env.regs, X86CPU, CPU_NB_REGS,
-                                 CPU_NB_EREGS - CPU_NB_REGS),
+        VMSTATE_UINT64_SUB_ARRAY(env.regs, X86CPU, CPU_NB_REGS_MAX,
+                                 CPU_NB_EREGS_MAX - CPU_NB_REGS_MAX),
         VMSTATE_END_OF_LIST()
     }
 };
-#endif
 
 const VMStateDescription vmstate_x86_cpu = {
     .name = "cpu",
@@ -1811,7 +1890,10 @@ const VMStateDescription vmstate_x86_cpu = {
     .pre_save = cpu_pre_save,
     .post_load = cpu_post_load,
     .fields = (const VMStateField[]) {
-        VMSTATE_UINTTL_SUB_ARRAY(env.regs, X86CPU, 0, CPU_NB_REGS),
+        VMSTATE_UINTTL_SUB_ARRAY(env.regs, X86CPU, 0, CPU_NB_REGS32),
+        VMSTATE_UINTTL_SUB_ARRAY_TEST(env.regs, X86CPU, CPU_NB_REGS32,
+                                      CPU_NB_REGS64 - CPU_NB_REGS32,
+                                      x86_64_vmsd_needed),
         VMSTATE_UINTTL(env.eip, X86CPU),
         VMSTATE_UINTTL(env.eflags, X86CPU),
         VMSTATE_UINT32(env.hflags, X86CPU),
@@ -1844,14 +1926,12 @@ const VMStateDescription vmstate_x86_cpu = {
         VMSTATE_UINT32(env.mxcsr, X86CPU),
         VMSTATE_XMM_REGS(env.xmm_regs, X86CPU, 0),
 
-#ifdef TARGET_X86_64
-        VMSTATE_UINT64(env.efer, X86CPU),
-        VMSTATE_UINT64(env.star, X86CPU),
-        VMSTATE_UINT64(env.lstar, X86CPU),
-        VMSTATE_UINT64(env.cstar, X86CPU),
-        VMSTATE_UINT64(env.fmask, X86CPU),
-        VMSTATE_UINT64(env.kernelgsbase, X86CPU),
-#endif
+        VMSTATE_UINT64_TEST(env.efer, X86CPU, x86_64_vmsd_needed),
+        VMSTATE_UINT64_TEST(env.star, X86CPU, x86_64_vmsd_needed),
+        VMSTATE_UINT64_TEST(env.lstar, X86CPU, x86_64_vmsd_needed),
+        VMSTATE_UINT64_TEST(env.cstar, X86CPU, x86_64_vmsd_needed),
+        VMSTATE_UINT64_TEST(env.fmask, X86CPU, x86_64_vmsd_needed),
+        VMSTATE_UINT64_TEST(env.kernelgsbase, X86CPU, x86_64_vmsd_needed),
         VMSTATE_UINT32(env.smbase, X86CPU),
 
         VMSTATE_UINT64(env.pat, X86CPU),
@@ -1935,9 +2015,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_msr_virt_ssbd,
         &vmstate_svm_npt,
         &vmstate_svm_guest,
-#ifndef TARGET_X86_64
         &vmstate_efer32,
-#endif
 #ifdef CONFIG_KVM
         &vmstate_nested_state,
         &vmstate_xen_vcpu,
@@ -1947,17 +2025,13 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_pdptrs,
         &vmstate_msr_xfd,
         &vmstate_msr_hwcr,
-#ifdef TARGET_X86_64
         &vmstate_msr_fred,
         &vmstate_amx_xtile,
-#endif
         &vmstate_arch_lbr,
         &vmstate_triple_fault,
         &vmstate_pl0_ssp,
         &vmstate_cet,
-#ifdef TARGET_X86_64
         &vmstate_apx,
-#endif
 #ifdef CONFIG_MSHV
         &vmstate_mshv_synic_vp_state,
         &vmstate_mshv_synthetic_timers,
