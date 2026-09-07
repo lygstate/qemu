@@ -18,7 +18,7 @@
  * If compiling per-target, get the real values.
  * For generic code, reuse the mechanism for variable page size.
  */
-#ifdef COMPILING_PER_TARGET
+#if defined(COMPILING_PER_TARGET) && !defined(COMPILING_PER_TARGET_BASE)
 #include "cpu-param.h"
 #include "exec/target_long.h"
 #define TARGET_PAGE_TYPE  target_long
