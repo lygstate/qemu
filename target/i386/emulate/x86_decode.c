@@ -77,7 +77,7 @@ static inline uint64_t decode_bytes(CPUX86State *env, struct x86_decode *decode,
     if (decode->stream && decode->len + size <= decode->stream->len) {
         memcpy(&val, decode->stream->bytes + decode->len, size);
     } else {
-        target_ulong va = linear_rip(env_cpu(env), target_ulong_val(&(env)->eip)) + decode->len;
+        uint64_t va = linear_rip(env_cpu(env), target_ulong_val(&(env)->eip)) + decode->len;
         x86_read_mem(env_cpu(env), &val, va, size);
     }
     decode->len += size;
@@ -1620,7 +1620,7 @@ struct decode_x87_tbl _x87_inst[] = {
 void calc_modrm_operand16(CPUX86State *env, struct x86_decode *decode,
                           struct x86_decode_op *op)
 {
-    target_ulong ptr = 0;
+    uint64_t ptr = 0;
     X86Seg seg = R_DS;
 
     if (!decode->modrm.mod && 6 == decode->modrm.rm) {
@@ -1693,7 +1693,7 @@ void *get_reg_ref(CPUX86State *env, int reg, int rex_present,
     return ptr;
 }
 
-target_ulong get_reg_val(CPUX86State *env, int reg, int rex_present,
+uint64_t get_reg_val(CPUX86State *env, int reg, int rex_present,
                          int is_extended, int size)
 {
     uint64_t val = 0;
@@ -1703,11 +1703,11 @@ target_ulong get_reg_val(CPUX86State *env, int reg, int rex_present,
     return val;
 }
 
-static target_ulong get_sib_val(CPUX86State *env, struct x86_decode *decode,
+static uint64_t get_sib_val(CPUX86State *env, struct x86_decode *decode,
                           X86Seg *sel)
 {
-    target_ulong base = 0;
-    target_ulong scaled_index = 0;
+    uint64_t base = 0;
+    uint64_t scaled_index = 0;
     int addr_size = decode->addressing_size;
     int base_reg = decode->sib.base;
     int index_reg = decode->sib.index;
@@ -1741,7 +1741,7 @@ void calc_modrm_operand32(CPUX86State *env, struct x86_decode *decode,
                           struct x86_decode_op *op)
 {
     X86Seg seg = R_DS;
-    target_ulong ptr = 0;
+    uint64_t ptr = 0;
     int addr_size = decode->addressing_size;
 
     if (decode->displacement_size) {
@@ -1778,7 +1778,7 @@ void calc_modrm_operand64(CPUX86State *env, struct x86_decode *decode,
     int32_t offset = 0;
     int mod = decode->modrm.mod;
     int rm = decode->modrm.rm;
-    target_ulong ptr;
+    uint64_t ptr;
     int src = decode->modrm.rm;
 
     if (decode->displacement_size) {
@@ -2170,8 +2170,8 @@ const char *decode_cmd_to_string(enum x86_decode_cmd cmd)
     return cmds[cmd];
 }
 
-target_ulong decode_linear_addr(CPUX86State *env, struct x86_decode *decode,
-                               target_ulong addr, X86Seg seg)
+uint64_t decode_linear_addr(CPUX86State *env, struct x86_decode *decode,
+                               uint64_t addr, X86Seg seg)
 {
     switch (decode->segment_override) {
     case PREFIX_CS_SEG_OVERRIDE:

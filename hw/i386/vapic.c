@@ -166,7 +166,7 @@ static void update_guest_rom_state(VAPICROMState *s)
 static int find_real_tpr_addr(VAPICROMState *s, CPUX86State *env)
 {
     CPUState *cs = env_cpu(env);
-    target_ulong addr;
+    uint64_t addr;
 
     if (s->state == VAPIC_ACTIVE) {
         return 0;
@@ -209,11 +209,11 @@ static bool opcode_matches(uint8_t *opcode, const TPRInstruction *instr)
 }
 
 static int evaluate_tpr_instruction(VAPICROMState *s, X86CPU *cpu,
-                                    target_ulong *pip, TPRAccess access)
+                                    uint64_t *pip, TPRAccess access)
 {
     CPUState *cs = CPU(cpu);
     const TPRInstruction *instr;
-    target_ulong ip = *pip;
+    uint64_t ip = *pip;
     uint8_t opcode[2];
     uint32_t real_tpr_addr;
     int i;
@@ -292,7 +292,7 @@ instruction_ok:
     return 0;
 }
 
-static int update_rom_mapping(VAPICROMState *s, CPUX86State *env, target_ulong ip)
+static int update_rom_mapping(VAPICROMState *s, CPUX86State *env, uint64_t ip)
 {
     CPUState *cs = env_cpu(env);
     hwaddr paddr;
@@ -392,12 +392,12 @@ static int vapic_enable(VAPICROMState *s, X86CPU *cpu)
     return 0;
 }
 
-static void patch_byte(X86CPU *cpu, target_ulong addr, uint8_t byte)
+static void patch_byte(X86CPU *cpu, uint64_t addr, uint8_t byte)
 {
     cpu_memory_rw_debug(CPU(cpu), addr, &byte, 1, 1);
 }
 
-static void patch_call(X86CPU *cpu, target_ulong ip, uint32_t target)
+static void patch_call(X86CPU *cpu, uint64_t ip, uint32_t target)
 {
     uint32_t offset;
 
@@ -408,7 +408,7 @@ static void patch_call(X86CPU *cpu, target_ulong ip, uint32_t target)
 
 typedef struct PatchInfo {
     VAPICHandlers *handler;
-    target_ulong ip;
+    uint64_t ip;
 } PatchInfo;
 
 static void do_patch_instruction(CPUState *cs, run_on_cpu_data data)
@@ -416,7 +416,7 @@ static void do_patch_instruction(CPUState *cs, run_on_cpu_data data)
     X86CPU *x86_cpu = X86_CPU(cs);
     PatchInfo *info = (PatchInfo *) data.host_ptr;
     VAPICHandlers *handlers = info->handler;
-    target_ulong ip = info->ip;
+    uint64_t ip = info->ip;
     uint8_t opcode[2];
     uint32_t imm32 = 0;
 
@@ -454,7 +454,7 @@ static void do_patch_instruction(CPUState *cs, run_on_cpu_data data)
     g_free(info);
 }
 
-static void patch_instruction(VAPICROMState *s, X86CPU *cpu, target_ulong ip)
+static void patch_instruction(VAPICROMState *s, X86CPU *cpu, uint64_t ip)
 {
     MachineState *ms = MACHINE(qdev_get_machine());
     CPUState *cs = CPU(cpu);
@@ -474,7 +474,7 @@ static void patch_instruction(VAPICROMState *s, X86CPU *cpu, target_ulong ip)
     async_safe_run_on_cpu(cs, do_patch_instruction, RUN_ON_CPU_HOST_PTR(info));
 }
 
-void vapic_report_tpr_access(DeviceState *dev, CPUState *cs, target_ulong ip,
+void vapic_report_tpr_access(DeviceState *dev, CPUState *cs, uint64_t ip,
                              TPRAccess access)
 {
     VAPICROMState *s = VAPIC(dev);

@@ -21,7 +21,7 @@
 #include "qemu/main-loop.h"
 #include "cpu.h"
 #include "exec/helper-proto.h"
-#include "accel/tcg/cpu-ldst.h"
+#include "tcg/cpu-ldst-i386.h"
 #include "accel/tcg/cpu-loop.h"
 #include "system/address-spaces.h"
 #include "system/memory.h"
@@ -35,7 +35,7 @@ void helper_outb(CPUX86State *env, uint32_t port, uint32_t data)
                       cpu_get_mem_attrs(env), NULL);
 }
 
-target_ulong helper_inb(CPUX86State *env, uint32_t port)
+uint64_t helper_inb(CPUX86State *env, uint32_t port)
 {
     return address_space_ldub(&address_space_io, port,
                               cpu_get_mem_attrs(env), NULL);
@@ -47,7 +47,7 @@ void helper_outw(CPUX86State *env, uint32_t port, uint32_t data)
                          cpu_get_mem_attrs(env), NULL);
 }
 
-target_ulong helper_inw(CPUX86State *env, uint32_t port)
+uint64_t helper_inw(CPUX86State *env, uint32_t port)
 {
     return address_space_lduw_le(&address_space_io, port,
                                  cpu_get_mem_attrs(env), NULL);
@@ -59,13 +59,13 @@ void helper_outl(CPUX86State *env, uint32_t port, uint32_t data)
                          cpu_get_mem_attrs(env), NULL);
 }
 
-target_ulong helper_inl(CPUX86State *env, uint32_t port)
+uint64_t helper_inl(CPUX86State *env, uint32_t port)
 {
     return address_space_ldl_le(&address_space_io, port,
                                 cpu_get_mem_attrs(env), NULL);
 }
 
-target_ulong helper_read_cr8(CPUX86State *env)
+uint64_t helper_read_cr8(CPUX86State *env)
 {
     if (!(env->hflags2 & HF2_VINTR_MASK)) {
         return cpu_get_apic_tpr(env_archcpu(env)->apic_state);
@@ -74,7 +74,7 @@ target_ulong helper_read_cr8(CPUX86State *env)
     }
 }
 
-void helper_write_crN(CPUX86State *env, int reg, target_ulong t0)
+void helper_write_crN(CPUX86State *env, int reg, uint64_t t0)
 {
     switch (reg) {
     case 0:
@@ -209,7 +209,6 @@ void helper_wrmsr(CPUX86State *env)
         }
         env->vm_hsave = val;
         break;
-#ifdef TARGET_X86_64
     case MSR_LSTAR:
         env->lstar = val;
         break;
@@ -228,7 +227,6 @@ void helper_wrmsr(CPUX86State *env)
     case MSR_KERNELGSBASE:
         env->kernelgsbase = val;
         break;
-#endif
     case MSR_MTRRphysBase(0):
     case MSR_MTRRphysBase(1):
     case MSR_MTRRphysBase(2):
@@ -368,7 +366,6 @@ void helper_rdmsr(CPUX86State *env)
         /* CPU multiplier */
         val |= (((uint64_t)4ULL) << 40);
         break;
-#ifdef TARGET_X86_64
     case MSR_LSTAR:
         val = env->lstar;
         break;
@@ -390,7 +387,6 @@ void helper_rdmsr(CPUX86State *env)
     case MSR_TSC_AUX:
         val = env->tsc_aux;
         break;
-#endif
     case MSR_SMI_COUNT:
         val = env->msr_smi_count;
         break;
@@ -502,7 +498,7 @@ void helper_rdmsr(CPUX86State *env)
     target_ulong_array_set(&env->regs.rec, R_EDX, (uint32_t)(val >> 32));
 }
 
-void helper_flush_page(CPUX86State *env, target_ulong addr)
+void helper_flush_page(CPUX86State *env, uint64_t addr)
 {
     tlb_flush_page(env_cpu(env), addr);
 }
@@ -517,7 +513,7 @@ G_NORETURN void helper_hlt(CPUX86State *env)
     cpu_loop_exit(cs);
 }
 
-void helper_monitor(CPUX86State *env, target_ulong ptr)
+void helper_monitor(CPUX86State *env, uint64_t ptr)
 {
     if ((uint32_t)target_ulong_array_val(&env->regs.rec, R_ECX) != 0) {
         raise_exception_ra(env, EXCP0D_GPF, GETPC());

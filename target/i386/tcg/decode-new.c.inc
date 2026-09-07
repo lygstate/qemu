@@ -323,16 +323,14 @@ static inline uint32_t x86_ldl_code(CPUX86State *env, DisasContext *s)
     return translator_ldl_end(env, &s->base, advance_pc(env, s, 4), MO_LE);
 }
 
-#ifdef TARGET_X86_64
 static inline uint64_t x86_ldq_code(CPUX86State *env, DisasContext *s)
 {
     return translator_ldq_end(env, &s->base, advance_pc(env, s, 8), MO_LE);
 }
-#endif
 
-static target_ulong insn_get_addr(CPUX86State *env, DisasContext *s, MemOp ot)
+static uint64_t insn_get_addr(CPUX86State *env, DisasContext *s, MemOp ot)
 {
-    target_ulong ret;
+    uint64_t ret;
 
     switch (ot) {
     case MO_8:
@@ -344,11 +342,9 @@ static target_ulong insn_get_addr(CPUX86State *env, DisasContext *s, MemOp ot)
     case MO_32:
         ret = x86_ldl_code(env, s);
         break;
-#ifdef TARGET_X86_64
     case MO_64:
         ret = x86_ldq_code(env, s);
         break;
-#endif
     default:
         g_assert_not_reached();
     }
@@ -367,9 +363,7 @@ static inline uint32_t insn_get(CPUX86State *env, DisasContext *s, MemOp ot)
         ret = x86_lduw_code(env, s);
         break;
     case MO_32:
-#ifdef TARGET_X86_64
     case MO_64:
-#endif
         ret = x86_ldl_code(env, s);
         break;
     default:
@@ -378,9 +372,9 @@ static inline uint32_t insn_get(CPUX86State *env, DisasContext *s, MemOp ot)
     return ret;
 }
 
-static target_long insn_get_signed(CPUX86State *env, DisasContext *s, MemOp ot)
+static int64_t insn_get_signed(CPUX86State *env, DisasContext *s, MemOp ot)
 {
-    target_long ret;
+    int64_t ret;
 
     switch (ot) {
     case MO_8:
@@ -392,11 +386,9 @@ static target_long insn_get_signed(CPUX86State *env, DisasContext *s, MemOp ot)
     case MO_32:
         ret = (int32_t) x86_ldl_code(env, s);
         break;
-#ifdef TARGET_X86_64
     case MO_64:
         ret = x86_ldq_code(env, s);
         break;
-#endif
     default:
         g_assert_not_reached();
     }
@@ -2030,7 +2022,7 @@ static void decode_modrm(DisasContext *s, CPUX86State *env,
     int base = rm | REX_B(s);
     int index = -1;
     int scale = 0;
-    target_ulong disp = 0;
+    uint64_t disp = 0;
 
     switch (s->aflag) {
     case MO_64:
@@ -2764,9 +2756,9 @@ static void dump_unknown_opcode(CPUX86State *env, DisasContext *s)
     if (qemu_loglevel_mask(LOG_UNIMP)) {
         FILE *logfile = qemu_log_trylock();
         if (logfile) {
-            target_ulong pc = s->base.pc_next, end = s->pc;
+            uint64_t pc = s->base.pc_next, end = s->pc;
 
-            fprintf(logfile, "ILLOPC: " TARGET_FMT_lx ":", pc);
+            fprintf(logfile, "ILLOPC: %" PRIx64 ":", pc);
             for (; pc < end; ++pc) {
                 fprintf(logfile, " %02x", translator_ldub(env, &s->base, pc));
             }
@@ -2791,11 +2783,9 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
     s->pc = s->base.pc_next;
     s->override = -1;
     s->popl_esp_hack = 0;
-#ifdef TARGET_X86_64
     s->rex_r = 0;
     s->rex_x = 0;
     s->rex_b = 0;
-#endif
     s->rip_offset = 0; /* for relative ip address */
     s->vex_l = 0;
     s->vex_v = 0;
@@ -2804,12 +2794,10 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
     s->prefix = 0;
 
  next_byte:;
-#ifdef TARGET_X86_64
     /* clear any REX prefix followed by other prefixes.  */
     int rex;
     rex = -1;
  next_byte_rex:
-#endif
     b = x86_ldub_code(env, s);
 
     /* Collect prefixes.  */
@@ -2857,7 +2845,6 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
     case 0x67:
         s->prefix |= PREFIX_ADR;
         goto next_byte;
-#ifdef TARGET_X86_64
     case 0x40 ... 0x4f:
         if (CODE64(s)) {
             /*
@@ -2868,7 +2855,6 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
             goto next_byte_rex;
         }
         break;
-#endif
     case 0xc5: /* 2-byte VEX */
     case 0xc4: /* 3-byte VEX */
         /*
@@ -2891,12 +2877,10 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
                              | PREFIX_LOCK | PREFIX_DATA)) {
                 goto illegal_op;
             }
-#ifdef TARGET_X86_64
             if (rex != -1) {
                 goto illegal_op;
             }
             s->rex_r = (~vex2 >> 4) & 8;
-#endif
             if (b == 0xc5) {
                 /* 2-byte VEX prefix: RVVVVlpp, implied 0f leading opcode byte */
                 vex3 = vex2;
@@ -2904,10 +2888,8 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
             } else {
                 /* 3-byte VEX prefix: RXBmmmmm wVVVVlpp */
                 vex3 = x86_ldub_code(env, s);
-#ifdef TARGET_X86_64
                 s->rex_x = (~vex2 >> 3) & 8;
                 s->rex_b = (~vex2 >> 2) & 8;
-#endif
                 s->vex_w = (vex3 >> 7) & 1;
                 switch (vex2 & 0x1f) {
                 case 0x01: /* Implied 0f leading opcode bytes.  */
@@ -2934,7 +2916,6 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
 
     /* Post-process prefixes.  */
     if (CODE64(s)) {
-#ifdef TARGET_X86_64
         if (rex != -1) {
             s->prefix |= PREFIX_REX;
             s->vex_w = (rex >> 3) & 1;
@@ -2942,7 +2923,6 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
             s->rex_x = (rex & 0x2) << 2;
             s->rex_b = (rex & 0x1) << 3;
         }
-#endif
 
         /*
          * In 64-bit mode, the default data size is 32-bit.  Select 64-bit

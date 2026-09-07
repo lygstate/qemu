@@ -371,7 +371,7 @@ void glue(helper_psadbw, SUFFIX)(CPUX86State *env, Reg *d, Reg *v, Reg *s)
 
 #if SHIFT < 2
 void glue(helper_maskmov, SUFFIX)(CPUX86State *env, Reg *d, Reg *s,
-                                  target_ulong a0)
+                                  uint64_t a0)
 {
     int i;
 
@@ -678,7 +678,6 @@ void helper_cvtsi2sd(CPUX86State *env, ZMMReg *d, uint32_t val)
     d->ZMM_D(0) = int32_to_float64(val, &env->sse_status);
 }
 
-#ifdef TARGET_X86_64
 void helper_cvtsq2ss(CPUX86State *env, ZMMReg *d, uint64_t val)
 {
     d->ZMM_S(0) = int64_to_float32(val, &env->sse_status);
@@ -688,7 +687,6 @@ void helper_cvtsq2sd(CPUX86State *env, ZMMReg *d, uint64_t val)
 {
     d->ZMM_D(0) = int64_to_float64(val, &env->sse_status);
 }
-#endif
 
 #endif
 
@@ -769,7 +767,6 @@ int32_t helper_cvtsd2si(CPUX86State *env, ZMMReg *s)
     return x86_float64_to_int32(s->ZMM_D(0), &env->sse_status);
 }
 
-#ifdef TARGET_X86_64
 int64_t helper_cvtss2sq(CPUX86State *env, ZMMReg *s)
 {
     return x86_float32_to_int64(s->ZMM_S(0), &env->sse_status);
@@ -779,7 +776,6 @@ int64_t helper_cvtsd2sq(CPUX86State *env, ZMMReg *s)
 {
     return x86_float64_to_int64(s->ZMM_D(0), &env->sse_status);
 }
-#endif
 #endif
 
 /* float to integer truncated */
@@ -827,7 +823,6 @@ int32_t helper_cvttsd2si(CPUX86State *env, ZMMReg *s)
     return x86_float64_to_int32_round_to_zero(s->ZMM_D(0), &env->sse_status);
 }
 
-#ifdef TARGET_X86_64
 int64_t helper_cvttss2sq(CPUX86State *env, ZMMReg *s)
 {
     return x86_float32_to_int64_round_to_zero(s->ZMM_S(0), &env->sse_status);
@@ -837,7 +832,6 @@ int64_t helper_cvttsd2sq(CPUX86State *env, ZMMReg *s)
 {
     return x86_float64_to_int64_round_to_zero(s->ZMM_D(0), &env->sse_status);
 }
-#endif
 #endif
 
 void glue(helper_rsqrtps, SUFFIX)(CPUX86State *env, ZMMReg *d, ZMMReg *s)
@@ -1904,11 +1898,11 @@ void glue(helper_mpsadbw, SUFFIX)(CPUX86State *env, Reg *d, Reg *v, Reg *s,
 #if SHIFT == 1
 static inline int pcmp_elen(CPUX86State *env, int reg, uint32_t ctrl)
 {
-    target_long val, limit;
+    int64_t val, limit;
 
     /* Presence of REX.W is indicated by a bit higher than 7 set */
     if (ctrl >> 8) {
-        val = (target_long)target_ulong_array_val(&env->regs.rec, reg);
+        val = (int64_t)target_ulong_array_val(&env->regs.rec, reg);
     } else {
         val = (int32_t)target_ulong_array_val(&env->regs.rec, reg);
     }
@@ -2113,8 +2107,8 @@ void glue(helper_pcmpistrm, SUFFIX)(CPUX86State *env, Reg *d, Reg *s,
 #define CRCPOLY_BITREV 0x82f63b78
 uint64_t helper_i386_crc32(uint32_t crc1, uint64_t msg, uint32_t len)
 {
-    target_ulong crc = (msg & ((target_ulong) -1 >>
-                               (TARGET_LONG_BITS - len))) ^ crc1;
+    uint64_t crc = (msg & ((uint64_t) -1 >>
+                               (TCG_TL_BITS - len))) ^ crc1;
 
     while (len--) {
         crc = (crc >> 1) ^ ((crc & 1) ? CRCPOLY_BITREV : 0);
@@ -2316,7 +2310,7 @@ void glue(helper_vtestpd, SUFFIX)(CPUX86State *env, Reg *d, Reg *s)
 }
 
 void glue(helper_vpmaskmovd_st, SUFFIX)(CPUX86State *env,
-                                        Reg *v, Reg *s, target_ulong a0)
+                                        Reg *v, Reg *s, uint64_t a0)
 {
     int i;
 
@@ -2328,7 +2322,7 @@ void glue(helper_vpmaskmovd_st, SUFFIX)(CPUX86State *env,
 }
 
 void glue(helper_vpmaskmovq_st, SUFFIX)(CPUX86State *env,
-                                        Reg *v, Reg *s, target_ulong a0)
+                                        Reg *v, Reg *s, uint64_t a0)
 {
     int i;
 
@@ -2358,13 +2352,13 @@ void glue(helper_vpmaskmovq, SUFFIX)(CPUX86State *env, Reg *d, Reg *v, Reg *s)
 }
 
 void glue(helper_vpgatherdd, SUFFIX)(CPUX86State *env,
-        Reg *d, Reg *v, Reg *s, target_ulong a0, unsigned scale, target_ulong amask)
+        Reg *d, Reg *v, Reg *s, uint64_t a0, unsigned scale, uint64_t amask)
 {
     int i;
     for (i = 0; i < (2 << SHIFT); i++) {
         if (v->L(i) >> 31) {
-            target_ulong addr = a0
-                + ((target_ulong)(int32_t)s->L(i) << scale);
+            uint64_t addr = a0
+                + ((uint64_t)(int32_t)s->L(i) << scale);
             d->L(i) = cpu_ldl_le_data_ra(env, addr & amask, GETPC());
         }
         v->L(i) = 0;
@@ -2372,13 +2366,13 @@ void glue(helper_vpgatherdd, SUFFIX)(CPUX86State *env,
 }
 
 void glue(helper_vpgatherdq, SUFFIX)(CPUX86State *env,
-        Reg *d, Reg *v, Reg *s, target_ulong a0, unsigned scale, target_ulong amask)
+        Reg *d, Reg *v, Reg *s, uint64_t a0, unsigned scale, uint64_t amask)
 {
     int i;
     for (i = 0; i < (1 << SHIFT); i++) {
         if (v->Q(i) >> 63) {
-            target_ulong addr = a0
-                + ((target_ulong)(int32_t)s->L(i) << scale);
+            uint64_t addr = a0
+                + ((uint64_t)(int32_t)s->L(i) << scale);
             d->Q(i) = cpu_ldq_le_data_ra(env, addr & amask, GETPC());
         }
         v->Q(i) = 0;
@@ -2386,13 +2380,13 @@ void glue(helper_vpgatherdq, SUFFIX)(CPUX86State *env,
 }
 
 void glue(helper_vpgatherqd, SUFFIX)(CPUX86State *env,
-        Reg *d, Reg *v, Reg *s, target_ulong a0, unsigned scale, target_ulong amask)
+        Reg *d, Reg *v, Reg *s, uint64_t a0, unsigned scale, uint64_t amask)
 {
     int i;
     for (i = 0; i < (1 << SHIFT); i++) {
         if (v->L(i) >> 31) {
-            target_ulong addr = a0
-                + ((target_ulong)(int64_t)s->Q(i) << scale);
+            uint64_t addr = a0
+                + ((uint64_t)(int64_t)s->Q(i) << scale);
             d->L(i) = cpu_ldl_le_data_ra(env, addr & amask, GETPC());
         }
         v->L(i) = 0;
@@ -2404,13 +2398,13 @@ void glue(helper_vpgatherqd, SUFFIX)(CPUX86State *env,
 }
 
 void glue(helper_vpgatherqq, SUFFIX)(CPUX86State *env,
-        Reg *d, Reg *v, Reg *s, target_ulong a0, unsigned scale, target_ulong amask)
+        Reg *d, Reg *v, Reg *s, uint64_t a0, unsigned scale, uint64_t amask)
 {
     int i;
     for (i = 0; i < (1 << SHIFT); i++) {
         if (v->Q(i) >> 63) {
-            target_ulong addr = a0
-                + ((target_ulong)(int64_t)s->Q(i) << scale);
+            uint64_t addr = a0
+                + ((uint64_t)(int64_t)s->Q(i) << scale);
             d->Q(i) = cpu_ldq_le_data_ra(env, addr & amask, GETPC());
         }
         v->Q(i) = 0;

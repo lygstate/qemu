@@ -55,8 +55,8 @@ static inline int hw_breakpoint_len(unsigned long dr7, int index)
 static int hw_breakpoint_insert(CPUX86State *env, int index)
 {
     CPUState *cs = env_cpu(env);
-    target_ulong dr7 = target_ulong_array_val(&env->dr.rec, 7);
-    target_ulong drN = target_ulong_array_val(&env->dr.rec, index);
+    uint64_t dr7 = target_ulong_array_val(&env->dr.rec, 7);
+    uint64_t drN = target_ulong_array_val(&env->dr.rec, index);
     int err = 0;
 
     switch (hw_breakpoint_type(dr7, index)) {
@@ -124,7 +124,7 @@ static void hw_breakpoint_remove(CPUX86State *env, int index)
 
 void cpu_x86_update_dr7(CPUX86State *env, uint32_t new_dr7)
 {
-    target_ulong old_dr7 = target_ulong_array_val(&env->dr.rec, 7);
+    uint64_t old_dr7 = target_ulong_array_val(&env->dr.rec, 7);
     int iobpt = 0;
     int i;
 
@@ -167,7 +167,7 @@ void cpu_x86_update_dr7(CPUX86State *env, uint32_t new_dr7)
 
 bool check_hw_breakpoints(CPUX86State *env, bool force_dr6_update)
 {
-    target_ulong dr6;
+    uint64_t dr6;
     int reg;
     bool hit_enabled = false;
 
@@ -235,7 +235,7 @@ void breakpoint_handler(CPUState *cs)
     }
 }
 
-target_ulong helper_get_dr(CPUX86State *env, int reg)
+uint64_t helper_get_dr(CPUX86State *env, int reg)
 {
     if (reg >= 4 && reg < 6) {
         if (target_ulong_array_val(&env->cr.rec, 4) & CR4_DE_MASK) {
@@ -254,7 +254,7 @@ target_ulong helper_get_dr(CPUX86State *env, int reg)
     return target_ulong_array_val(&env->dr.rec, reg);
 }
 
-void helper_set_dr(CPUX86State *env, int reg, target_ulong t0)
+void helper_set_dr(CPUX86State *env, int reg, uint64_t t0)
 {
     if (reg >= 4 && reg < 6) {
         if (target_ulong_array_val(&env->cr.rec, 4) & CR4_DE_MASK) {
@@ -293,9 +293,9 @@ void helper_set_dr(CPUX86State *env, int reg, target_ulong t0)
 
 /* Check if Port I/O is trapped by a breakpoint.  */
 void helper_bpt_io(CPUX86State *env, uint32_t port,
-                   uint32_t size, target_ulong next_eip)
+                   uint32_t size, uint64_t next_eip)
 {
-    target_ulong dr7 = target_ulong_array_val(&env->dr.rec, 7);
+    uint64_t dr7 = target_ulong_array_val(&env->dr.rec, 7);
     int i, hit = 0;
 
     for (i = 0; i < DR7_MAX_BP; ++i) {

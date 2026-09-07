@@ -6,7 +6,7 @@
 
 /* An access covers at most sizeof(X86XSaveArea), at most 2 pages. */
 typedef struct X86Access {
-    target_ulong vaddr;
+    uint64_t vaddr;
     void *haddr1;
     void *haddr2;
     uint16_t size;

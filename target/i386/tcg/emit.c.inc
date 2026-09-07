@@ -1237,7 +1237,6 @@ static void gen_ADCOX(DisasContext *s, X86DecodedInsn *decode, int cc_op)
 
     switch (ot) {
     case MO_32:
-#ifdef TARGET_X86_64
         /* If TL is 64-bit just do everything in 64-bit arithmetic.  */
         tcg_gen_ext32u_tl(s->T0, s->T0);
         tcg_gen_ext32u_tl(s->T1, s->T1);
@@ -1247,7 +1246,6 @@ static void gen_ADCOX(DisasContext *s, X86DecodedInsn *decode, int cc_op)
         break;
 
     case MO_64:
-#endif
         zero = tcg_constant_tl(0);
         tcg_gen_add2_tl(s->T0, *carry_out, s->T0, zero, carry_in, zero);
         tcg_gen_add2_tl(s->T0, *carry_out, s->T0, *carry_out, s->T1, zero);
@@ -1428,19 +1426,17 @@ static void gen_BSR(DisasContext *s, X86DecodedInsn *decode)
      * by passing the output as the value to return upon zero.
      * Plus, return the bit index of the first 1 bit.
      */
-    tcg_gen_xori_tl(s->T1, s->T1, TARGET_LONG_BITS - 1);
+    tcg_gen_xori_tl(s->T1, s->T1, TCG_TL_BITS - 1);
     tcg_gen_clz_tl(s->T0, s->T0, s->T1);
-    tcg_gen_xori_tl(s->T0, s->T0, TARGET_LONG_BITS - 1);
+    tcg_gen_xori_tl(s->T0, s->T0, TCG_TL_BITS - 1);
 }
 
 static void gen_BSWAP(DisasContext *s, X86DecodedInsn *decode)
 {
-#ifdef TARGET_X86_64
     if (s->dflag == MO_64) {
         tcg_gen_bswap64_i64(s->T0, s->T0);
         return;
     }
-#endif
     tcg_gen_bswap32_tl(s->T0, s->T0, TCG_BSWAP_OZ);
 }
 
@@ -1807,7 +1803,6 @@ static void gen_CMPXCHG(DisasContext *s, X86DecodedInsn *decode)
 
 static void gen_CMPXCHG16B(DisasContext *s, X86DecodedInsn *decode)
 {
-#ifdef TARGET_X86_64
     MemOp mop = MO_LE | MO_128 | MO_ALIGN;
     TCGv_i64 t0, t1;
     TCGv_i128 cmp, val;
@@ -1845,9 +1840,6 @@ static void gen_CMPXCHG16B(DisasContext *s, X86DecodedInsn *decode)
      */
     tcg_gen_mov_i64(cpu_regs[R_EAX], s->T0);
     tcg_gen_mov_i64(cpu_regs[R_EDX], s->T1);
-#else
-    abort();
-#endif
 }
 
 static void gen_CMPXCHG8B(DisasContext *s, X86DecodedInsn *decode)
@@ -1884,7 +1876,7 @@ static void gen_CMPXCHG8B(DisasContext *s, X86DecodedInsn *decode)
      * registers unchanged on success, and zero-extend the writeback
      * on failure (Z=0).
      */
-    if (TARGET_LONG_BITS == 32) {
+    if (!target_x86_64()) {
         tcg_gen_extr_i64_tl(cpu_regs[R_EAX], cpu_regs[R_EDX], old);
     } else {
         TCGv zero = tcg_constant_tl(0);
@@ -1996,11 +1988,9 @@ static void gen_DIV(DisasContext *s, X86DecodedInsn *decode)
     case MO_32:
         gen_helper_divl_EAX(tcg_env, s->T0);
         break;
-#ifdef TARGET_X86_64
     case MO_64:
         gen_helper_divq_EAX(tcg_env, s->T0);
         break;
-#endif
     default:
         g_assert_not_reached();
     }
@@ -2049,7 +2039,7 @@ static void gen_FXSAVE(DisasContext *s, X86DecodedInsn *decode)
 
 static void gen_HLT(DisasContext *s, X86DecodedInsn *decode)
 {
-#ifdef CONFIG_SYSTEM_ONLY
+#ifdef CONFIG_SOFTMMU
     gen_update_cc_op(s);
     gen_update_eip_next(s);
     gen_helper_hlt(tcg_env);
@@ -2071,11 +2061,9 @@ static void gen_IDIV(DisasContext *s, X86DecodedInsn *decode)
     case MO_32:
         gen_helper_idivl_EAX(tcg_env, s->T0);
         break;
-#ifdef TARGET_X86_64
     case MO_64:
         gen_helper_idivq_EAX(tcg_env, s->T0);
         break;
-#endif
     default:
         g_assert_not_reached();
     }
@@ -2097,7 +2085,6 @@ static void gen_IMUL3(DisasContext *s, X86DecodedInsn *decode)
         break;
 
     case MO_32:
-#ifdef TARGET_X86_64
         /*
          * This produces fewer TCG ops, and better code if flags are needed.
          * s->T0 is already sign-extended.
@@ -2110,11 +2097,10 @@ static void gen_IMUL3(DisasContext *s, X86DecodedInsn *decode)
         break;
 
     case MO_64:
-#endif
         cc_src_rhs = tcg_temp_new();
         tcg_gen_muls2_tl(s->T0, cc_src_rhs, s->T0, s->T1);
         /* Compare the high part to the sign bit of the truncated result */
-        tcg_gen_sari_tl(s->T1, s->T0, TARGET_LONG_BITS - 1);
+        tcg_gen_sari_tl(s->T1, s->T0, TCG_TL_BITS - 1);
         break;
 
     default:
@@ -2154,7 +2140,6 @@ static void gen_IMUL(DisasContext *s, X86DecodedInsn *decode)
         break;
 
     case MO_32:
-#ifdef TARGET_X86_64
         /* s->T0 already sign-extended */
         tcg_gen_ext32s_tl(s->T1, s->T1);
         tcg_gen_mul_tl(s->T0, s->T0, s->T1);
@@ -2166,7 +2151,6 @@ static void gen_IMUL(DisasContext *s, X86DecodedInsn *decode)
         break;
 
     case MO_64:
-#endif
         tcg_gen_muls2_tl(s->T0, cpu_regs[R_EDX], s->T0, s->T1);
         tcg_gen_mov_tl(cpu_regs[R_EAX], s->T0);
 
@@ -2482,11 +2466,11 @@ static void gen_LZCNT(DisasContext *s, X86DecodedInsn *decode)
     tcg_gen_mov_tl(decode->cc_src, s->T0);
 
     /*
-     * Reduce the target_ulong result by the number of zeros that
+     * Reduce the uint64_t result by the number of zeros that
      * we expect to find at the top.
      */
-    tcg_gen_clzi_tl(s->T0, s->T0, TARGET_LONG_BITS);
-    tcg_gen_subi_tl(s->T0, s->T0, TARGET_LONG_BITS - (8 << ot));
+    tcg_gen_clzi_tl(s->T0, s->T0, TCG_TL_BITS);
+    tcg_gen_subi_tl(s->T0, s->T0, TCG_TL_BITS - (8 << ot));
 }
 
 static void gen_MFENCE(DisasContext *s, X86DecodedInsn *decode)
@@ -2529,11 +2513,9 @@ static void gen_MOVD_from(DisasContext *s, X86DecodedInsn *decode)
 
     switch (ot) {
     case MO_32:
-#ifdef TARGET_X86_64
         tcg_gen_ld32u_tl(s->T0, tcg_env, decode->op[2].offset);
         break;
     case MO_64:
-#endif
         tcg_gen_ld_tl(s->T0, tcg_env, decode->op[2].offset);
         break;
     default:
@@ -2551,11 +2533,9 @@ static void gen_MOVD_to(DisasContext *s, X86DecodedInsn *decode)
 
     switch (ot) {
     case MO_32:
-#ifdef TARGET_X86_64
         tcg_gen_st32_tl(s->T1, tcg_env, lo_ofs);
         break;
     case MO_64:
-#endif
         tcg_gen_st_tl(s->T1, tcg_env, lo_ofs);
         break;
     default:
@@ -2643,7 +2623,6 @@ static void gen_MUL(DisasContext *s, X86DecodedInsn *decode)
         break;
 
     case MO_32:
-#ifdef TARGET_X86_64
         /* s->T0 already zero-extended */
         tcg_gen_ext32u_tl(s->T1, s->T1);
         tcg_gen_mul_tl(s->T0, s->T0, s->T1);
@@ -2654,7 +2633,6 @@ static void gen_MUL(DisasContext *s, X86DecodedInsn *decode)
         break;
 
     case MO_64:
-#endif
         tcg_gen_mulu2_tl(cpu_regs[R_EAX], cpu_regs[R_EDX], s->T0, s->T1);
         decode->cc_dst = cpu_regs[R_EAX];
         decode->cc_src = cpu_regs[R_EDX];
@@ -2674,7 +2652,6 @@ static void gen_MULX(DisasContext *s, X86DecodedInsn *decode)
     /* low part of result in VEX.vvvv, high in MODRM */
     switch (ot) {
     case MO_32:
-#ifdef TARGET_X86_64
         {
             TCGv_i32 t0 = tcg_temp_new_i32();
             TCGv_i32 t1 = tcg_temp_new_i32();
@@ -2688,7 +2665,6 @@ static void gen_MULX(DisasContext *s, X86DecodedInsn *decode)
         }
 
     case MO_64:
-#endif
         tcg_gen_mulu2_tl(cpu_regs[s->vex_v], s->T0, s->T0, s->T1);
         break;
 
@@ -2872,11 +2848,9 @@ static inline void gen_pextr(DisasContext *s, X86DecodedInsn *decode, MemOp ot)
         tcg_gen_ld16u_tl(s->T0, tcg_env, vector_elem_offset(&decode->op[1], ot, val));
         break;
     case MO_32:
-#ifdef TARGET_X86_64
         tcg_gen_ld32u_tl(s->T0, tcg_env, vector_elem_offset(&decode->op[1], ot, val));
         break;
     case MO_64:
-#endif
         tcg_gen_ld_tl(s->T0, tcg_env, vector_elem_offset(&decode->op[1], ot, val));
         break;
     default:
@@ -2919,11 +2893,9 @@ static inline void gen_pinsr(DisasContext *s, X86DecodedInsn *decode, MemOp ot)
         tcg_gen_st16_tl(s->T1, tcg_env, vector_elem_offset(&decode->op[0], ot, val));
         break;
     case MO_32:
-#ifdef TARGET_X86_64
         tcg_gen_st32_tl(s->T1, tcg_env, vector_elem_offset(&decode->op[0], ot, val));
         break;
     case MO_64:
-#endif
         tcg_gen_st_tl(s->T1, tcg_env, vector_elem_offset(&decode->op[0], ot, val));
         break;
     default:
@@ -3008,13 +2980,9 @@ static void gen_PMOVMSKB(DisasContext *s, X86DecodedInsn *decode)
              * TCG does a similar expansion of deposit to shl+extract2; by
              * loading the whole word, the shift left is avoided.
              */
-#ifdef TARGET_X86_64
             tcg_gen_ld_tl(t, tcg_env, offsetof(CPUX86State, xmm_t0.ZMM_Q((vec_len - 1) / 8)));
-#else
-            tcg_gen_ld_tl(t, tcg_env, offsetof(CPUX86State, xmm_t0.ZMM_L((vec_len - 1) / 4)));
-#endif
 
-            tcg_gen_extract2_tl(s->T0, t, s->T0, TARGET_LONG_BITS - 8);
+            tcg_gen_extract2_tl(s->T0, t, s->T0, TCG_TL_BITS - 8);
         } else {
             /*
              * The _previous_ value is deposited into bits 8 and higher of t.  Because
@@ -3022,7 +2990,7 @@ static void gen_PMOVMSKB(DisasContext *s, X86DecodedInsn *decode)
              * if deposit is not available.
              */
             tcg_gen_ld8u_tl(t, tcg_env, offsetof(CPUX86State, xmm_t0.ZMM_B(vec_len - 1)));
-            tcg_gen_deposit_tl(s->T0, t, s->T0, 8, TARGET_LONG_BITS - 8);
+            tcg_gen_deposit_tl(s->T0, t, s->T0, 8, TCG_TL_BITS - 8);
         }
     }
 }
@@ -3470,10 +3438,10 @@ static void gen_RCL(DisasContext *s, X86DecodedInsn *decode)
     }
 
     /* Compute high part, including incoming carry.  */
-    if (!have_1bit_cin || tcg_op_deposit_valid(TCG_TYPE_TL, 1, TARGET_LONG_BITS - 1)) {
+    if (!have_1bit_cin || tcg_op_deposit_valid(TCG_TYPE_TL, 1, TCG_TL_BITS - 1)) {
         /* high = (T0 << 1) | cin */
         TCGv cin = have_1bit_cin ? decode->cc_dst : decode->cc_src;
-        tcg_gen_deposit_tl(high, cin, s->T0, 1, TARGET_LONG_BITS - 1);
+        tcg_gen_deposit_tl(high, cin, s->T0, 1, TCG_TL_BITS - 1);
     } else {
         /* Same as above but without deposit; cin in cc_dst.  */
         tcg_gen_add_tl(high, s->T0, decode->cc_dst);
@@ -3521,9 +3489,9 @@ static void gen_RCR(DisasContext *s, X86DecodedInsn *decode)
     }
 
     /* Save incoming carry into high, it will be shifted later.  */
-    if (!have_1bit_cin || tcg_op_deposit_valid(TCG_TYPE_TL, 1, TARGET_LONG_BITS - 1)) {
+    if (!have_1bit_cin || tcg_op_deposit_valid(TCG_TYPE_TL, 1, TCG_TL_BITS - 1)) {
         TCGv cin = have_1bit_cin ? decode->cc_dst : decode->cc_src;
-        tcg_gen_deposit_tl(high, cin, s->T0, 1, TARGET_LONG_BITS - 1);
+        tcg_gen_deposit_tl(high, cin, s->T0, 1, TCG_TL_BITS - 1);
     } else {
         /* Same as above but without deposit; cin in cc_dst.  */
         tcg_gen_add_tl(high, s->T0, decode->cc_dst);
@@ -3651,12 +3619,10 @@ static TCGv_i32 gen_rot_replicate(MemOp ot, TCGv in)
         tcg_gen_deposit_i32(temp, temp, temp, 16, 16);
         return temp;
 
-#ifdef TARGET_X86_64
     case MO_32:
         temp = tcg_temp_new_i32();
         tcg_gen_trunc_tl_i32(temp, in);
         return temp;
-#endif
 
     default:
         return NULL;
@@ -3728,7 +3694,7 @@ static void gen_ROR(DisasContext *s, X86DecodedInsn *decode)
         gen_rot_carry(decode, s->T0, can_be_zero, count, 31);
     } else {
         tcg_gen_rotr_tl(s->T0, s->T0, count);
-        gen_rot_carry(decode, s->T0, can_be_zero, count, TARGET_LONG_BITS - 1);
+        gen_rot_carry(decode, s->T0, can_be_zero, count, TCG_TL_BITS - 1);
     }
     gen_rot_overflow(decode, s->T0, old, can_be_zero, count);
 }
@@ -3741,7 +3707,6 @@ static void gen_RORX(DisasContext *s, X86DecodedInsn *decode)
 
     switch (ot) {
     case MO_32:
-#ifdef TARGET_X86_64
         {
             TCGv_i32 tmp = tcg_temp_new_i32();
 
@@ -3752,7 +3717,6 @@ static void gen_RORX(DisasContext *s, X86DecodedInsn *decode)
         }
 
     case MO_64:
-#endif
         tcg_gen_rotri_tl(s->T0, s->T0, b);
         break;
 
@@ -4312,7 +4276,6 @@ static void gen_VCVTSI2Sx(DisasContext *s, X86DecodedInsn *decode)
 
     tcg_gen_gvec_mov(MO_64, decode->op[0].offset, decode->op[1].offset, vec_len, vec_len);
 
-#ifdef TARGET_X86_64
     MemOp ot = decode->op[2].ot;
     if (ot == MO_64) {
         if (s->prefix & PREFIX_REPNZ) {
@@ -4324,9 +4287,6 @@ static void gen_VCVTSI2Sx(DisasContext *s, X86DecodedInsn *decode)
     }
     in = tcg_temp_new_i32();
     tcg_gen_trunc_tl_i32(in, s->T1);
-#else
-    in = s->T1;
-#endif
 
     if (s->prefix & PREFIX_REPNZ) {
         gen_helper_cvtsi2sd(tcg_env, OP_PTR0, in);
@@ -4341,7 +4301,6 @@ static inline void gen_VCVTtSx2SI(DisasContext *s, X86DecodedInsn *decode,
 {
     TCGv_i32 out;
 
-#ifdef TARGET_X86_64
     MemOp ot = decode->op[0].ot;
     if (ot == MO_64) {
         if (s->prefix & PREFIX_REPNZ) {
@@ -4353,25 +4312,14 @@ static inline void gen_VCVTtSx2SI(DisasContext *s, X86DecodedInsn *decode,
     }
 
     out = tcg_temp_new_i32();
-#else
-    out = s->T0;
-#endif
     if (s->prefix & PREFIX_REPNZ) {
         sd2si(out, tcg_env, OP_PTR2);
     } else {
         ss2si(out, tcg_env, OP_PTR2);
     }
-#ifdef TARGET_X86_64
     tcg_gen_extu_i32_tl(s->T0, out);
-#endif
 }
 
-#ifndef TARGET_X86_64
-#define gen_helper_cvtss2sq NULL
-#define gen_helper_cvtsd2sq NULL
-#define gen_helper_cvttss2sq NULL
-#define gen_helper_cvttsd2sq NULL
-#endif
 
 static void gen_VCVTSx2SI(DisasContext *s, X86DecodedInsn *decode)
 {
