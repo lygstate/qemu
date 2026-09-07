@@ -22,7 +22,7 @@
 #include "cpu.h"
 #include "qemu/log.h"
 #include "exec/helper-proto.h"
-#include "accel/tcg/cpu-ldst.h"
+#include "tcg/cpu-ldst-i386.h"
 #include "accel/tcg/probe.h"
 #include "exec/log.h"
 #include "helper-tcg.h"
@@ -31,7 +31,6 @@
 #include "tcg-cpu.h"
 #include "qemu/plugin.h"
 
-#ifdef TARGET_X86_64
 #define SET_ESP(val, sp_mask)                                   \
     do {                                                        \
         if ((sp_mask) == 0xffff) {                              \
@@ -43,22 +42,15 @@
             target_ulong_array_set(&env->regs.rec, R_ESP, (val));                           \
         }                                                       \
     } while (0)
-#else
-#define SET_ESP(val, sp_mask)                                   \
-    do {                                                        \
-        target_ulong_array_set(&env->regs.rec, R_ESP, (target_ulong_array_val(&env->regs.rec, R_ESP) & ~(sp_mask)) |    \
-            ((val) & (sp_mask)));                                \
-    } while (0)
-#endif
 
 /* XXX: use mmu_index to have proper DPL support */
 typedef struct StackAccess
 {
     CPUX86State *env;
     uintptr_t ra;
-    target_ulong ss_base;
-    target_ulong sp;
-    target_ulong sp_mask;
+    uint64_t ss_base;
+    uint64_t sp;
+    uint64_t sp_mask;
     int mmu_index;
 } StackAccess;
 
@@ -153,7 +145,7 @@ static inline int load_segment_ra(CPUX86State *env, uint32_t *e1_ptr,
 {
     SegmentCache *dt;
     int index;
-    target_ulong ptr;
+    uint64_t ptr;
 
     if (selector & 0x4) {
         dt = &env->ldt;
@@ -311,7 +303,7 @@ static void tss_load_seg(CPUX86State *env, X86Seg seg_reg, int selector,
 static void tss_set_busy(CPUX86State *env, int tss_selector, bool value,
                          uintptr_t retaddr)
 {
-    target_ulong ptr = target_ulong_val(&(env->gdt).base) + (tss_selector & ~7);
+    uint64_t ptr = target_ulong_val(&(env->gdt).base) + (tss_selector & ~7);
     uint32_t e2 = cpu_ldl_kernel_ra(env, ptr + 4, retaddr);
 
     if (value) {
@@ -333,13 +325,13 @@ static void switch_tss_ra(CPUX86State *env, int tss_selector,
                           uint32_t error_code, uintptr_t retaddr)
 {
     int tss_limit, tss_limit_max, type, old_tss_limit_max, old_type, i;
-    target_ulong tss_base;
+    uint64_t tss_base;
     uint32_t new_regs[8], new_segs[6];
     uint32_t new_eflags, new_eip, new_cr3, new_ldt, new_trap;
     uint32_t old_eflags, eflags_mask;
     SegmentCache *dt;
     int mmu_index, index;
-    target_ulong ptr;
+    uint64_t ptr;
     X86Access old, new;
 
     type = (e2 >> DESC_TYPE_SHIFT) & 0xf;
@@ -637,11 +629,9 @@ static void switch_tss(CPUX86State *env, int tss_selector,
 
 static inline unsigned int get_sp_mask(unsigned int e2)
 {
-#ifdef TARGET_X86_64
     if (e2 & DESC_L_MASK) {
         return 0;
     } else
-#endif
     if (e2 & DESC_B_MASK) {
         return 0xffffffff;
     } else {
@@ -688,7 +678,7 @@ static void do_interrupt_protected(CPUX86State *env, int intno, int is_int,
                                    int is_hw)
 {
     SegmentCache *dt;
-    target_ulong ptr;
+    uint64_t ptr;
     int type, dpl, selector, ss_dpl, cpl;
     int has_error_code, new_stack, shift;
     uint32_t e1, e2, offset, ss = 0, ss_e1 = 0, ss_e2 = 0;
@@ -900,7 +890,6 @@ static void do_interrupt_protected(CPUX86State *env, int intno, int is_int,
     target_ulong_set(&(env)->eip,  offset);
 }
 
-#ifdef TARGET_X86_64
 
 static void pushq(StackAccess *sa, uint64_t val)
 {
@@ -915,15 +904,15 @@ static uint64_t popq(StackAccess *sa)
     return ret;
 }
 
-static inline target_ulong get_rsp_from_tss(CPUX86State *env, int level)
+static inline uint64_t get_rsp_from_tss(CPUX86State *env, int level)
 {
     X86CPU *cpu = env_archcpu(env);
     int index, pg_mode;
-    target_ulong rsp;
+    uint64_t rsp;
     int32_t sext;
 
 #if 0
-    printf("TR: base=" "%016" PRIx64 " limit=%x\n",
+    printf("TR: base=%" PRIx64 " limit=%x\n",
            target_ulong_val(&(env->tr).base), env->tr.limit);
 #endif
 
@@ -949,14 +938,14 @@ static inline target_ulong get_rsp_from_tss(CPUX86State *env, int level)
 
 /* 64 bit interrupt */
 static void do_interrupt64(CPUX86State *env, int intno, int is_int,
-                           int error_code, target_ulong next_eip, int is_hw)
+                           int error_code, uint64_t next_eip, int is_hw)
 {
     SegmentCache *dt;
-    target_ulong ptr;
+    uint64_t ptr;
     int type, dpl, selector, cpl, ist;
     int has_error_code, new_stack;
     uint32_t e1, e2, e3, eflags;
-    target_ulong old_eip, offset;
+    uint64_t old_eip, offset;
     bool set_rf;
     StackAccess sa;
 
@@ -1001,7 +990,7 @@ static void do_interrupt64(CPUX86State *env, int intno, int is_int,
         raise_exception_err(env, EXCP0B_NOSEG, intno * 8 + 2);
     }
     selector = e1 >> 16;
-    offset = ((target_ulong)e3 << 32) | (e2 & 0xffff0000) | (e1 & 0x0000ffff);
+    offset = ((uint64_t)e3 << 32) | (e2 & 0xffff0000) | (e1 & 0x0000ffff);
     ist = e2 & 7;
     if ((selector & 0xfffc) == 0) {
         raise_exception_err(env, EXCP0D_GPF, 0);
@@ -1080,7 +1069,6 @@ static void do_interrupt64(CPUX86State *env, int intno, int is_int,
                    e2);
     target_ulong_set(&(env)->eip,  offset);
 }
-#endif /* TARGET_X86_64 */
 
 void helper_sysret(CPUX86State *env, int dflag)
 {
@@ -1094,7 +1082,6 @@ void helper_sysret(CPUX86State *env, int dflag)
         raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
     }
     selector = (env->star >> 48) & 0xffff;
-#ifdef TARGET_X86_64
     if (env->hflags & HF_LMA_MASK) {
         if (dflag == 2) {
             uint64_t new_rip = target_ulong_array_val(&env->regs.rec, R_ECX);
@@ -1130,7 +1117,6 @@ void helper_sysret(CPUX86State *env, int dflag)
                         | ID_MASK | IF_MASK | IOPL_MASK | VM_MASK | RF_MASK |
                         NT_MASK);
     } else
-#endif
     {
         target_ulong_set(&(env)->eflags, target_ulong_val(&(env)->eflags) |  IF_MASK);
         cpu_x86_load_seg_cache(env, R_CS, selector | 3,
@@ -1152,7 +1138,7 @@ static void do_interrupt_real(CPUX86State *env, int intno, int is_int,
                               int error_code, unsigned int next_eip)
 {
     SegmentCache *dt;
-    target_ulong ptr;
+    uint64_t ptr;
     int selector;
     uint32_t offset;
     uint32_t old_cs, old_eip;
@@ -1199,7 +1185,7 @@ static void do_interrupt_real(CPUX86State *env, int intno, int is_int,
  * instruction. It is only relevant if is_int is TRUE.
  */
 void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
-                      int error_code, target_ulong next_eip, int is_hw)
+                      int error_code, uint64_t next_eip, int is_hw)
 {
     CPUX86State *env = &cpu->env;
     uint64_t last_pc = target_ulong_val(&(env)->eip) + target_ulong_val(&(env->segs[R_CS]).base);
@@ -1208,25 +1194,26 @@ void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
         if ((target_ulong_array_val(&env->cr.rec, 0) & CR0_PE_MASK)) {
             static int count;
 
-            qemu_log("%6d: v=%02x e=%04x i=%d cpl=%d IP=%04x:" "%016" PRIx64
-                     " pc=" "%016" PRIx64 " SP=%04x:" "%016" PRIx64,
+            qemu_log("%6d: v=%02x e=%04x i=%d cpl=%d IP=%04x:%" PRIx64
+                     " pc=%" PRIx64 " SP=%04x:%" PRIx64,
                      count, intno, error_code, is_int,
                      env->hflags & HF_CPL_MASK,
                      env->segs[R_CS].selector, target_ulong_val(&(env)->eip),
-                     (int)target_ulong_val(&(env->segs[R_CS]).base) +
+                     target_ulong_val(&(env->segs[R_CS]).base) +
                      target_ulong_val(&(env)->eip),
-                     env->segs[R_SS].selector, target_ulong_array_val(&env->regs.rec, R_ESP));
+                     env->segs[R_SS].selector,
+                     target_ulong_array_val(&env->regs.rec, R_ESP));
             if (intno == 0x0e) {
-                qemu_log(" CR2=" "%016" PRIx64, target_ulong_array_val(&env->cr.rec, 2));
+                qemu_log(" CR2=%" PRIx64, target_ulong_array_val(&env->cr.rec, 2));
             } else {
-                qemu_log(" EAX=" "%016" PRIx64, target_ulong_array_val(&env->regs.rec, R_EAX));
+                qemu_log(" EAX=%" PRIx64, target_ulong_array_val(&env->regs.rec, R_EAX));
             }
             qemu_log("\n");
             log_cpu_state(CPU(cpu), CPU_DUMP_CCOP);
 #if 0
             {
                 int i;
-                target_ulong ptr;
+                uint64_t ptr;
 
                 qemu_log("       code=");
                 ptr = target_ulong_val(&(env->segs[R_CS]).base) + target_ulong_val(&(env)->eip);
@@ -1245,11 +1232,9 @@ void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
             handle_even_inj(env, intno, is_int, error_code, is_hw, 0);
         }
 #endif
-#ifdef TARGET_X86_64
         if (env->hflags & HF_LMA_MASK) {
             do_interrupt64(env, intno, is_int, error_code, next_eip, is_hw);
         } else
-#endif
         {
             do_interrupt_protected(env, intno, is_int, error_code, next_eip,
                                    is_hw);
@@ -1289,7 +1274,7 @@ void helper_lldt(CPUX86State *env, int selector)
     SegmentCache *dt;
     uint32_t e1, e2;
     int index, entry_limit;
-    target_ulong ptr;
+    uint64_t ptr;
 
     selector &= 0xffff;
     if ((selector & 0xfffc) == 0) {
@@ -1302,11 +1287,9 @@ void helper_lldt(CPUX86State *env, int selector)
         }
         dt = &env->gdt;
         index = selector & ~7;
-#ifdef TARGET_X86_64
         if (env->hflags & HF_LMA_MASK) {
             entry_limit = 15;
         } else
-#endif
         {
             entry_limit = 7;
         }
@@ -1322,15 +1305,13 @@ void helper_lldt(CPUX86State *env, int selector)
         if (!(e2 & DESC_P_MASK)) {
             raise_exception_err_ra(env, EXCP0B_NOSEG, selector & 0xfffc, GETPC());
         }
-#ifdef TARGET_X86_64
         if (env->hflags & HF_LMA_MASK) {
             uint32_t e3;
 
             e3 = cpu_ldl_kernel_ra(env, ptr + 8, GETPC());
             load_seg_cache_raw_dt(&env->ldt, e1, e2);
-            target_ulong_set(&(env->ldt).base, target_ulong_val(&(env->ldt).base) |  (target_ulong)e3 << 32);
+            target_ulong_set(&(env->ldt).base, target_ulong_val(&(env->ldt).base) | ((uint64_t)e3 << 32));
         } else
-#endif
         {
             load_seg_cache_raw_dt(&env->ldt, e1, e2);
         }
@@ -1343,7 +1324,7 @@ void helper_ltr(CPUX86State *env, int selector)
     SegmentCache *dt;
     uint32_t e1, e2;
     int index, type, entry_limit;
-    target_ulong ptr;
+    uint64_t ptr;
 
     selector &= 0xffff;
     if ((selector & 0xfffc) == 0) {
@@ -1357,11 +1338,9 @@ void helper_ltr(CPUX86State *env, int selector)
         }
         dt = &env->gdt;
         index = selector & ~7;
-#ifdef TARGET_X86_64
         if (env->hflags & HF_LMA_MASK) {
             entry_limit = 15;
         } else
-#endif
         {
             entry_limit = 7;
         }
@@ -1379,7 +1358,6 @@ void helper_ltr(CPUX86State *env, int selector)
         if (!(e2 & DESC_P_MASK)) {
             raise_exception_err_ra(env, EXCP0B_NOSEG, selector & 0xfffc, GETPC());
         }
-#ifdef TARGET_X86_64
         if (env->hflags & HF_LMA_MASK) {
             uint32_t e3, e4;
 
@@ -1389,9 +1367,8 @@ void helper_ltr(CPUX86State *env, int selector)
                 raise_exception_err_ra(env, EXCP0D_GPF, selector & 0xfffc, GETPC());
             }
             load_seg_cache_raw_dt(&env->tr, e1, e2);
-            target_ulong_set(&(env->tr).base, target_ulong_val(&(env->tr).base) |  (target_ulong)e3 << 32);
+            target_ulong_set(&(env->tr).base, target_ulong_val(&(env->tr).base) | ((uint64_t)e3 << 32));
         } else
-#endif
         {
             load_seg_cache_raw_dt(&env->tr, e1, e2);
         }
@@ -1408,16 +1385,14 @@ void helper_load_seg(CPUX86State *env, int seg_reg, int selector)
     int cpl, dpl, rpl;
     SegmentCache *dt;
     int index;
-    target_ulong ptr;
+    uint64_t ptr;
 
     selector &= 0xffff;
     cpl = env->hflags & HF_CPL_MASK;
     if ((selector & 0xfffc) == 0) {
         /* null selector case */
         if (seg_reg == R_SS
-#ifdef TARGET_X86_64
             && (!(env->hflags & HF_CS64_MASK) || cpl == 3)
-#endif
             ) {
             raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
         }
@@ -1490,8 +1465,8 @@ void helper_load_seg(CPUX86State *env, int seg_reg, int selector)
 }
 
 /* protected mode jump */
-void helper_ljmp_protected(CPUX86State *env, int new_cs, target_ulong new_eip,
-                           target_ulong next_eip)
+void helper_ljmp_protected(CPUX86State *env, int new_cs, uint64_t new_eip,
+                           uint64_t next_eip)
 {
     int gate_cs, type;
     uint32_t e1, e2, cpl, dpl, rpl, limit;
@@ -1541,13 +1516,11 @@ void helper_ljmp_protected(CPUX86State *env, int new_cs, target_ulong new_eip,
         cpl = env->hflags & HF_CPL_MASK;
         type = (e2 >> DESC_TYPE_SHIFT) & 0xf;
 
-#ifdef TARGET_X86_64
         if (env->efer & MSR_EFER_LMA) {
             if (type != 12) {
                 raise_exception_err_ra(env, EXCP0D_GPF, new_cs & 0xfffc, GETPC());
             }
         }
-#endif
         switch (type) {
         case 1: /* 286 TSS */
         case 9: /* 386 TSS */
@@ -1572,7 +1545,6 @@ void helper_ljmp_protected(CPUX86State *env, int new_cs, target_ulong new_eip,
                 new_eip |= (e2 & 0xffff0000);
             }
 
-#ifdef TARGET_X86_64
             if (env->efer & MSR_EFER_LMA) {
                 /* load the upper 8 bytes of the 64-bit call gate */
                 if (load_segment_ra(env, &e1, &e2, new_cs + 8, GETPC())) {
@@ -1584,9 +1556,8 @@ void helper_ljmp_protected(CPUX86State *env, int new_cs, target_ulong new_eip,
                     raise_exception_err_ra(env, EXCP0D_GPF, new_cs & 0xfffc,
                                            GETPC());
                 }
-                new_eip |= ((target_ulong)e1) << 32;
+                new_eip |= ((uint64_t)e1) << 32;
             }
-#endif
 
             if (load_segment_ra(env, &e1, &e2, gate_cs, GETPC()) != 0) {
                 raise_exception_err_ra(env, EXCP0D_GPF, gate_cs & 0xfffc, GETPC());
@@ -1601,7 +1572,6 @@ void helper_ljmp_protected(CPUX86State *env, int new_cs, target_ulong new_eip,
                 (!(e2 & DESC_C_MASK) && (dpl != cpl))) {
                 raise_exception_err_ra(env, EXCP0D_GPF, gate_cs & 0xfffc, GETPC());
             }
-#ifdef TARGET_X86_64
             if (env->efer & MSR_EFER_LMA) {
                 if (!(e2 & DESC_L_MASK)) {
                     raise_exception_err_ra(env, EXCP0D_GPF, gate_cs & 0xfffc, GETPC());
@@ -1610,7 +1580,6 @@ void helper_ljmp_protected(CPUX86State *env, int new_cs, target_ulong new_eip,
                     raise_exception_err_ra(env, EXCP0D_GPF, gate_cs & 0xfffc, GETPC());
                 }
             }
-#endif
             if (!(e2 & DESC_P_MASK)) {
                 raise_exception_err_ra(env, EXCP0D_GPF, gate_cs & 0xfffc, GETPC());
             }
@@ -1658,17 +1627,17 @@ void helper_lcall_real(CPUX86State *env, uint32_t new_cs, uint32_t new_eip,
 }
 
 /* protected mode call */
-void helper_lcall_protected(CPUX86State *env, int new_cs, target_ulong new_eip,
-                            int shift, target_ulong next_eip)
+void helper_lcall_protected(CPUX86State *env, int new_cs, uint64_t new_eip,
+                            int shift, uint64_t next_eip)
 {
     int new_stack, i;
     uint32_t e1, e2, cpl, dpl, rpl, selector, param_count;
     uint32_t ss = 0, ss_e1 = 0, ss_e2 = 0, type, ss_dpl;
     uint32_t val, limit, old_sp_mask;
-    target_ulong old_ssp, offset;
+    uint64_t old_ssp, offset;
     StackAccess sa;
 
-    LOG_PCALL("lcall %04x:" TARGET_FMT_lx " s=%d\n", new_cs, new_eip, shift);
+    LOG_PCALL("lcall %04x:%" PRIx64 " s=%d\n", new_cs, new_eip, shift);
     LOG_PCALL_STATE(env_cpu(env));
     if ((new_cs & 0xfffc) == 0) {
         raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
@@ -1708,7 +1677,6 @@ void helper_lcall_protected(CPUX86State *env, int new_cs, target_ulong new_eip,
         }
 
         sa.mmu_index = x86_mmu_index_pl(env, cpl);
-#ifdef TARGET_X86_64
         /* XXX: check 16/32 bit cases in long mode */
         if (shift == 2) {
             /* 64 bit case */
@@ -1724,7 +1692,6 @@ void helper_lcall_protected(CPUX86State *env, int new_cs, target_ulong new_eip,
                                    get_seg_limit(e1, e2), e2);
             target_ulong_set(&(env)->eip,  new_eip);
         } else
-#endif
         {
             sa.sp = target_ulong_array_val(&env->regs.rec, R_ESP);
             sa.sp_mask = get_sp_mask(env->segs[R_SS].flags);
@@ -1753,13 +1720,11 @@ void helper_lcall_protected(CPUX86State *env, int new_cs, target_ulong new_eip,
         dpl = (e2 >> DESC_DPL_SHIFT) & 3;
         rpl = new_cs & 3;
 
-#ifdef TARGET_X86_64
         if (env->efer & MSR_EFER_LMA) {
             if (type != 12) {
                 raise_exception_err_ra(env, EXCP0D_GPF, new_cs & 0xfffc, GETPC());
             }
         }
-#endif
 
         switch (type) {
         case 1: /* available 286 TSS */
@@ -1790,7 +1755,6 @@ void helper_lcall_protected(CPUX86State *env, int new_cs, target_ulong new_eip,
         selector = e1 >> 16;
         param_count = e2 & 0x1f;
         offset = (e2 & 0xffff0000) | (e1 & 0x0000ffff);
-#ifdef TARGET_X86_64
         if (env->efer & MSR_EFER_LMA) {
             /* load the upper 8 bytes of the 64-bit call gate */
             if (load_segment_ra(env, &e1, &e2, new_cs + 8, GETPC())) {
@@ -1802,9 +1766,8 @@ void helper_lcall_protected(CPUX86State *env, int new_cs, target_ulong new_eip,
                 raise_exception_err_ra(env, EXCP0D_GPF, new_cs & 0xfffc,
                                        GETPC());
             }
-            offset |= ((target_ulong)e1) << 32;
+            offset |= ((uint64_t)e1) << 32;
         }
-#endif
         if ((selector & 0xfffc) == 0) {
             raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
         }
@@ -1819,7 +1782,6 @@ void helper_lcall_protected(CPUX86State *env, int new_cs, target_ulong new_eip,
         if (dpl > cpl) {
             raise_exception_err_ra(env, EXCP0D_GPF, selector & 0xfffc, GETPC());
         }
-#ifdef TARGET_X86_64
         if (env->efer & MSR_EFER_LMA) {
             if (!(e2 & DESC_L_MASK)) {
                 raise_exception_err_ra(env, EXCP0D_GPF, selector & 0xfffc, GETPC());
@@ -1829,7 +1791,6 @@ void helper_lcall_protected(CPUX86State *env, int new_cs, target_ulong new_eip,
             }
             shift++;
         }
-#endif
         if (!(e2 & DESC_P_MASK)) {
             raise_exception_err_ra(env, EXCP0B_NOSEG, selector & 0xfffc, GETPC());
         }
@@ -1837,7 +1798,6 @@ void helper_lcall_protected(CPUX86State *env, int new_cs, target_ulong new_eip,
         if (!(e2 & DESC_C_MASK) && dpl < cpl) {
             /* to inner privilege */
             sa.mmu_index = x86_mmu_index_pl(env, dpl);
-#ifdef TARGET_X86_64
             if (shift == 2) {
                 ss = dpl;  /* SS = NULL selector with RPL = new CPL */
                 new_stack = 1;
@@ -1845,15 +1805,14 @@ void helper_lcall_protected(CPUX86State *env, int new_cs, target_ulong new_eip,
                 sa.sp_mask = -1;
                 sa.ss_base = 0;  /* SS base is always zero in IA-32e mode */
                 LOG_PCALL("new ss:rsp=%04x:%016llx ESP="
-                          "%016" PRIx64 "\n", ss, sa.sp,
+                          "%" PRIx64 "\n", ss, sa.sp,
                           target_ulong_array_val(&env->regs.rec, R_ESP));
             } else
-#endif
             {
                 uint32_t sp32;
                 get_ss_esp_from_tss(env, &ss, &sp32, dpl, GETPC());
                 LOG_PCALL("new ss:esp=%04x:%08x param_count=%d ESP="
-                          "%016" PRIx64 "\n", ss, sp32, param_count,
+                          "%" PRIx64 "\n", ss, sp32, param_count,
                           target_ulong_array_val(&env->regs.rec, R_ESP));
                 if ((ss & 0xfffc) == 0) {
                     raise_exception_err_ra(env, EXCP0A_TSS, ss & 0xfffc, GETPC());
@@ -1886,14 +1845,12 @@ void helper_lcall_protected(CPUX86State *env, int new_cs, target_ulong new_eip,
             old_sp_mask = get_sp_mask(env->segs[R_SS].flags);
             old_ssp = target_ulong_val(&(env->segs[R_SS]).base);
 
-#ifdef TARGET_X86_64
             if (shift == 2) {
                 /* XXX: verify if new stack address is canonical */
                 pushq(&sa, env->segs[R_SS].selector);
                 pushq(&sa, target_ulong_array_val(&env->regs.rec, R_ESP));
                 /* parameters aren't supported for 64-bit call gates */
             } else
-#endif
             if (shift == 1) {
                 pushl(&sa, env->segs[R_SS].selector);
                 pushl(&sa, target_ulong_array_val(&env->regs.rec, R_ESP));
@@ -1924,12 +1881,10 @@ void helper_lcall_protected(CPUX86State *env, int new_cs, target_ulong new_eip,
             new_stack = 0;
         }
 
-#ifdef TARGET_X86_64
         if (shift == 2) {
             pushq(&sa, env->segs[R_CS].selector);
             pushq(&sa, next_eip);
         } else
-#endif
         if (shift == 1) {
             pushl(&sa, env->segs[R_CS].selector);
             pushl(&sa, next_eip);
@@ -1941,11 +1896,9 @@ void helper_lcall_protected(CPUX86State *env, int new_cs, target_ulong new_eip,
         /* from this point, not restartable */
 
         if (new_stack) {
-#ifdef TARGET_X86_64
             if (shift == 2) {
                 cpu_x86_load_seg_cache(env, R_SS, ss, 0, 0, 0);
             } else
-#endif
             {
                 ss = (ss & ~3) | dpl;
                 cpu_x86_load_seg_cache(env, R_SS, ss,
@@ -2043,7 +1996,7 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
     uint32_t new_es, new_ds, new_fs, new_gs;
     uint32_t e1, e2, ss_e1, ss_e2;
     int cpl, dpl, rpl, eflags_mask, iopl;
-    target_ulong new_eip, new_esp;
+    uint64_t new_eip, new_esp;
     StackAccess sa;
 
     cpl = env->hflags & HF_CPL_MASK;
@@ -2052,18 +2005,15 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
     sa.ra = retaddr;
     sa.mmu_index = x86_mmu_index_pl(env, cpl);
 
-#ifdef TARGET_X86_64
     if (shift == 2) {
         sa.sp_mask = -1;
     } else
-#endif
     {
         sa.sp_mask = get_sp_mask(env->segs[R_SS].flags);
     }
     sa.sp = target_ulong_array_val(&env->regs.rec, R_ESP);
     sa.ss_base = target_ulong_val(&(env->segs[R_SS]).base);
     new_eflags = 0; /* avoid warning */
-#ifdef TARGET_X86_64
     if (shift == 2) {
         new_eip = popq(&sa);
         new_cs = popq(&sa) & 0xffff;
@@ -2071,7 +2021,6 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
             new_eflags = popq(&sa);
         }
     } else
-#endif
     {
         if (shift == 1) {
             /* 32 bits */
@@ -2093,7 +2042,7 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
             }
         }
     }
-    LOG_PCALL("lret new %04x:" TARGET_FMT_lx " s=%d addend=0x%x\n",
+    LOG_PCALL("lret new %04x:%" PRIx64 " s=%d addend=0x%x\n",
               new_cs, new_eip, shift, addend);
     LOG_PCALL_STATE(env_cpu(env));
     if ((new_cs & 0xfffc) == 0) {
@@ -2134,12 +2083,10 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
                        e2);
     } else {
         /* return to different privilege level */
-#ifdef TARGET_X86_64
         if (shift == 2) {
             new_esp = popq(&sa);
             new_ss = popq(&sa) & 0xffff;
         } else
-#endif
         {
             if (shift == 1) {
                 /* 32 bits */
@@ -2151,10 +2098,9 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
                 new_ss = popw(&sa);
             }
         }
-        LOG_PCALL("new ss:esp=%04x:" TARGET_FMT_lx "\n",
+        LOG_PCALL("new ss:esp=%04x:%" PRIx64 "\n",
                   new_ss, new_esp);
         if ((new_ss & 0xfffc) == 0) {
-#ifdef TARGET_X86_64
             /* NULL ss is allowed in long mode if cpl != 3 */
             /* XXX: test CS64? */
             if ((env->hflags & HF_LMA_MASK) && rpl != 3) {
@@ -2165,7 +2111,6 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
                                        DESC_W_MASK | DESC_A_MASK);
                 ss_e2 = DESC_B_MASK; /* XXX: should not be needed? */
             } else
-#endif
             {
                 raise_exception_err_ra(env, EXCP0D_GPF, 0, retaddr);
             }
@@ -2199,11 +2144,9 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
                        get_seg_limit(e1, e2),
                        e2);
         sa.sp = new_esp;
-#ifdef TARGET_X86_64
         if (env->hflags & HF_CS64_MASK) {
             sa.sp_mask = -1;
         } else
-#endif
         {
             sa.sp_mask = get_sp_mask(ss_e2);
         }
@@ -2265,11 +2208,9 @@ void helper_iret_protected(CPUX86State *env, int shift, int next_eip)
 
     /* specific case for TSS */
     if (target_ulong_val(&(env)->eflags) & NT_MASK) {
-#ifdef TARGET_X86_64
         if (env->hflags & HF_LMA_MASK) {
             raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
         }
-#endif
         tss_selector = cpu_lduw_kernel_ra(env, target_ulong_val(&(env->tr).base) + 0, GETPC());
         if (tss_selector & 4) {
             raise_exception_err_ra(env, EXCP0A_TSS, tss_selector & 0xfffc, GETPC());
@@ -2302,7 +2243,6 @@ void helper_sysenter(CPUX86State *env)
     }
     target_ulong_set(&(env)->eflags, target_ulong_val(&(env)->eflags) &  ~(VM_MASK | IF_MASK | RF_MASK));
 
-#ifdef TARGET_X86_64
     if (env->hflags & HF_LMA_MASK) {
         cpu_x86_load_seg_cache(env, R_CS, env->sysenter_cs & 0xfffc,
                                0, 0xffffffff,
@@ -2311,7 +2251,6 @@ void helper_sysenter(CPUX86State *env)
                                DESC_CS_MASK | DESC_R_MASK | DESC_A_MASK |
                                DESC_L_MASK);
     } else
-#endif
     {
         cpu_x86_load_seg_cache(env, R_CS, env->sysenter_cs & 0xfffc,
                                0, 0xffffffff,
@@ -2336,7 +2275,6 @@ void helper_sysexit(CPUX86State *env, int dflag)
     if (env->sysenter_cs == 0 || cpl != 0) {
         raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
     }
-#ifdef TARGET_X86_64
     if (dflag == 2) {
         cpu_x86_load_seg_cache(env, R_CS, ((env->sysenter_cs + 32) & 0xfffc) |
                                3, 0, 0xffffffff,
@@ -2350,7 +2288,6 @@ void helper_sysexit(CPUX86State *env, int dflag)
                                DESC_S_MASK | (3 << DESC_DPL_SHIFT) |
                                DESC_W_MASK | DESC_A_MASK);
     } else
-#endif
     {
         cpu_x86_load_seg_cache(env, R_CS, ((env->sysenter_cs + 16) & 0xfffc) |
                                3, 0, 0xffffffff,
@@ -2367,7 +2304,7 @@ void helper_sysexit(CPUX86State *env, int dflag)
     target_ulong_set(&(env)->eip,  target_ulong_array_val(&env->regs.rec, R_EDX));
 }
 
-target_ulong helper_lsl(CPUX86State *env, target_ulong selector1)
+uint64_t helper_lsl(CPUX86State *env, uint64_t selector1)
 {
     unsigned int limit;
     uint32_t e1, e2, selector;
@@ -2415,7 +2352,7 @@ target_ulong helper_lsl(CPUX86State *env, target_ulong selector1)
     return limit;
 }
 
-target_ulong helper_lar(CPUX86State *env, target_ulong selector1)
+uint64_t helper_lar(CPUX86State *env, uint64_t selector1)
 {
     uint32_t e1, e2, selector;
     int rpl, dpl, cpl, type;
@@ -2464,7 +2401,7 @@ target_ulong helper_lar(CPUX86State *env, target_ulong selector1)
     return e2 & 0x00f0ff00;
 }
 
-void helper_verr(CPUX86State *env, target_ulong selector1)
+void helper_verr(CPUX86State *env, uint64_t selector1)
 {
     uint32_t e1, e2, eflags, selector;
     int rpl, dpl, cpl;
@@ -2502,7 +2439,7 @@ void helper_verr(CPUX86State *env, target_ulong selector1)
     CC_OP = CC_OP_EFLAGS;
 }
 
-void helper_verw(CPUX86State *env, target_ulong selector1)
+void helper_verw(CPUX86State *env, uint64_t selector1)
 {
     uint32_t e1, e2, eflags, selector;
     int rpl, dpl, cpl;

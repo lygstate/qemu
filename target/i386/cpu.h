@@ -25,9 +25,6 @@
 #include "kvm/hyperv-proto.h"
 #include "exec/cpu-common.h"
 #include "exec/cpu-interrupt.h"
-#ifndef COMPILING_PER_TARGET_BASE
-#include "exec/target_long.h"
-#endif
 #include "exec/target-long-types.h"
 #include "exec/memop.h"
 #include "hw/i386/apic.h"
@@ -41,12 +38,12 @@
 
 #define XEN_NR_VIRQS 24
 
+struct kvm_nested_state;
+
 #define I386_ELF_MACHINE  (target_x86_64() ? EM_X86_64 : EM_386)
 #define ELF_MACHINE_UNAME (target_x86_64() ? "x86_64" : "i686")
 
-#ifdef CONFIG_MSHV
 #define MSHV_STIMERS_STATE_SIZE 200
-#endif
 
 enum {
     R_EAX = 0,
@@ -2302,7 +2299,6 @@ typedef struct CPUArchState {
     uint64_t tsc;
     void *xsave_buf;
     uint32_t xsave_buf_len;
-#if defined(CONFIG_KVM)
     struct kvm_nested_state *nested_state;
     MemoryRegion *xen_vcpu_info_mr;
     void *xen_vcpu_info_hva;
@@ -2318,19 +2314,11 @@ typedef struct CPUArchState {
     uint64_t xen_periodic_timer_period;
     QEMUTimer *xen_periodic_timer;
     QemuMutex xen_timers_lock;
-#endif
-#if defined(CONFIG_MSHV)
-    /* Shared register page */
     struct hv_vp_register_page *regs_page;
-#endif
-#if defined(CONFIG_HVF) || defined(CONFIG_MSHV) || defined(CONFIG_WHPX)
     void *emu_mmio_buf;
-#endif
-#if defined(CONFIG_MSHV)
     uint8_t hv_simp_page[HV_HYP_PAGE_SIZE];
     uint8_t hv_siefp_page[HV_HYP_PAGE_SIZE];
     uint8_t hv_synthetic_timers_state[MSHV_STIMERS_STATE_SIZE];
-#endif
 
     uint64_t mcg_cap;
     uint64_t mcg_ctl;
@@ -3132,13 +3120,13 @@ static inline bool x86_cpu_interrupts_enabled(const CPUX86State *env)
            (env->hflags2 & HF2_HYPERV_HLT_MASK);
 }
 
-/* TARGET_X86_64 begin */
-#if defined(TARGET_X86_64) && \
-    defined(CONFIG_USER_ONLY) && \
-    defined(CONFIG_LINUX)
-# define TARGET_VSYSCALL_PAGE  (UINT64_C(-10) << 20)
+#if defined(CONFIG_USER_ONLY) && defined(CONFIG_LINUX)
+# ifndef CPU_DEFS_H
+#  ifdef TARGET_X86_64
+#   define TARGET_VSYSCALL_PAGE  (UINT64_C(-10) << 20)
+#  endif
+# endif
 #endif
-/* TARGET_X86_64 end */
 
 /* majority(NOT a, b, c) = (a ^ b) ? b : c */
 #define MAJ_INV1(a, b, c)  ((((a) ^ (b)) & ((b) ^ (c))) ^ (c))

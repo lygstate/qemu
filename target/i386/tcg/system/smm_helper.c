@@ -25,12 +25,11 @@
 
 static void sm_state_init_64(X86CPU *cpu)
 {
-#ifdef TARGET_X86_64
     CPUX86State *env = &cpu->env;
     CPUState *cs = CPU(cpu);
     SegmentCache *dt;
     int i, offset;
-    target_ulong sm_state = env->smbase + 0x8000;
+    uint64_t sm_state = env->smbase + 0x8000;
 
     for (i = 0; i < 6; i++) {
         dt = &env->segs[i];
@@ -85,9 +84,6 @@ static void sm_state_init_64(X86CPU *cpu)
 
     x86_stl_phys(cs, sm_state + 0x7efc, 0x00020064);    /* SMM revision ID */
     x86_stl_phys(cs, sm_state + 0x7f00, env->smbase);
-#else
-    g_assert_not_reached();
-#endif
 }
 
 static void sm_state_init_32(X86CPU *cpu)
@@ -96,7 +92,7 @@ static void sm_state_init_32(X86CPU *cpu)
     CPUState *cs = CPU(cpu);
     SegmentCache *dt;
     int i, offset;
-    target_ulong sm_state = env->smbase + 0x8000;
+    uint64_t sm_state = env->smbase + 0x8000;
 
     x86_stl_phys(cs, sm_state + 0x7ffc, target_ulong_array_val(&env->cr.rec, 0));
     x86_stl_phys(cs, sm_state + 0x7ff8, target_ulong_array_val(&env->cr.rec, 3));
@@ -203,9 +199,8 @@ void do_smm_enter(X86CPU *cpu)
 
 static void rsm_load_regs_64(CPUX86State *env)
 {
-#ifdef TARGET_X86_64
     CPUState *cs = env_cpu(env);
-    target_ulong sm_state;
+    uint64_t sm_state;
     int i, offset;
     uint32_t val;
 
@@ -264,15 +259,12 @@ static void rsm_load_regs_64(CPUX86State *env)
     if (val & 0x20000) {
         env->smbase = x86_ldl_phys(cs, sm_state + 0x7f00);
     }
-#else
-    g_assert_not_reached();
-#endif
 }
 
 static void rsm_load_regs_32(CPUX86State *env)
 {
     CPUState *cs = env_cpu(env);
-    target_ulong sm_state;
+    uint64_t sm_state;
     int i, offset;
     uint32_t val;
 

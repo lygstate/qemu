@@ -25,10 +25,10 @@
 #include "cpu.h"
 
 struct x86_emul_ops {
-    MMUTranslateResult (*mmu_gva_to_gpa) (CPUState *cpu, target_ulong gva, uint64_t *gpa, MMUTranslateFlags flags);
+    MMUTranslateResult (*mmu_gva_to_gpa) (CPUState *cpu, uint64_t gva, uint64_t *gpa, MMUTranslateFlags flags);
     void (*read_segment_descriptor)(CPUState *cpu, struct x86_segment_descriptor *desc,
                                     enum X86Seg seg);
-    target_ulong (*read_cr) (CPUState *cpu, int cr);
+    uint64_t (*read_cr) (CPUState *cpu, int cr);
     void (*handle_io)(CPUState *cpu, uint16_t port, void *data, int direction,
                       int size, int count);
     bool (*simulate_rdmsr)(CPUState *cs);
@@ -44,15 +44,15 @@ void init_emu(const struct x86_emul_ops *ops);
 bool exec_instruction(CPUX86State *env, struct x86_decode *ins);
 void x86_emul_raise_exception(CPUX86State *env, int exception_index, int error_code);
 
-target_ulong read_reg(CPUX86State *env, int reg, int size);
-void write_reg(CPUX86State *env, int reg, target_ulong val, int size);
-target_ulong x86_read_cr(CPUState *cpu, int cr);
+uint64_t read_reg(CPUX86State *env, int reg, int size);
+void write_reg(CPUX86State *env, int reg, uint64_t val, int size);
+uint64_t x86_read_cr(CPUState *cpu, int cr);
 
-target_ulong read_val_from_reg(void *reg_ptr, int size);
-void write_val_to_reg(void *reg_ptr, target_ulong val, int size);
-bool write_val_ext(CPUX86State *env, struct x86_decode_op *decode, target_ulong val, int size);
-uint8_t *read_mmio(CPUX86State *env, target_ulong ptr, int bytes);
-bool read_val_ext(CPUX86State *env, struct x86_decode_op *decode, int size, target_ulong* val);
+uint64_t read_val_from_reg(void *reg_ptr, int size);
+void write_val_to_reg(void *reg_ptr, uint64_t val, int size);
+bool write_val_ext(CPUX86State *env, struct x86_decode_op *decode, uint64_t val, int size);
+uint8_t *read_mmio(CPUX86State *env, uint64_t ptr, int bytes);
+bool read_val_ext(CPUX86State *env, struct x86_decode_op *decode, int size, uint64_t* val);
 
 bool exec_movzx(CPUX86State *env, struct x86_decode *decode);
 bool exec_shl(CPUX86State *env, struct x86_decode *decode);
