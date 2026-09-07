@@ -366,7 +366,7 @@ static int cpu_post_load(void *opaque, int version_id)
         env->fptags[i] = (env->fptag_vmstate >> i) & 1;
     }
     if (tcg_enabled()) {
-        target_ulong dr7;
+        uint64_t dr7;
         update_fp_status(env);
         update_mxcsr_status(env);
 

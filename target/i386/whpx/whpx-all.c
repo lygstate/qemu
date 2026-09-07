@@ -1263,7 +1263,7 @@ static bool is_user_mode(CPUState *cpu)
     return vcpu->exit_ctx.VpContext.ExecutionState.Cpl == 3;
 }
 
-static target_ulong read_cr(CPUState *cpu, int cr)
+static uint64_t read_cr(CPUState *cpu, int cr)
 {
     WHV_REGISTER_NAME whv_cr;
     WHV_REGISTER_VALUE val;

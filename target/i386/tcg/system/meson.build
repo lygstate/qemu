@@ -1,4 +1,4 @@
-i386_system_ss.add(when: ['CONFIG_TCG', 'CONFIG_SYSTEM_ONLY'], if_true: files(
+i386_common_system_ss.add(files(
   'tcg-cpu.c',
   'smm_helper.c',
   'excp_helper.c',
