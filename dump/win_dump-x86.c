@@ -14,6 +14,7 @@
 #include "qapi/error.h"
 #include "qemu/error-report.h"
 #include "exec/cpu-defs.h"
+#include "exec/target_page.h"
 #include "hw/core/cpu.h"
 #include "qemu/win_dump_defs.h"
 #include "win_dump.h"

@@ -7,4 +7,5 @@ i386_mshv_ss.add(files(
 ))
 
 accel_i386_ss.add_all(when: 'CONFIG_MSHV', if_true: i386_mshv_ss)
+i386_stubs_ss.add(files('mshv-stub.c'))
 

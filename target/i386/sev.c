@@ -486,7 +486,6 @@ static void sev_apply_cpu_context(CPUState *cpu)
             env->regs[R_EBP] = launch_vmsa->vmsa.rbp;
             env->regs[R_ESI] = launch_vmsa->vmsa.rsi;
             env->regs[R_EDI] = launch_vmsa->vmsa.rdi;
-#ifdef TARGET_X86_64
             env->regs[R_R8] = launch_vmsa->vmsa.r8;
             env->regs[R_R9] = launch_vmsa->vmsa.r9;
             env->regs[R_R10] = launch_vmsa->vmsa.r10;
@@ -495,7 +494,6 @@ static void sev_apply_cpu_context(CPUState *cpu)
             env->regs[R_R13] = launch_vmsa->vmsa.r13;
             env->regs[R_R14] = launch_vmsa->vmsa.r14;
             env->regs[R_R15] = launch_vmsa->vmsa.r15;
-#endif
             env->eip = launch_vmsa->vmsa.rip;
             env->eflags = launch_vmsa->vmsa.rflags;
 
@@ -2315,7 +2313,6 @@ static void initialize_vmsa(const CPUState *cpu, struct sev_es_save_area *vmsa)
     vmsa->rsi = env->regs[R_ESI];
     vmsa->rdi = env->regs[R_EDI];
 
-#ifdef TARGET_X86_64
     vmsa->r8 = env->regs[R_R8];
     vmsa->r9 = env->regs[R_R9];
     vmsa->r10 = env->regs[R_R10];
@@ -2324,7 +2321,6 @@ static void initialize_vmsa(const CPUState *cpu, struct sev_es_save_area *vmsa)
     vmsa->r13 = env->regs[R_R13];
     vmsa->r14 = env->regs[R_R14];
     vmsa->r15 = env->regs[R_R15];
-#endif
 
     vmsa->rip = env->eip;
     vmsa->rflags = env->eflags;
