@@ -26,8 +26,9 @@
 #include "linux-user/qemu.h"
 #endif
 
+/* TARGET_X86_64 begin */
 #ifdef TARGET_X86_64
-static const int gpr_map[CPU_NB_EREGS] = {
+static const int gpr_map[CPU_NB_EREGS64] = {
     R_EAX, R_EBX, R_ECX, R_EDX, R_ESI, R_EDI, R_EBP, R_ESP,
     R_R8, R_R9, R_R10, R_R11, R_R12, R_R13, R_R14, R_R15,
     R_R16, R_R17, R_R18, R_R19, R_R20, R_R21, R_R22, R_R23,
@@ -36,6 +37,7 @@ static const int gpr_map[CPU_NB_EREGS] = {
 #else
 #define gpr_map gpr_map32
 #endif
+/* TARGET_X86_64 end */
 static const int gpr_map32[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
 
 /*
@@ -62,20 +64,33 @@ static const int gpr_map32[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
  *          total ----> 8+1+1+9+6+16+8+1=50 or 16+1+1+9+6+16+16+1=66
  */
 
-#define IDX_IP_REG      CPU_NB_REGS
-#define IDX_FLAGS_REG   (IDX_IP_REG + IDX_NB_IP)
-#define IDX_SEG_REGS    (IDX_FLAGS_REG + IDX_NB_FLAGS)
-#define IDX_CTL_REGS    (IDX_SEG_REGS + IDX_NB_SEG)
-#define IDX_FP_REGS     (IDX_CTL_REGS + IDX_NB_CTL)
-#define IDX_XMM_REGS    (IDX_FP_REGS + IDX_NB_FP)
-#define IDX_MXCSR_REG   (IDX_XMM_REGS + CPU_NB_REGS)
+#define IDX_OFF_IP       0
+#define IDX_OFF_FLAGS    (IDX_OFF_IP + IDX_NB_IP)
+#define IDX_OFF_SEG      (IDX_OFF_FLAGS + IDX_NB_FLAGS)
+#define IDX_OFF_CTL      (IDX_OFF_SEG + IDX_NB_SEG)
+#define IDX_OFF_FP       (IDX_OFF_CTL + IDX_NB_CTL)
+#define IDX_OFF_XMM      (IDX_OFF_FP + IDX_NB_FP)
+#define IDX_OFF_CR0      (IDX_OFF_CTL + 0)
+#define IDX_OFF_CR2      (IDX_OFF_CTL + 1)
+#define IDX_OFF_CR3      (IDX_OFF_CTL + 2)
+#define IDX_OFF_CR4      (IDX_OFF_CTL + 3)
+#define IDX_OFF_CR8      (IDX_OFF_CTL + 4)
+#define IDX_OFF_EFER     (IDX_OFF_CTL + 5)
 
-#define IDX_CTL_CR0_REG     (IDX_CTL_REGS + 0)
-#define IDX_CTL_CR2_REG     (IDX_CTL_REGS + 1)
-#define IDX_CTL_CR3_REG     (IDX_CTL_REGS + 2)
-#define IDX_CTL_CR4_REG     (IDX_CTL_REGS + 3)
-#define IDX_CTL_CR8_REG     (IDX_CTL_REGS + 4)
-#define IDX_CTL_EFER_REG    (IDX_CTL_REGS + 5)
+#define IDX_IP_REG      (cpu_nb_regs() + IDX_OFF_IP)
+#define IDX_FLAGS_REG   (cpu_nb_regs() + IDX_OFF_FLAGS)
+#define IDX_SEG_REGS    (cpu_nb_regs() + IDX_OFF_SEG)
+#define IDX_CTL_REGS    (cpu_nb_regs() + IDX_OFF_CTL)
+#define IDX_FP_REGS     (cpu_nb_regs() + IDX_OFF_FP)
+#define IDX_XMM_REGS    (cpu_nb_regs() + IDX_OFF_XMM)
+#define IDX_MXCSR_REG   (IDX_XMM_REGS + cpu_nb_regs())
+
+#define IDX_CTL_CR0_REG     (cpu_nb_regs() + IDX_OFF_CR0)
+#define IDX_CTL_CR2_REG     (cpu_nb_regs() + IDX_OFF_CR2)
+#define IDX_CTL_CR3_REG     (cpu_nb_regs() + IDX_OFF_CR3)
+#define IDX_CTL_CR4_REG     (cpu_nb_regs() + IDX_OFF_CR4)
+#define IDX_CTL_CR8_REG     (cpu_nb_regs() + IDX_OFF_CR8)
+#define IDX_CTL_EFER_REG    (cpu_nb_regs() + IDX_OFF_EFER)
 
 static int gdb_read_reg_cs64(uint32_t hflags, GByteArray *buf, target_ulong val)
 {
@@ -85,7 +100,7 @@ static int gdb_read_reg_cs64(uint32_t hflags, GByteArray *buf, target_ulong val)
     return gdb_get_reg32(buf, val);
 }
 
-static int gdb_write_reg_cs64(uint32_t hflags, uint8_t *buf, target_ulong *val)
+static int gdb_write_reg_cs64(uint32_t hflags, uint8_t *buf, uint64_t *val)
 {
     if (hflags & HF_CS64_MASK) {
         *val = ldq_p(buf);
@@ -119,7 +134,7 @@ int x86_cpu_gdb_read_register(CPUState *cs, GByteArray *mem_buf, int n)
        of a session. So if we're in 32-bit mode on a 64-bit cpu, still act
        as if we're on a 64-bit cpu. */
 
-    if (n < CPU_NB_REGS) {
+    if (n < cpu_nb_regs()) {
         if (TARGET_LONG_BITS == 64) {
             if (env->hflags & HF_CS64_MASK) {
                 return gdb_get_reg64(mem_buf, env->regs[gpr_map[n]]);
@@ -139,75 +154,74 @@ int x86_cpu_gdb_read_register(CPUState *cs, GByteArray *mem_buf, int n)
         int len = gdb_get_reg64(mem_buf, cpu_to_le64(fp->low));
         len += gdb_get_reg16(mem_buf, cpu_to_le16(fp->high));
         return len;
-    } else if (n >= IDX_XMM_REGS && n < IDX_XMM_REGS + CPU_NB_REGS) {
+    } else if (n >= IDX_XMM_REGS && n < IDX_XMM_REGS + cpu_nb_regs()) {
         n -= IDX_XMM_REGS;
         if (n < CPU_NB_REGS32 || TARGET_LONG_BITS == 64) {
             return gdb_get_reg128(mem_buf,
                                   env->xmm_regs[n].ZMM_Q(1),
                                   env->xmm_regs[n].ZMM_Q(0));
         }
+    } else if (n == IDX_MXCSR_REG) {
+        update_mxcsr_from_sse_status(env);
+        return gdb_get_reg32(mem_buf, env->mxcsr);
     } else {
-        switch (n) {
-        case IDX_IP_REG:
+        switch (n - cpu_nb_regs()) {
+        case IDX_OFF_IP:
             return gdb_get_reg(env, mem_buf, env->eip);
-        case IDX_FLAGS_REG:
+        case IDX_OFF_FLAGS:
             return gdb_get_reg32(mem_buf, env->eflags);
 
-        case IDX_SEG_REGS:
+        case IDX_OFF_SEG:
             return gdb_get_reg32(mem_buf, env->segs[R_CS].selector);
-        case IDX_SEG_REGS + 1:
+        case IDX_OFF_SEG + 1:
             return gdb_get_reg32(mem_buf, env->segs[R_SS].selector);
-        case IDX_SEG_REGS + 2:
+        case IDX_OFF_SEG + 2:
             return gdb_get_reg32(mem_buf, env->segs[R_DS].selector);
-        case IDX_SEG_REGS + 3:
+        case IDX_OFF_SEG + 3:
             return gdb_get_reg32(mem_buf, env->segs[R_ES].selector);
-        case IDX_SEG_REGS + 4:
+        case IDX_OFF_SEG + 4:
             return gdb_get_reg32(mem_buf, env->segs[R_FS].selector);
-        case IDX_SEG_REGS + 5:
+        case IDX_OFF_SEG + 5:
             return gdb_get_reg32(mem_buf, env->segs[R_GS].selector);
-        case IDX_SEG_REGS + 6:
+        case IDX_OFF_SEG + 6:
             return gdb_read_reg_cs64(env->hflags, mem_buf, env->segs[R_FS].base);
-        case IDX_SEG_REGS + 7:
+        case IDX_OFF_SEG + 7:
             return gdb_read_reg_cs64(env->hflags, mem_buf, env->segs[R_GS].base);
 
-        case IDX_SEG_REGS + 8:
+        case IDX_OFF_SEG + 8:
 #ifdef TARGET_X86_64
             return gdb_read_reg_cs64(env->hflags, mem_buf, env->kernelgsbase);
 #else
             return gdb_get_reg32(mem_buf, 0);
 #endif
 
-        case IDX_FP_REGS + 8:
+        case IDX_OFF_FP + 8:
             return gdb_get_reg32(mem_buf, env->fpuc);
-        case IDX_FP_REGS + 9:
+        case IDX_OFF_FP + 9:
             return gdb_get_reg32(mem_buf, (env->fpus & ~0x3800) |
                                           (env->fpstt & 0x7) << 11);
-        case IDX_FP_REGS + 10:
+        case IDX_OFF_FP + 10:
             return gdb_get_reg32(mem_buf, 0); /* ftag */
-        case IDX_FP_REGS + 11:
+        case IDX_OFF_FP + 11:
             return gdb_get_reg32(mem_buf, 0); /* fiseg */
-        case IDX_FP_REGS + 12:
+        case IDX_OFF_FP + 12:
             return gdb_get_reg32(mem_buf, 0); /* fioff */
-        case IDX_FP_REGS + 13:
+        case IDX_OFF_FP + 13:
             return gdb_get_reg32(mem_buf, 0); /* foseg */
-        case IDX_FP_REGS + 14:
+        case IDX_OFF_FP + 14:
             return gdb_get_reg32(mem_buf, 0); /* fooff */
-        case IDX_FP_REGS + 15:
+        case IDX_OFF_FP + 15:
             return gdb_get_reg32(mem_buf, 0); /* fop */
 
-        case IDX_MXCSR_REG:
-            update_mxcsr_from_sse_status(env);
-            return gdb_get_reg32(mem_buf, env->mxcsr);
-
-        case IDX_CTL_CR0_REG:
+        case IDX_OFF_CR0:
             return gdb_read_reg_cs64(env->hflags, mem_buf, env->cr[0]);
-        case IDX_CTL_CR2_REG:
+        case IDX_OFF_CR2:
             return gdb_read_reg_cs64(env->hflags, mem_buf, env->cr[2]);
-        case IDX_CTL_CR3_REG:
+        case IDX_OFF_CR3:
             return gdb_read_reg_cs64(env->hflags, mem_buf, env->cr[3]);
-        case IDX_CTL_CR4_REG:
+        case IDX_OFF_CR4:
             return gdb_read_reg_cs64(env->hflags, mem_buf, env->cr[4]);
-        case IDX_CTL_CR8_REG:
+        case IDX_OFF_CR8:
 #ifndef CONFIG_USER_ONLY
             tpr = cpu_get_apic_tpr(cpu->apic_state);
 #else
@@ -215,7 +229,7 @@ int x86_cpu_gdb_read_register(CPUState *cs, GByteArray *mem_buf, int n)
 #endif
             return gdb_read_reg_cs64(env->hflags, mem_buf, tpr);
 
-        case IDX_CTL_EFER_REG:
+        case IDX_OFF_EFER:
             return gdb_read_reg_cs64(env->hflags, mem_buf, env->efer);
         }
     }
@@ -232,7 +246,7 @@ static int x86_cpu_gdb_load_seg(X86CPU *cpu, X86Seg sreg, uint8_t *mem_buf)
         cpu_x86_load_seg(env, sreg, selector);
 #else
         unsigned int limit, flags;
-        target_ulong base;
+        uint64_t base;
 
         if (!(env->cr[0] & CR0_PE_MASK) || (env->eflags & VM_MASK)) {
             int dpl = (env->eflags & VM_MASK) ? 3 : 0;
@@ -252,7 +266,7 @@ static int x86_cpu_gdb_load_seg(X86CPU *cpu, X86Seg sreg, uint8_t *mem_buf)
     return 4;
 }
 
-static int gdb_write_reg(CPUX86State *env, uint8_t *mem_buf, target_ulong *val)
+static int gdb_write_reg(CPUX86State *env, uint8_t *mem_buf, uint64_t *val)
 {
     if (TARGET_LONG_BITS == 64) {
         if (env->hflags & HF_CS64_MASK) {
@@ -271,14 +285,14 @@ int x86_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
 {
     X86CPU *cpu = X86_CPU(cs);
     CPUX86State *env = &cpu->env;
-    target_ulong tmp;
+    uint64_t tmp;
     int len;
 
     /* N.B. GDB can't deal with changes in registers or sizes in the middle
        of a session. So if we're in 32-bit mode on a 64-bit cpu, still act
        as if we're on a 64-bit cpu. */
 
-    if (n < CPU_NB_REGS) {
+    if (n < cpu_nb_regs()) {
         if (TARGET_LONG_BITS == 64) {
             if (env->hflags & HF_CS64_MASK) {
                 env->regs[gpr_map[n]] = ldq_p(mem_buf);
@@ -297,104 +311,103 @@ int x86_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
         fp->low = le64_to_cpu(* (uint64_t *) mem_buf);
         fp->high = le16_to_cpu(* (uint16_t *) (mem_buf + 8));
         return 10;
-    } else if (n >= IDX_XMM_REGS && n < IDX_XMM_REGS + CPU_NB_REGS) {
+    } else if (n >= IDX_XMM_REGS && n < IDX_XMM_REGS + cpu_nb_regs()) {
         n -= IDX_XMM_REGS;
         if (n < CPU_NB_REGS32 || TARGET_LONG_BITS == 64) {
             env->xmm_regs[n].ZMM_Q(0) = ldq_p(mem_buf);
             env->xmm_regs[n].ZMM_Q(1) = ldq_p(mem_buf + 8);
             return 16;
         }
+    } else if (n == IDX_MXCSR_REG) {
+        cpu_set_mxcsr(env, ldl_p(mem_buf));
+        return 4;
     } else {
-        switch (n) {
-        case IDX_IP_REG:
+        switch (n - cpu_nb_regs()) {
+        case IDX_OFF_IP:
             return gdb_write_reg(env, mem_buf, &env->eip);
-        case IDX_FLAGS_REG:
+        case IDX_OFF_FLAGS:
             env->eflags = ldl_p(mem_buf);
             return 4;
 
-        case IDX_SEG_REGS:
+        case IDX_OFF_SEG:
             return x86_cpu_gdb_load_seg(cpu, R_CS, mem_buf);
-        case IDX_SEG_REGS + 1:
+        case IDX_OFF_SEG + 1:
             return x86_cpu_gdb_load_seg(cpu, R_SS, mem_buf);
-        case IDX_SEG_REGS + 2:
+        case IDX_OFF_SEG + 2:
             return x86_cpu_gdb_load_seg(cpu, R_DS, mem_buf);
-        case IDX_SEG_REGS + 3:
+        case IDX_OFF_SEG + 3:
             return x86_cpu_gdb_load_seg(cpu, R_ES, mem_buf);
-        case IDX_SEG_REGS + 4:
+        case IDX_OFF_SEG + 4:
             return x86_cpu_gdb_load_seg(cpu, R_FS, mem_buf);
-        case IDX_SEG_REGS + 5:
+        case IDX_OFF_SEG + 5:
             return x86_cpu_gdb_load_seg(cpu, R_GS, mem_buf);
-        case IDX_SEG_REGS + 6:
+        case IDX_OFF_SEG + 6:
             return gdb_write_reg_cs64(env->hflags, mem_buf, &env->segs[R_FS].base);
-        case IDX_SEG_REGS + 7:
+        case IDX_OFF_SEG + 7:
             return gdb_write_reg_cs64(env->hflags, mem_buf, &env->segs[R_GS].base);
-        case IDX_SEG_REGS + 8:
+        case IDX_OFF_SEG + 8:
 #ifdef TARGET_X86_64
             return gdb_write_reg_cs64(env->hflags, mem_buf, &env->kernelgsbase);
 #endif
             return 4;
 
-        case IDX_FP_REGS + 8:
+        case IDX_OFF_FP + 8:
             cpu_set_fpuc(env, ldl_p(mem_buf));
             return 4;
-        case IDX_FP_REGS + 9:
+        case IDX_OFF_FP + 9:
             tmp = ldl_p(mem_buf);
             env->fpstt = (tmp >> 11) & 7;
             env->fpus = tmp & ~0x3800;
             return 4;
-        case IDX_FP_REGS + 10: /* ftag */
+        case IDX_OFF_FP + 10: /* ftag */
             return 4;
-        case IDX_FP_REGS + 11: /* fiseg */
+        case IDX_OFF_FP + 11: /* fiseg */
             return 4;
-        case IDX_FP_REGS + 12: /* fioff */
+        case IDX_OFF_FP + 12: /* fioff */
             return 4;
-        case IDX_FP_REGS + 13: /* foseg */
+        case IDX_OFF_FP + 13: /* foseg */
             return 4;
-        case IDX_FP_REGS + 14: /* fooff */
+        case IDX_OFF_FP + 14: /* fooff */
             return 4;
-        case IDX_FP_REGS + 15: /* fop */
-            return 4;
-
-        case IDX_MXCSR_REG:
-            cpu_set_mxcsr(env, ldl_p(mem_buf));
+        case IDX_OFF_FP + 15: /* fop */
             return 4;
 
-        case IDX_CTL_CR0_REG:
+        case IDX_OFF_CR0:
             len = gdb_write_reg_cs64(env->hflags, mem_buf, &tmp);
 #ifndef CONFIG_USER_ONLY
             cpu_x86_update_cr0(env, tmp);
 #endif
             return len;
 
-        case IDX_CTL_CR2_REG:
+        case IDX_OFF_CR2:
             len = gdb_write_reg_cs64(env->hflags, mem_buf, &tmp);
 #ifndef CONFIG_USER_ONLY
             env->cr[2] = tmp;
 #endif
             return len;
 
-        case IDX_CTL_CR3_REG:
+        case IDX_OFF_CR3:
             len = gdb_write_reg_cs64(env->hflags, mem_buf, &tmp);
 #ifndef CONFIG_USER_ONLY
             cpu_x86_update_cr3(env, tmp);
 #endif
             return len;
 
-        case IDX_CTL_CR4_REG:
+        case IDX_OFF_CR4:
             len = gdb_write_reg_cs64(env->hflags, mem_buf, &tmp);
 #ifndef CONFIG_USER_ONLY
             cpu_x86_update_cr4(env, tmp);
 #endif
             return len;
 
-        case IDX_CTL_CR8_REG:
+        case IDX_OFF_CR8:
             len = gdb_write_reg_cs64(env->hflags, mem_buf, &tmp);
 #ifndef CONFIG_USER_ONLY
             cpu_set_apic_tpr(cpu->apic_state, tmp);
 #endif
             return len;
 
-        case IDX_CTL_EFER_REG:
+        case IDX_OFF_EFER:
             len = gdb_write_reg_cs64(env->hflags, mem_buf, &tmp);
 #ifndef CONFIG_USER_ONLY
             cpu_load_efer(env, tmp);
@@ -430,8 +443,13 @@ static int x86_cpu_gdb_write_linux_register(CPUState *cs, uint8_t *mem_buf,
     CPUX86State *env = &cpu->env;
 
     switch (n) {
-    case IDX_ORIG_AX:
-        return gdb_write_reg(env, mem_buf, &get_task_state(cs)->orig_ax);
+    case IDX_ORIG_AX: {
+        uint64_t tmp = get_task_state(cs)->orig_ax;
+        int len = gdb_write_reg(env, mem_buf, &tmp);
+
+        get_task_state(cs)->orig_ax = tmp;
+        return len;
+    }
     }
     return 0;
 }
@@ -446,7 +464,7 @@ static int i386_cpu_gdb_get_egprs(CPUState *cs, GByteArray *mem_buf, int n)
     if (n >= 0 && n < EGPR_NUM) {
         /* EGPRs can be only directly accessible in 64-bit mode. */
         if (env->hflags & HF_CS64_MASK) {
-            return gdb_get_reg64(mem_buf, env->regs[gpr_map[n + CPU_NB_REGS]]);
+            return gdb_get_reg64(mem_buf, env->regs[gpr_map[n + cpu_nb_regs()]]);
         } else if (TARGET_LONG_BITS == 64) {
             return gdb_get_reg64(mem_buf, 0);
         } else {
@@ -468,7 +486,7 @@ static int i386_cpu_gdb_set_egprs(CPUState *cs, uint8_t *mem_buf, int n)
          * XCR0[APX_F] (at least for modification in gdbstub) to be enabled.
          */
         if (env->hflags & HF_CS64_MASK && env->xcr0 & XSTATE_APX_MASK) {
-            env->regs[gpr_map[n + CPU_NB_REGS]] = ldn_p(mem_buf, regsz);
+            env->regs[gpr_map[n + cpu_nb_regs()]] = ldn_p(mem_buf, regsz);
 
             /*
              * Per SDM Vol 1, "Processor Tracking of XSAVE-Managed State",

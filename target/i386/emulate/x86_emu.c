@@ -45,7 +45,7 @@
 #include "x86_mmu.h"
 
 
-#ifdef TARGET_X86_64
+/* TARGET_X86_64 begin */
 #define EXEC_2OP_FLAGS_CMD_64(env, decode, cmd, FLAGS_FUNC, save_res) \
     case 8:                                        \
     {                                               \
@@ -58,9 +58,7 @@
         FLAGS_FUNC##64(env, v1, v2, diff);          \
         break;                                      \
     }
-#else
-#define EXEC_2OP_FLAGS_CMD_64(env, decode, cmd, FLAGS_FUNC, save_res)
-#endif
+/* TARGET_X86_64 end */
 #define EXEC_2OP_FLAGS_CMD(env, decode, cmd, FLAGS_FUNC, save_res) \
 {                                                       \
     if (fetch_operands(env, decode, 2, true, true, false))  {\
@@ -1401,7 +1399,7 @@ static void init_cmd_handler(void)
 bool exec_instruction(CPUX86State *env, struct x86_decode *ins)
 {
     if (!_cmd_handler[ins->cmd].handler) {
-        printf("Unimplemented handler (" TARGET_FMT_lx ") for %s - %d (%x %x)\n",
+        printf("Unimplemented handler (%" PRIx64 ") for %s - %d (%x %x)\n",
                 env->eip, decode_cmd_to_string(ins->cmd),
                 ins->cmd, ins->opcode[0],
                 ins->opcode_len > 1 ? ins->opcode[1] : 0);

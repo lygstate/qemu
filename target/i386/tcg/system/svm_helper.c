@@ -47,7 +47,7 @@ static void svm_save_seg(CPUX86State *env, int mmu_idx, hwaddr addr,
  * VMRUN and VMLOAD canonicalizes (i.e., sign-extend to bit 63) all base
  * addresses in the segment registers that have been loaded.
  */
-static inline void svm_canonicalization(CPUX86State *env, target_ulong *seg_base)
+static inline void svm_canonicalization(CPUX86State *env, uint64_t *seg_base)
 {
     uint16_t shift_amt = 64 - cpu_x86_virtual_addr_width(env);
     *seg_base = (((int64_t) *seg_base) << shift_amt) >> shift_amt;
@@ -735,7 +735,7 @@ void cpu_vmexit(CPUX86State *env, uint64_t exit_code, uint64_t exit_info_1,
     cpu_restore_state(cs, retaddr);
 
     qemu_log_mask(CPU_LOG_TB_IN_ASM, "vmexit(%08x, %016" PRIx64 ", %016"
-                  PRIx64 ", " TARGET_FMT_lx ")!\n",
+                  PRIx64 ", %016" PRIx64 ")!\n",
                   (uint32_t)exit_code, exit_info_1,
                   x86_ldq_phys(cs, env->vm_vmcb + offsetof(struct vmcb,
                                                    control.exit_info_2)),

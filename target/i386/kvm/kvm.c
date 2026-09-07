@@ -28,6 +28,7 @@
 #include "hw/xen/interface/arch-x86/cpuid.h"
 
 #include "cpu.h"
+#include "qemu/target-info.h"
 #include "host-cpu.h"
 #include "vmsr_energy.h"
 #include "system/system.h"
@@ -3663,7 +3664,7 @@ static void get_seg(SegmentCache *lhs, const struct kvm_segment *rhs)
                  (rhs->avl * DESC_AVL_MASK);
 }
 
-static void kvm_getput_reg(__u64 *kvm_reg, target_ulong *qemu_reg, int set)
+static void kvm_getput_reg(__u64 *kvm_reg, uint64_t *qemu_reg, int set)
 {
     if (set) {
         *kvm_reg = *qemu_reg;
@@ -3693,16 +3694,16 @@ static int kvm_getput_regs(X86CPU *cpu, int set)
     kvm_getput_reg(&regs.rdi, &env->regs[R_EDI], set);
     kvm_getput_reg(&regs.rsp, &env->regs[R_ESP], set);
     kvm_getput_reg(&regs.rbp, &env->regs[R_EBP], set);
-#ifdef TARGET_X86_64
-    kvm_getput_reg(&regs.r8, &env->regs[8], set);
-    kvm_getput_reg(&regs.r9, &env->regs[9], set);
-    kvm_getput_reg(&regs.r10, &env->regs[10], set);
-    kvm_getput_reg(&regs.r11, &env->regs[11], set);
-    kvm_getput_reg(&regs.r12, &env->regs[12], set);
-    kvm_getput_reg(&regs.r13, &env->regs[13], set);
-    kvm_getput_reg(&regs.r14, &env->regs[14], set);
-    kvm_getput_reg(&regs.r15, &env->regs[15], set);
-#endif
+    if (target_x86_64()) {
+        kvm_getput_reg(&regs.r8, &env->regs[8], set);
+        kvm_getput_reg(&regs.r9, &env->regs[9], set);
+        kvm_getput_reg(&regs.r10, &env->regs[10], set);
+        kvm_getput_reg(&regs.r11, &env->regs[11], set);
+        kvm_getput_reg(&regs.r12, &env->regs[12], set);
+        kvm_getput_reg(&regs.r13, &env->regs[13], set);
+        kvm_getput_reg(&regs.r14, &env->regs[14], set);
+        kvm_getput_reg(&regs.r15, &env->regs[15], set);
+    }
 
     kvm_getput_reg(&regs.rflags, &env->eflags, set);
     kvm_getput_reg(&regs.rip, &env->eip, set);
@@ -4213,8 +4214,7 @@ static int kvm_put_msrs(X86CPU *cpu, KvmPutState level)
         kvm_msr_entry_add(cpu, MSR_K7_HWCR, env->msr_hwcr);
     }
 
-#ifdef TARGET_X86_64
-    if (lm_capable_kernel) {
+    if (target_x86_64() && lm_capable_kernel) {
         kvm_msr_entry_add(cpu, MSR_CSTAR, env->cstar);
         kvm_msr_entry_add(cpu, MSR_KERNELGSBASE, env->kernelgsbase);
         kvm_msr_entry_add(cpu, MSR_FMASK, env->fmask);
@@ -4239,7 +4239,6 @@ static int kvm_put_msrs(X86CPU *cpu, KvmPutState level)
             }
         }
     }
-#endif
 
     /*
      * The following MSRs have side effects on the guest or are too heavy
@@ -4543,12 +4542,10 @@ static int kvm_put_msrs(X86CPU *cpu, KvmPutState level)
             kvm_msr_entry_add(cpu, MSR_IA32_PL2_SSP, env->pl2_ssp);
             kvm_msr_entry_add(cpu, MSR_IA32_PL3_SSP, env->pl3_ssp);
 
-#ifdef TARGET_X86_64
-            if (lm_capable_kernel) {
+            if (target_x86_64() && lm_capable_kernel) {
                 kvm_msr_entry_add(cpu, MSR_IA32_INT_SSP_TAB,
                                   env->int_ssp_table);
             }
-#endif
         }
     }
 
@@ -4799,8 +4796,7 @@ static int kvm_get_msrs(X86CPU *cpu)
         kvm_msr_entry_add(cpu, MSR_K7_HWCR, 0);
     }
 
-#ifdef TARGET_X86_64
-    if (lm_capable_kernel) {
+    if (target_x86_64() && lm_capable_kernel) {
         kvm_msr_entry_add(cpu, MSR_CSTAR, 0);
         kvm_msr_entry_add(cpu, MSR_KERNELGSBASE, 0);
         kvm_msr_entry_add(cpu, MSR_FMASK, 0);
@@ -4825,7 +4821,6 @@ static int kvm_get_msrs(X86CPU *cpu)
             }
         }
     }
-#endif
     if (env->features[FEAT_KVM] & (CPUID_KVM_CLOCK | CPUID_KVM_CLOCK2)) {
         kvm_msr_entry_add(cpu, MSR_KVM_SYSTEM_TIME, 0);
         kvm_msr_entry_add(cpu, MSR_KVM_WALL_CLOCK, 0);
@@ -5028,11 +5023,9 @@ static int kvm_get_msrs(X86CPU *cpu)
             kvm_msr_entry_add(cpu, MSR_IA32_PL2_SSP, 0);
             kvm_msr_entry_add(cpu, MSR_IA32_PL3_SSP, 0);
 
-#ifdef TARGET_X86_64
-            if (lm_capable_kernel) {
+            if (target_x86_64() && lm_capable_kernel) {
                 kvm_msr_entry_add(cpu, MSR_IA32_INT_SSP_TAB, 0);
             }
-#endif
         }
     }
 
@@ -5089,7 +5082,7 @@ static int kvm_get_msrs(X86CPU *cpu)
         case MSR_STAR:
             env->star = msrs[i].data;
             break;
-#ifdef TARGET_X86_64
+        /* TARGET_X86_64 begin */
         case MSR_CSTAR:
             env->cstar = msrs[i].data;
             break;
@@ -5129,7 +5122,7 @@ static int kvm_get_msrs(X86CPU *cpu)
         case MSR_IA32_FRED_CONFIG:
             env->fred_config = msrs[i].data;
             break;
-#endif
+        /* TARGET_X86_64 end */
         case MSR_IA32_TSC:
             env->tsc = msrs[i].data;
             break;
@@ -5418,11 +5411,11 @@ static int kvm_get_msrs(X86CPU *cpu)
         case MSR_IA32_PL3_SSP:
             env->pl3_ssp = msrs[i].data;
             break;
-#ifdef TARGET_X86_64
+        /* TARGET_X86_64 begin */
         case MSR_IA32_INT_SSP_TAB:
             env->int_ssp_table = msrs[i].data;
             break;
-#endif
+        /* TARGET_X86_64 end */
         case MSR_K7_HWCR:
             env->msr_hwcr = msrs[i].data;
             break;
