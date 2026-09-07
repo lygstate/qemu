@@ -1914,7 +1914,7 @@ static void gen_CRC32(DisasContext *s, X86DecodedInsn *decode)
     TCGv_i32 tmp = tcg_temp_new_i32();
 
     tcg_gen_trunc_tl_i32(tmp, s->T0);
-    gen_helper_crc32(s->T0, tmp, s->T1, tcg_constant_i32(8 << ot));
+    gen_helper_i386_crc32(s->T0, tmp, s->T1, tcg_constant_i32(8 << ot));
 }
 
 static void gen_CVTPI2Px(DisasContext *s, X86DecodedInsn *decode)
@@ -2855,7 +2855,7 @@ static void gen_PDEP(DisasContext *s, X86DecodedInsn *decode)
 
 static void gen_PEXT(DisasContext *s, X86DecodedInsn *decode)
 {
-    gen_helper_pext(s->T0, s->T0, s->T1);
+    gen_helper_i386_pext(s->T0, s->T0, s->T1);
 }
 
 static inline void gen_pextr(DisasContext *s, X86DecodedInsn *decode, MemOp ot)
