@@ -22,6 +22,7 @@ bool kvm_msi_via_irqfd_allowed;
 bool kvm_gsi_routing_allowed;
 bool kvm_gsi_direct_mapping;
 bool kvm_allowed;
+bool kvm_split_irqchip;
 bool kvm_readonly_mem_allowed;
 bool kvm_msi_use_devid;
 

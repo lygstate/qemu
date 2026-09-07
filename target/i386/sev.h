@@ -16,6 +16,11 @@
 
 #include "target/i386/svm.h"
 
+#ifdef CPU_DEFS_H
+bool sev_enabled(void);
+bool sev_es_enabled(void);
+bool sev_snp_enabled(void);
+#else
 #ifndef CONFIG_USER_ONLY
 #include CONFIG_DEVICES /* CONFIG_SEV */
 #endif
@@ -28,6 +33,7 @@
 bool sev_enabled(void);
 bool sev_es_enabled(void);
 bool sev_snp_enabled(void);
+#endif
 #endif
 
 #if !defined(CONFIG_USER_ONLY)
