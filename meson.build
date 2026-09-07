@@ -3797,6 +3797,9 @@ target_accel_arch = {
 }
 target_common_arch = {}
 target_common_system_arch = {}
+# Family-common hw that still needs CONFIG_DEVICES. Not host-accel.
+# Prefer hw_common_arch -> libsystem_* once C ifdefs are gone.
+target_common_hw_arch = {}
 target_stubs_arch = {}
 
 # NOTE: the trace/ subdirectory needs the qapi_trace_events variable
@@ -4280,6 +4283,8 @@ foreach target_base_arch, config_base_arch : config_base_arch_mak
   # extract_objects so these objects outrank stub archives.
   host_accel_srcs = []
   host_accel_deps = []
+  base_objects = []
+  base_object_deps = []
   if target_base_arch in config_base_arch_target_union
     union = config_base_arch_target_union[target_base_arch]
     if target_base_arch in config_base_arch_devices_union
@@ -4321,12 +4326,50 @@ foreach target_base_arch, config_base_arch : config_base_arch_mak
       c_args: host_accel_c_args,
       dependencies: host_accel_lib_deps + common_deps + system_deps)
     lib_host_accel += {target_base_arch: lib}
-    target_base_arch_objects += {
-      target_base_arch: lib.extract_objects(host_accel_srcs)
-    }
-    target_base_arch_deps += {
-      target_base_arch: host_accel_deps
-    }
+    base_objects += lib.extract_objects(host_accel_srcs)
+    base_object_deps += host_accel_deps
+  endif
+  if target_base_arch in target_common_hw_arch
+    hw_union = {}
+    if target_base_arch in config_base_arch_target_union
+      hw_union += config_base_arch_target_union[target_base_arch]
+    endif
+    if target_base_arch in config_base_arch_devices_union
+      hw_union += config_base_arch_devices_union[target_base_arch]
+    endif
+    hw_applied = target_common_hw_arch[target_base_arch].apply(
+      hw_union, strict: false)
+    hw_srcs = hw_applied.sources()
+    hw_deps = hw_applied.dependencies()
+    hw_c_args = [
+      '-DCPU_DEFS_H',
+      '-DCOMPILING_PER_TARGET',
+      '-DCOMPILING_PER_TARGET_BASE',
+      '-DCOMPILING_SYSTEM_VS_USER',
+      '-DCONFIG_SOFTMMU',
+      '-DCONFIG_TARGET="@0@-base-config-target.h"'.format(target_base_arch),
+      '-DCONFIG_DEVICES="@0@-base-config-devices.h"'.format(target_base_arch),
+    ]
+    hw_lib_deps = []
+    foreach dep : hw_deps
+      hw_lib_deps += dep.partial_dependency(
+        compile_args: true, includes: true)
+    endforeach
+    lib = static_library(
+      'hw_' + target_base_arch,
+      build_by_default: false,
+      sources: hw_srcs + genh +
+                config_base_arch_target_h[target_base_arch] +
+                config_base_arch_devices_h[target_base_arch],
+      include_directories: inc,
+      c_args: hw_c_args,
+      dependencies: hw_lib_deps + common_deps + system_deps)
+    base_objects += lib.extract_objects(hw_srcs)
+    base_object_deps += hw_deps
+  endif
+  if base_objects.length() != 0
+    target_base_arch_objects += {target_base_arch: base_objects}
+    target_base_arch_deps += {target_base_arch: base_object_deps}
   endif
 endforeach
 
