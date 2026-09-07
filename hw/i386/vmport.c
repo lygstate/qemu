@@ -29,6 +29,7 @@
  */
 
 #include "qemu/osdep.h"
+#include "cpu.h"
 #include "hw/isa/isa.h"
 #include "hw/i386/vmport.h"
 #include "hw/core/qdev-properties.h"

@@ -36,6 +36,7 @@
 #include "hw/i386/topology.h"
 
 #include "hw/core/nmi.h"
+#include "cpu.h"
 #include "kvm/kvm_i386.h"
 
 
