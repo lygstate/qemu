@@ -28,8 +28,10 @@
 #ifndef TARGET_LONG_BITS
 # error TARGET_LONG_BITS must be defined in cpu-param.h
 #endif
+#ifdef CONFIG_USER_ONLY
 #ifndef TARGET_VIRT_ADDR_SPACE_BITS
 # error TARGET_VIRT_ADDR_SPACE_BITS must be defined in cpu-param.h
+#endif
 #endif
 #if !defined(TARGET_PAGE_BITS) && !defined(TARGET_PAGE_BITS_VARY)
 # error TARGET_PAGE_BITS must be defined in cpu-param.h
