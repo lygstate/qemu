@@ -129,7 +129,7 @@ void helper_wrpkru(CPUX86State *env, uint32_t ecx, uint64_t val)
     tlb_flush(cs);
 }
 
-target_ulong HELPER(rdpid)(CPUX86State *env)
+uint64_t HELPER(rdpid)(CPUX86State *env)
 {
 #if !defined CONFIG_USER_ONLY
     return env->tsc_aux;

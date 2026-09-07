@@ -43,11 +43,11 @@ void helper_syscall(CPUX86State *env, int next_eip_addend)
  * is EXCP_SYSCALL.
  */
 static void do_interrupt_user(CPUX86State *env, int intno, int is_int,
-                              int error_code, target_ulong next_eip)
+                              int error_code, uint64_t next_eip)
 {
     if (is_int) {
         SegmentCache *dt;
-        target_ulong ptr;
+        uint64_t ptr;
         int dpl, cpl, shift;
         uint32_t e2;
 

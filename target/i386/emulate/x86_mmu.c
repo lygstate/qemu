@@ -56,7 +56,7 @@ static bool is_user(CPUState *cpu)
 
 
 struct gpt_translation {
-    target_ulong  gva;
+    uint64_t  gva;
     uint64_t gpa;
     uint64_t pte[6];
 };
@@ -76,7 +76,7 @@ static int gpt_top_level(CPUState *cpu, bool pae)
     return 3;
 }
 
-static inline int gpt_entry(target_ulong addr, int level, bool pae)
+static inline int gpt_entry(uint64_t addr, int level, bool pae)
 {
     int level_shift = pae ? 9 : 10;
     return (addr >> (level_shift * (level - 1) + 12)) & ((1 << level_shift) - 1);
@@ -178,12 +178,12 @@ static inline uint64_t large_page_gpa(struct gpt_translation *pt, bool pae,
 
 
 
-static MMUTranslateResult walk_gpt(CPUState *cpu, target_ulong addr, MMUTranslateFlags flags,
+static MMUTranslateResult walk_gpt(CPUState *cpu, uint64_t addr, MMUTranslateFlags flags,
                      struct gpt_translation *pt, bool pae)
 {
     int top_level, level;
     int largeness = 0;
-    target_ulong cr3 = x86_read_cr(cpu, 3);
+    uint64_t cr3 = x86_read_cr(cpu, 3);
     uint64_t page_mask = pae ? PAE_PTE_PAGE_MASK : LEGACY_PTE_PAGE_MASK;
     MMUTranslateResult res;
     
@@ -216,7 +216,7 @@ static MMUTranslateResult walk_gpt(CPUState *cpu, target_ulong addr, MMUTranslat
 }
 
 
-MMUTranslateResult mmu_gva_to_gpa(CPUState *cpu, target_ulong gva, uint64_t *gpa, MMUTranslateFlags flags)
+MMUTranslateResult mmu_gva_to_gpa(CPUState *cpu, uint64_t gva, uint64_t *gpa, MMUTranslateFlags flags)
 {
     if (emul_ops->mmu_gva_to_gpa) {
         return emul_ops->mmu_gva_to_gpa(cpu, gva, gpa, flags);
@@ -256,7 +256,7 @@ static int translate_res_to_error_code(MMUTranslateResult res, bool is_write, bo
     return error_code;
 }
 
-static MMUTranslateResult x86_write_mem_ex(CPUState *cpu, void *data, target_ulong gva, int bytes, bool priv_check_exempt)
+static MMUTranslateResult x86_write_mem_ex(CPUState *cpu, void *data, uint64_t gva, int bytes, bool priv_check_exempt)
 {
     X86CPU *x86_cpu = X86_CPU(cpu);
     CPUX86State *env = &x86_cpu->env;
@@ -299,17 +299,17 @@ static MMUTranslateResult x86_write_mem_ex(CPUState *cpu, void *data, target_ulo
     return translate_res;
 }
 
-MMUTranslateResult x86_write_mem(CPUState *cpu, void *data, target_ulong gva, int bytes)
+MMUTranslateResult x86_write_mem(CPUState *cpu, void *data, uint64_t gva, int bytes)
 {
     return x86_write_mem_ex(cpu, data, gva, bytes, false);
 }
 
-MMUTranslateResult x86_write_mem_priv(CPUState *cpu, void *data, target_ulong gva, int bytes)
+MMUTranslateResult x86_write_mem_priv(CPUState *cpu, void *data, uint64_t gva, int bytes)
 {
     return x86_write_mem_ex(cpu, data, gva, bytes, true);
 }
 
-static MMUTranslateResult x86_read_mem_ex(CPUState *cpu, void *data, target_ulong gva, int bytes, bool priv_check_exempt)
+static MMUTranslateResult x86_read_mem_ex(CPUState *cpu, void *data, uint64_t gva, int bytes, bool priv_check_exempt)
 {
     X86CPU *x86_cpu = X86_CPU(cpu);
     CPUX86State *env = &x86_cpu->env;
@@ -350,12 +350,12 @@ static MMUTranslateResult x86_read_mem_ex(CPUState *cpu, void *data, target_ulon
     return translate_res;
 }
 
-MMUTranslateResult x86_read_mem(CPUState *cpu, void *data, target_ulong gva, int bytes)
+MMUTranslateResult x86_read_mem(CPUState *cpu, void *data, uint64_t gva, int bytes)
 {
     return x86_read_mem_ex(cpu, data, gva, bytes, false);
 }
 
-MMUTranslateResult x86_read_mem_priv(CPUState *cpu, void *data, target_ulong gva, int bytes)
+MMUTranslateResult x86_read_mem_priv(CPUState *cpu, void *data, uint64_t gva, int bytes)
 {
     return x86_read_mem_ex(cpu, data, gva, bytes, true);
 }

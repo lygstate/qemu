@@ -28,7 +28,7 @@
 #ifndef CONFIG_USER_ONLY
 #include "system/hw_accel.h"
 #include "system/memory.h"
-#include "kvm/kvm_i386.h"
+void kvm_arch_do_init_vcpu(X86CPU *cs);
 #endif
 #include "qemu/log.h"
 #ifdef CONFIG_TCG
@@ -144,7 +144,6 @@ void cpu_x86_update_cr0(CPUX86State *env, uint32_t new_cr0)
         tlb_flush(CPU(cpu));
     }
 
-#ifdef TARGET_X86_64
     if (!(env->cr[0] & CR0_PG_MASK) && (new_cr0 & CR0_PG_MASK) &&
         (env->efer & MSR_EFER_LME)) {
         /* enter in long mode */
@@ -160,7 +159,6 @@ void cpu_x86_update_cr0(CPUX86State *env, uint32_t new_cr0)
         env->hflags &= ~(HF_LMA_MASK | HF_CS64_MASK);
         env->eip &= 0xffffffff;
     }
-#endif
     env->cr[0] = new_cr0 | CR0_ET_MASK;
 
     /* update PE flag in hidden flags */
@@ -258,7 +256,7 @@ bool x86_cpu_translate_for_debug(CPUState *cs, vaddr addr,
 {
     X86CPU *cpu = X86_CPU(cs);
     CPUX86State *env = &cpu->env;
-    target_ulong pde_addr, pte_addr;
+    uint64_t pde_addr, pte_addr;
     uint64_t pte;
     int32_t a20_mask;
     uint32_t page_offset;
@@ -269,10 +267,9 @@ bool x86_cpu_translate_for_debug(CPUState *cs, vaddr addr,
         pte = addr & a20_mask;
         page_size = 4096;
     } else if (env->cr[4] & CR4_PAE_MASK) {
-        target_ulong pdpe_addr;
+        uint64_t pdpe_addr;
         uint64_t pde, pdpe;
 
-#ifdef TARGET_X86_64
         if (env->hflags & HF_LMA_MASK) {
             bool la57 = env->cr[4] & CR4_LA57_MASK;
             uint64_t pml5e_addr, pml5e;
@@ -314,9 +311,7 @@ bool x86_cpu_translate_for_debug(CPUState *cs, vaddr addr,
                 goto out;
             }
 
-        } else
-#endif
-        {
+        } else {
             pdpe_addr = ((env->cr[3] & ~0x1f) + ((addr >> 27) & 0x18)) &
                 a20_mask;
             pdpe = x86_ldq_phys(cs, pdpe_addr);
@@ -367,9 +362,7 @@ bool x86_cpu_translate_for_debug(CPUState *cs, vaddr addr,
         pte = pte & a20_mask;
     }
 
-#ifdef TARGET_X86_64
 out:
-#endif
     pte &= PG_ADDRESS_MASK & ~(page_size - 1);
     page_offset = addr & (page_size - 1);
 

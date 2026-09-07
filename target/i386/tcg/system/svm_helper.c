@@ -22,7 +22,7 @@
 #include "cpu.h"
 #include "exec/helper-proto.h"
 #include "exec/cputlb.h"
-#include "accel/tcg/cpu-ldst.h"
+#include "tcg/cpu-ldst-i386.h"
 #include "accel/tcg/cpu-loop.h"
 #include "tcg/helper-tcg.h"
 
@@ -157,7 +157,7 @@ void helper_vmrun(CPUX86State *env, int aflag, int next_eip_addend)
 {
     CPUState *cs = env_cpu(env);
     X86CPU *cpu = env_archcpu(env);
-    target_ulong addr;
+    uint64_t addr;
     uint64_t nested_ctl;
     uint32_t event_inj;
     uint32_t asid;
@@ -180,7 +180,7 @@ void helper_vmrun(CPUX86State *env, int aflag, int next_eip_addend)
 
     cpu_svm_check_intercept_param(env, SVM_EXIT_VMRUN, 0, GETPC());
 
-    qemu_log_mask(CPU_LOG_TB_IN_ASM, "vmrun! " TARGET_FMT_lx "\n", addr);
+    qemu_log_mask(CPU_LOG_TB_IN_ASM, "vmrun! %" PRIx64 "\n", addr);
 
     env->vm_vmcb = addr;
 
@@ -375,14 +375,12 @@ void helper_vmrun(CPUX86State *env, int aflag, int next_eip_addend)
     new_dr7 = x86_ldq_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.dr7));
     new_dr6 = x86_ldq_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.dr6));
 
-#ifdef TARGET_X86_64
     if (new_dr7 & DR_RESERVED_MASK) {
         cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
     }
     if (new_dr6 & DR_RESERVED_MASK) {
         cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
     }
-#endif
 
     cpu_x86_update_dr7(env, new_dr7);
     env->dr[6] = new_dr6;
@@ -478,7 +476,7 @@ void helper_vmmcall(CPUX86State *env)
 void helper_vmload(CPUX86State *env, int aflag)
 {
     int mmu_idx = MMU_PHYS_IDX;
-    target_ulong addr;
+    uint64_t addr;
 
     if (aflag == 2) {
         addr = env->regs[R_EAX];
@@ -506,7 +504,6 @@ void helper_vmload(CPUX86State *env, int aflag)
     svm_load_seg(env, mmu_idx,
                  addr + offsetof(struct vmcb, save.ldtr), &env->ldt);
 
-#ifdef TARGET_X86_64
     env->kernelgsbase =
         cpu_ldq_le_mmuidx_ra(env,
                              addr + offsetof(struct vmcb, save.kernel_gs_base),
@@ -521,7 +518,6 @@ void helper_vmload(CPUX86State *env, int aflag)
         cpu_ldq_le_mmuidx_ra(env, addr + offsetof(struct vmcb, save.sfmask),
                              mmu_idx, 0);
     svm_canonicalization(env, &env->kernelgsbase);
-#endif
     env->star =
         cpu_ldq_le_mmuidx_ra(env, addr + offsetof(struct vmcb, save.star),
                              mmu_idx, 0);
@@ -542,7 +538,7 @@ void helper_vmload(CPUX86State *env, int aflag)
 void helper_vmsave(CPUX86State *env, int aflag)
 {
     int mmu_idx = MMU_PHYS_IDX;
-    target_ulong addr;
+    uint64_t addr;
 
     if (aflag == 2) {
         addr = env->regs[R_EAX];
@@ -570,7 +566,6 @@ void helper_vmsave(CPUX86State *env, int aflag)
     svm_save_seg(env, mmu_idx, addr + offsetof(struct vmcb, save.ldtr),
                  &env->ldt);
 
-#ifdef TARGET_X86_64
     cpu_stq_le_mmuidx_ra(env, addr + offsetof(struct vmcb, save.kernel_gs_base),
                       env->kernelgsbase, mmu_idx, 0);
     cpu_stq_le_mmuidx_ra(env, addr + offsetof(struct vmcb, save.lstar),
@@ -579,7 +574,6 @@ void helper_vmsave(CPUX86State *env, int aflag)
                       env->cstar, mmu_idx, 0);
     cpu_stq_le_mmuidx_ra(env, addr + offsetof(struct vmcb, save.sfmask),
                       env->fmask, mmu_idx, 0);
-#endif
     cpu_stq_le_mmuidx_ra(env, addr + offsetof(struct vmcb, save.star),
                       env->star, mmu_idx, 0);
     cpu_stq_le_mmuidx_ra(env, addr + offsetof(struct vmcb, save.sysenter_cs),

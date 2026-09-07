@@ -269,10 +269,10 @@ bool x86_is_paging_mode(CPUState *cpu);
 bool x86_is_pae_enabled(CPUState *cpu);
 
 enum X86Seg;
-target_ulong linear_addr(CPUState *cpu, target_ulong addr, enum X86Seg seg);
-target_ulong linear_addr_size(CPUState *cpu, target_ulong addr, int size,
+uint64_t linear_addr(CPUState *cpu, uint64_t addr, enum X86Seg seg);
+uint64_t linear_addr_size(CPUState *cpu, uint64_t addr, int size,
                               enum X86Seg seg);
-target_ulong linear_rip(CPUState *cpu, target_ulong rip);
+uint64_t linear_rip(CPUState *cpu, uint64_t rip);
 
 static inline uint64_t rdtscp(void)
 {

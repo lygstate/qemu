@@ -264,10 +264,10 @@ typedef struct x86_decode_op {
     int size;
 
     int reg;
-    target_ulong val;
+    uint64_t val;
 
     union {
-        target_ulong addr;
+        uint64_t addr;
         void *regptr;
     };
 } x86_decode_op;
@@ -315,12 +315,12 @@ uint32_t decode_instruction_stream(CPUX86State *env, struct x86_decode *decode,
 
 void *get_reg_ref(CPUX86State *env, int reg, int rex_present,
                   int is_extended, int size);
-target_ulong get_reg_val(CPUX86State *env, int reg, int rex_present,
+uint64_t get_reg_val(CPUX86State *env, int reg, int rex_present,
                          int is_extended, int size);
 void calc_modrm_operand(CPUX86State *env, struct x86_decode *decode,
                         struct x86_decode_op *op);
-target_ulong decode_linear_addr(CPUX86State *env, struct x86_decode *decode,
-                               target_ulong addr, enum X86Seg seg);
+uint64_t decode_linear_addr(CPUX86State *env, struct x86_decode *decode,
+                               uint64_t addr, enum X86Seg seg);
 
 void init_decoder(void);
 void calc_modrm_operand16(CPUX86State *env, struct x86_decode *decode,

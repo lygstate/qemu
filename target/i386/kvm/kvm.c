@@ -6150,14 +6150,14 @@ int kvm_arch_remove_sw_breakpoint(CPUState *cs, struct kvm_sw_breakpoint *bp)
 }
 
 static struct {
-    target_ulong addr;
+    uint64_t addr;
     int len;
     GdbBreakpointType type;
 } hw_breakpoint[4];
 
 static int nb_hw_breakpoint;
 
-static int find_hw_breakpoint(target_ulong addr, int len, GdbBreakpointType type)
+static int find_hw_breakpoint(uint64_t addr, int len, GdbBreakpointType type)
 {
     int n;
 

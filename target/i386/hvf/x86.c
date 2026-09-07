@@ -50,7 +50,7 @@ bool x86_read_segment_descriptor(CPUState *cpu,
                                  struct x86_segment_descriptor *desc,
                                  x86_segment_selector sel)
 {
-    target_ulong base;
+    uint64_t base;
     uint32_t limit;
 
     memset(desc, 0, sizeof(*desc));
@@ -80,7 +80,7 @@ bool x86_write_segment_descriptor(CPUState *cpu,
                                   struct x86_segment_descriptor *desc,
                                   x86_segment_selector sel)
 {
-    target_ulong base;
+    uint64_t base;
     uint32_t limit;
     
     if (GDT_SEL == sel.ti) {
@@ -102,7 +102,7 @@ bool x86_write_segment_descriptor(CPUState *cpu,
 bool x86_read_call_gate(CPUState *cpu, struct x86_call_gate *idt_desc,
                         int gate)
 {
-    target_ulong base  = rvmcs(cpu->accel->fd, VMCS_GUEST_IDTR_BASE);
+    uint64_t base  = rvmcs(cpu->accel->fd, VMCS_GUEST_IDTR_BASE);
     uint32_t limit = rvmcs(cpu->accel->fd, VMCS_GUEST_IDTR_LIMIT);
 
     memset(idt_desc, 0, sizeof(*idt_desc));
@@ -143,7 +143,7 @@ bool x86_is_la57(CPUState *cpu)
     return false;
 }
 
-target_ulong x86_read_cr(CPUState *cpu, int cr)
+uint64_t x86_read_cr(CPUState *cpu, int cr)
 {
     X86CPU *x86_cpu = X86_CPU(cpu);
     CPUX86State *env = &x86_cpu->env;
@@ -174,12 +174,12 @@ bool x86_is_pae_enabled(CPUState *cpu)
     return cr4 & CR4_PAE_MASK;
 }
 
-target_ulong linear_addr(CPUState *cpu, target_ulong addr, X86Seg seg)
+uint64_t linear_addr(CPUState *cpu, uint64_t addr, X86Seg seg)
 {
     return vmx_read_segment_base(cpu, seg) + addr;
 }
 
-target_ulong linear_addr_size(CPUState *cpu, target_ulong addr, int size,
+uint64_t linear_addr_size(CPUState *cpu, uint64_t addr, int size,
                               X86Seg seg)
 {
     switch (size) {
@@ -195,7 +195,7 @@ target_ulong linear_addr_size(CPUState *cpu, target_ulong addr, int size,
     return linear_addr(cpu, addr, seg);
 }
 
-target_ulong linear_rip(CPUState *cpu, target_ulong rip)
+uint64_t linear_rip(CPUState *cpu, uint64_t rip)
 {
     return linear_addr(cpu, rip, R_CS);
 }

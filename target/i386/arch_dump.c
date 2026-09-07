@@ -23,14 +23,13 @@
       + DIV_ROUND_UP((name_size), 4)                    \
       + DIV_ROUND_UP((desc_size), 4)) * 4)
 
-#ifdef TARGET_X86_64
 typedef struct {
-    target_ulong r15, r14, r13, r12, rbp, rbx, r11, r10;
-    target_ulong r9, r8, rax, rcx, rdx, rsi, rdi, orig_rax;
-    target_ulong rip, cs, eflags;
-    target_ulong rsp, ss;
-    target_ulong fs_base, gs_base;
-    target_ulong ds, es, fs, gs;
+    uint64_t r15, r14, r13, r12, rbp, rbx, r11, r10;
+    uint64_t r9, r8, rax, rcx, rdx, rsi, rdi, orig_rax;
+    uint64_t rip, cs, eflags;
+    uint64_t rsp, ss;
+    uint64_t fs_base, gs_base;
+    uint64_t ds, es, fs, gs;
 } x86_64_user_regs_struct;
 
 typedef struct {
@@ -92,7 +91,7 @@ static int x86_64_write_elf64_note(WriteCoreDumpFunction f,
     memcpy(buf, name, name_size);
     buf += ROUND_UP(name_size, 4);
     memcpy(buf + 32, &id, 4); /* pr_pid */
-    buf += descsz - sizeof(x86_64_user_regs_struct)-sizeof(target_ulong);
+    buf += descsz - sizeof(x86_64_user_regs_struct) - sizeof(uint64_t);
     memcpy(buf, &regs, sizeof(x86_64_user_regs_struct));
 
     ret = f(note, note_size, s);
@@ -103,7 +102,6 @@ static int x86_64_write_elf64_note(WriteCoreDumpFunction f,
 
     return 0;
 }
-#endif
 
 typedef struct {
     uint32_t ebx, ecx, edx, esi, edi, ebp, eax;
@@ -184,19 +182,15 @@ int x86_cpu_write_elf64_note(WriteCoreDumpFunction f, CPUState *cs,
                              int cpuid, DumpState *s)
 {
     X86CPU *cpu = X86_CPU(cs);
-    int ret;
-#ifdef TARGET_X86_64
     X86CPU *first_x86_cpu = X86_CPU(first_cpu);
-    bool lma = !!(first_x86_cpu->env.hflags & HF_LMA_MASK);
+    bool lma = first_cpu && !!(first_x86_cpu->env.hflags & HF_LMA_MASK);
+    int ret;
 
     if (lma) {
         ret = x86_64_write_elf64_note(f, &cpu->env, cpuid, s);
     } else {
-#endif
         ret = x86_write_elf64_note(f, &cpu->env, cpuid, s);
-#ifdef TARGET_X86_64
     }
-#endif
 
     return ret;
 }
@@ -293,7 +287,6 @@ static void qemu_get_cpustate(QEMUCPUState *s, CPUX86State *env)
     s->rdi = env->regs[R_EDI];
     s->rsp = env->regs[R_ESP];
     s->rbp = env->regs[R_EBP];
-#ifdef TARGET_X86_64
     s->r8  = env->regs[8];
     s->r9  = env->regs[9];
     s->r10 = env->regs[10];
@@ -302,7 +295,6 @@ static void qemu_get_cpustate(QEMUCPUState *s, CPUX86State *env)
     s->r13 = env->regs[13];
     s->r14 = env->regs[14];
     s->r15 = env->regs[15];
-#endif
     s->rip = env->eip;
     s->rflags = env->eflags;
 
@@ -323,9 +315,7 @@ static void qemu_get_cpustate(QEMUCPUState *s, CPUX86State *env)
     s->cr[3] = env->cr[3];
     s->cr[4] = env->cr[4];
 
-#ifdef TARGET_X86_64
     s->kernel_gs_base = env->kernelgsbase;
-#endif
 }
 
 static inline int cpu_write_qemu_note(WriteCoreDumpFunction f,
@@ -401,10 +391,8 @@ static int x86_get_dump_info(ArchDumpInfo *info,
     bool lma = false;
     GuestPhysBlock *block;
 
-#ifdef TARGET_X86_64
     X86CPU *first_x86_cpu = X86_CPU(first_cpu);
     lma = first_cpu && (first_x86_cpu->env.hflags & HF_LMA_MASK);
-#endif
 
     if (lma) {
         info->d_machine = EM_X86_64;
@@ -447,12 +435,9 @@ static ssize_t x86_get_note_size(int class, int machine, int nr_cpus)
 
     if (machine == EM_386) {
         elf_desc_size = sizeof(x86_elf_prstatus);
-    }
-#ifdef TARGET_X86_64
-    else {
+    } else {
         elf_desc_size = sizeof(x86_64_elf_prstatus);
     }
-#endif
     qemu_desc_size = sizeof(QEMUCPUState);
 
     elf_note_size = ELF_NOTE_SIZE(note_head_size, name_size, elf_desc_size);

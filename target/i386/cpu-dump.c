@@ -99,14 +99,11 @@ static void
 cpu_x86_dump_seg_cache(CPUX86State *env, FILE *f,
                        const char *name, struct SegmentCache *sc)
 {
-#ifdef TARGET_X86_64
     if (env->hflags & HF_CS64_MASK) {
         qemu_fprintf(f, "%-3s=%04x %016" PRIx64 " %08x %08x", name,
                      sc->selector, sc->base, sc->limit,
                      sc->flags & 0x00ffff00);
-    } else
-#endif
-    {
+    } else {
         qemu_fprintf(f, "%-3s=%04x %08x %08x %08x", name, sc->selector,
                      (uint32_t)sc->base, sc->limit,
                      sc->flags & 0x00ffff00);
@@ -351,7 +348,6 @@ void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
     static const char *seg_name[6] = { "ES", "CS", "SS", "DS", "FS", "GS" };
 
     eflags = cpu_compute_eflags(env);
-#ifdef TARGET_X86_64
     if (env->hflags & HF_CS64_MASK) {
         qemu_fprintf(f, "RAX=%016" PRIx64 " RBX=%016" PRIx64 " RCX=%016" PRIx64 " RDX=%016" PRIx64 "\n"
                      "RSI=%016" PRIx64 " RDI=%016" PRIx64 " RBP=%016" PRIx64 " RSP=%016" PRIx64 "\n"
@@ -411,9 +407,7 @@ void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
                      (env->a20_mask >> 20) & 1,
                      (env->hflags >> HF_SMM_SHIFT) & 1,
                      cs->halted);
-    } else
-#endif
-    {
+    } else {
         qemu_fprintf(f, "EAX=%08x EBX=%08x ECX=%08x EDX=%08x\n"
                      "ESI=%08x EDI=%08x EBP=%08x ESP=%08x\n"
                      "EIP=%08x EFL=%08x [%c%c%c%c%c%c%c] CPL=%d II=%d A20=%d SMM=%d HLT=%d\n",
@@ -446,7 +440,6 @@ void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
     cpu_x86_dump_seg_cache(env, f, "LDT", &env->ldt);
     cpu_x86_dump_seg_cache(env, f, "TR", &env->tr);
 
-#ifdef TARGET_X86_64
     if (env->hflags & HF_LMA_MASK) {
         qemu_fprintf(f, "GDT=     %016" PRIx64 " %08x\n",
                      env->gdt.base, env->gdt.limit);
@@ -461,9 +454,7 @@ void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
             qemu_fprintf(f, "DR%d=%016" PRIx64 " ", i, env->dr[i]);
         qemu_fprintf(f, "\nDR6=%016" PRIx64 " DR7=%016" PRIx64 "\n",
                      env->dr[6], env->dr[7]);
-    } else
-#endif
-    {
+    } else {
         qemu_fprintf(f, "GDT=     %08x %08x\n",
                      (uint32_t)env->gdt.base, env->gdt.limit);
         qemu_fprintf(f, "IDT=     %08x %08x\n",
@@ -490,14 +481,11 @@ void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
             snprintf(cc_op_buf, sizeof(cc_op_buf), "[%d]", env->cc_op);
             cc_op_name = cc_op_buf;
         }
-#ifdef TARGET_X86_64
         if (env->hflags & HF_CS64_MASK) {
             qemu_fprintf(f, "CCS=%016" PRIx64 " CCD=%016" PRIx64 " CCO=%s\n",
                          env->cc_src, env->cc_dst,
                          cc_op_name);
-        } else
-#endif
-        {
+        } else {
             qemu_fprintf(f, "CCS=%08x CCD=%08x CCO=%s\n",
                          (uint32_t)env->cc_src, (uint32_t)env->cc_dst,
                          cc_op_name);
@@ -578,8 +566,8 @@ void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
         }
     }
     if (flags & CPU_DUMP_CODE) {
-        target_ulong base = env->segs[R_CS].base + env->eip;
-        target_ulong offs = MIN(env->eip, DUMP_CODE_BYTES_BACKWARD);
+        uint64_t base = env->segs[R_CS].base + env->eip;
+        uint64_t offs = MIN(env->eip, DUMP_CODE_BYTES_BACKWARD);
         uint8_t code;
         char codestr[3];
 

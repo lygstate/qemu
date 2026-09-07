@@ -22,7 +22,7 @@
 #include "cpu.h"
 #include "tcg-cpu.h"
 #include "exec/cputlb.h"
-#include "accel/tcg/cpu-ldst.h"
+#include "tcg/cpu-ldst-i386.h"
 #include "exec/helper-proto.h"
 #include "fpu/softfloat.h"
 #include "fpu/softfloat-macros.h"
@@ -85,7 +85,7 @@ static inline void fpop(CPUX86State *env)
     env->fpstt = (env->fpstt + 1) & 7;
 }
 
-static floatx80 do_fldt(X86Access *ac, target_ulong ptr)
+static floatx80 do_fldt(X86Access *ac, uint64_t ptr)
 {
     CPU_LDoubleU temp;
 
@@ -94,7 +94,7 @@ static floatx80 do_fldt(X86Access *ac, target_ulong ptr)
     return temp.d;
 }
 
-static void do_fstt(X86Access *ac, target_ulong ptr, floatx80 f)
+static void do_fstt(X86Access *ac, uint64_t ptr, floatx80 f)
 {
     CPU_LDoubleU temp;
 
@@ -442,7 +442,7 @@ int64_t helper_fisttll_ST0(CPUX86State *env)
     return val;
 }
 
-void helper_fldt_ST0(CPUX86State *env, target_ulong ptr)
+void helper_fldt_ST0(CPUX86State *env, uint64_t ptr)
 {
     int new_fpstt;
     X86Access ac;
@@ -455,7 +455,7 @@ void helper_fldt_ST0(CPUX86State *env, target_ulong ptr)
     env->fptags[new_fpstt] = 0; /* validate stack entry */
 }
 
-void helper_fstt_ST0(CPUX86State *env, target_ulong ptr)
+void helper_fstt_ST0(CPUX86State *env, uint64_t ptr)
 {
     X86Access ac;
 
@@ -834,7 +834,7 @@ void helper_fninit(CPUX86State *env)
 
 /* BCD ops */
 
-void helper_fbld_ST0(CPUX86State *env, target_ulong ptr)
+void helper_fbld_ST0(CPUX86State *env, uint64_t ptr)
 {
     X86Access ac;
     floatx80 tmp;
@@ -857,11 +857,11 @@ void helper_fbld_ST0(CPUX86State *env, target_ulong ptr)
     ST0 = tmp;
 }
 
-void helper_fbst_ST0(CPUX86State *env, target_ulong ptr)
+void helper_fbst_ST0(CPUX86State *env, uint64_t ptr)
 {
     int old_flags = save_exception_flags(env);
     int v;
-    target_ulong mem_ref, mem_end;
+    uint64_t mem_ref, mem_end;
     int64_t val;
     CPU_LDoubleU temp;
     X86Access ac;
@@ -2440,7 +2440,7 @@ void helper_fxam_ST0(CPUX86State *env)
     }
 }
 
-static void do_fstenv(X86Access *ac, target_ulong ptr, int data32)
+static void do_fstenv(X86Access *ac, uint64_t ptr, int data32)
 {
     CPUX86State *env = ac->env;
     int fpus, fptag, exp, i;
@@ -2488,7 +2488,7 @@ static void do_fstenv(X86Access *ac, target_ulong ptr, int data32)
     }
 }
 
-void helper_fstenv(CPUX86State *env, target_ulong ptr, int data32)
+void helper_fstenv(CPUX86State *env, uint64_t ptr, int data32)
 {
     X86Access ac;
 
@@ -2512,7 +2512,7 @@ static void cpu_set_fpus(CPUX86State *env, uint16_t fpus)
 #endif
 }
 
-static void do_fldenv(X86Access *ac, target_ulong ptr, int data32)
+static void do_fldenv(X86Access *ac, uint64_t ptr, int data32)
 {
     int i, fpus, fptag;
     CPUX86State *env = ac->env;
@@ -2528,7 +2528,7 @@ static void do_fldenv(X86Access *ac, target_ulong ptr, int data32)
     }
 }
 
-void helper_fldenv(CPUX86State *env, target_ulong ptr, int data32)
+void helper_fldenv(CPUX86State *env, uint64_t ptr, int data32)
 {
     X86Access ac;
 
@@ -2536,7 +2536,7 @@ void helper_fldenv(CPUX86State *env, target_ulong ptr, int data32)
     do_fldenv(&ac, ptr, data32);
 }
 
-static void do_fsave(X86Access *ac, target_ulong ptr, int data32)
+static void do_fsave(X86Access *ac, uint64_t ptr, int data32)
 {
     CPUX86State *env = ac->env;
 
@@ -2552,7 +2552,7 @@ static void do_fsave(X86Access *ac, target_ulong ptr, int data32)
     do_fninit(env);
 }
 
-void helper_fsave(CPUX86State *env, target_ulong ptr, int data32)
+void helper_fsave(CPUX86State *env, uint64_t ptr, int data32)
 {
     int size = (14 << data32) + 80;
     X86Access ac;
@@ -2561,7 +2561,7 @@ void helper_fsave(CPUX86State *env, target_ulong ptr, int data32)
     do_fsave(&ac, ptr, data32);
 }
 
-static void do_frstor(X86Access *ac, target_ulong ptr, int data32)
+static void do_frstor(X86Access *ac, uint64_t ptr, int data32)
 {
     CPUX86State *env = ac->env;
 
@@ -2575,7 +2575,7 @@ static void do_frstor(X86Access *ac, target_ulong ptr, int data32)
     }
 }
 
-void helper_frstor(CPUX86State *env, target_ulong ptr, int data32)
+void helper_frstor(CPUX86State *env, uint64_t ptr, int data32)
 {
     int size = (14 << data32) + 80;
     X86Access ac;
@@ -2586,11 +2586,11 @@ void helper_frstor(CPUX86State *env, target_ulong ptr, int data32)
 
 #define XO(X)  offsetof(X86XSaveArea, X)
 
-static void do_xsave_fpu(X86Access *ac, target_ulong ptr)
+static void do_xsave_fpu(X86Access *ac, uint64_t ptr)
 {
     CPUX86State *env = ac->env;
     int fpus, fptag, i;
-    target_ulong addr;
+    uint64_t addr;
 
     fpus = (env->fpus & ~0x3800) | (env->fpstt & 0x7) << 11;
     fptag = 0;
@@ -2617,7 +2617,7 @@ static void do_xsave_fpu(X86Access *ac, target_ulong ptr)
     }
 }
 
-static void do_xsave_mxcsr(X86Access *ac, target_ulong ptr)
+static void do_xsave_mxcsr(X86Access *ac, uint64_t ptr)
 {
     CPUX86State *env = ac->env;
 
@@ -2626,11 +2626,11 @@ static void do_xsave_mxcsr(X86Access *ac, target_ulong ptr)
     access_stl(ac, ptr + XO(legacy.mxcsr_mask), 0x0000ffff);
 }
 
-static void do_xsave_sse(X86Access *ac, target_ulong ptr)
+static void do_xsave_sse(X86Access *ac, uint64_t ptr)
 {
     CPUX86State *env = ac->env;
     int i, nb_xmm_regs;
-    target_ulong addr;
+    uint64_t addr;
 
     if (env->hflags & HF_CS64_MASK) {
         nb_xmm_regs = 16;
@@ -2646,7 +2646,7 @@ static void do_xsave_sse(X86Access *ac, target_ulong ptr)
     }
 }
 
-static void do_xsave_ymmh(X86Access *ac, target_ulong ptr)
+static void do_xsave_ymmh(X86Access *ac, uint64_t ptr)
 {
     CPUX86State *env = ac->env;
     int i, nb_xmm_regs;
@@ -2663,10 +2663,10 @@ static void do_xsave_ymmh(X86Access *ac, target_ulong ptr)
     }
 }
 
-static void do_xsave_bndregs(X86Access *ac, target_ulong ptr)
+static void do_xsave_bndregs(X86Access *ac, uint64_t ptr)
 {
     CPUX86State *env = ac->env;
-    target_ulong addr = ptr + offsetof(XSaveBNDREG, bnd_regs);
+    uint64_t addr = ptr + offsetof(XSaveBNDREG, bnd_regs);
     int i;
 
     for (i = 0; i < 4; i++, addr += 16) {
@@ -2675,7 +2675,7 @@ static void do_xsave_bndregs(X86Access *ac, target_ulong ptr)
     }
 }
 
-static void do_xsave_bndcsr(X86Access *ac, target_ulong ptr)
+static void do_xsave_bndcsr(X86Access *ac, uint64_t ptr)
 {
     CPUX86State *env = ac->env;
 
@@ -2685,12 +2685,12 @@ static void do_xsave_bndcsr(X86Access *ac, target_ulong ptr)
                env->bndcs_regs.sts);
 }
 
-static void do_xsave_pkru(X86Access *ac, target_ulong ptr)
+static void do_xsave_pkru(X86Access *ac, uint64_t ptr)
 {
     access_stq(ac, ptr, ac->env->pkru);
 }
 
-static void do_fxsave(X86Access *ac, target_ulong ptr)
+static void do_fxsave(X86Access *ac, uint64_t ptr)
 {
     CPUX86State *env = ac->env;
 
@@ -2706,7 +2706,7 @@ static void do_fxsave(X86Access *ac, target_ulong ptr)
     }
 }
 
-void helper_fxsave(CPUX86State *env, target_ulong ptr)
+void helper_fxsave(CPUX86State *env, uint64_t ptr)
 {
     uintptr_t ra = GETPC();
     X86Access ac;
@@ -2735,7 +2735,7 @@ static uint64_t get_xinuse(CPUX86State *env)
     return inuse;
 }
 
-static void do_xsave_access(X86Access *ac, target_ulong ptr, uint64_t rfbm,
+static void do_xsave_access(X86Access *ac, uint64_t ptr, uint64_t rfbm,
                             uint64_t inuse, uint64_t opt)
 {
     uint64_t old_bv, new_bv;
@@ -2769,7 +2769,7 @@ static void do_xsave_access(X86Access *ac, target_ulong ptr, uint64_t rfbm,
     access_stq(ac, ptr + XO(header.xstate_bv), new_bv);
 }
 
-static void do_xsave_chk(CPUX86State *env, target_ulong ptr, uintptr_t ra)
+static void do_xsave_chk(CPUX86State *env, uint64_t ptr, uintptr_t ra)
 {
     /* The OS must have enabled XSAVE.  */
     if (!(env->cr[4] & CR4_OSXSAVE_MASK)) {
@@ -2782,7 +2782,7 @@ static void do_xsave_chk(CPUX86State *env, target_ulong ptr, uintptr_t ra)
     }
 }
 
-static void do_xsave(CPUX86State *env, target_ulong ptr, uint64_t rfbm,
+static void do_xsave(CPUX86State *env, uint64_t ptr, uint64_t rfbm,
                      uint64_t inuse, uint64_t opt, uintptr_t ra)
 {
     X86Access ac;
@@ -2799,22 +2799,22 @@ static void do_xsave(CPUX86State *env, target_ulong ptr, uint64_t rfbm,
     do_xsave_access(&ac, ptr, rfbm, inuse, opt);
 }
 
-void helper_xsave(CPUX86State *env, target_ulong ptr, uint64_t rfbm)
+void helper_xsave(CPUX86State *env, uint64_t ptr, uint64_t rfbm)
 {
     do_xsave(env, ptr, rfbm, get_xinuse(env), rfbm, GETPC());
 }
 
-void helper_xsaveopt(CPUX86State *env, target_ulong ptr, uint64_t rfbm)
+void helper_xsaveopt(CPUX86State *env, uint64_t ptr, uint64_t rfbm)
 {
     uint64_t inuse = get_xinuse(env);
     do_xsave(env, ptr, rfbm, inuse, inuse, GETPC());
 }
 
-static void do_xrstor_fpu(X86Access *ac, target_ulong ptr)
+static void do_xrstor_fpu(X86Access *ac, uint64_t ptr)
 {
     CPUX86State *env = ac->env;
     int i, fpuc, fpus, fptag;
-    target_ulong addr;
+    uint64_t addr;
 
     fpuc = access_ldw(ac, ptr + XO(legacy.fcw));
     fpus = access_ldw(ac, ptr + XO(legacy.fsw));
@@ -2836,17 +2836,17 @@ static void do_xrstor_fpu(X86Access *ac, target_ulong ptr)
     }
 }
 
-static void do_xrstor_mxcsr(X86Access *ac, target_ulong ptr)
+static void do_xrstor_mxcsr(X86Access *ac, uint64_t ptr)
 {
     CPUX86State *env = ac->env;
     cpu_set_mxcsr(env, access_ldl(ac, ptr + XO(legacy.mxcsr)));
 }
 
-static void do_xrstor_sse(X86Access *ac, target_ulong ptr)
+static void do_xrstor_sse(X86Access *ac, uint64_t ptr)
 {
     CPUX86State *env = ac->env;
     int i, nb_xmm_regs;
-    target_ulong addr;
+    uint64_t addr;
 
     if (env->hflags & HF_CS64_MASK) {
         nb_xmm_regs = 16;
@@ -2878,7 +2878,7 @@ static void do_clear_sse(CPUX86State *env)
     }
 }
 
-static void do_xrstor_ymmh(X86Access *ac, target_ulong ptr)
+static void do_xrstor_ymmh(X86Access *ac, uint64_t ptr)
 {
     CPUX86State *env = ac->env;
     int i, nb_xmm_regs;
@@ -2911,10 +2911,10 @@ static void do_clear_ymmh(CPUX86State *env)
     }
 }
 
-static void do_xrstor_bndregs(X86Access *ac, target_ulong ptr)
+static void do_xrstor_bndregs(X86Access *ac, uint64_t ptr)
 {
     CPUX86State *env = ac->env;
-    target_ulong addr = ptr + offsetof(XSaveBNDREG, bnd_regs);
+    uint64_t addr = ptr + offsetof(XSaveBNDREG, bnd_regs);
     int i;
 
     for (i = 0; i < 4; i++, addr += 16) {
@@ -2923,7 +2923,7 @@ static void do_xrstor_bndregs(X86Access *ac, target_ulong ptr)
     }
 }
 
-static void do_xrstor_bndcsr(X86Access *ac, target_ulong ptr)
+static void do_xrstor_bndcsr(X86Access *ac, uint64_t ptr)
 {
     CPUX86State *env = ac->env;
 
@@ -2934,12 +2934,12 @@ static void do_xrstor_bndcsr(X86Access *ac, target_ulong ptr)
         = access_ldq(ac, ptr + offsetof(XSaveBNDCSR, bndcsr.sts));
 }
 
-static void do_xrstor_pkru(X86Access *ac, target_ulong ptr)
+static void do_xrstor_pkru(X86Access *ac, uint64_t ptr)
 {
     ac->env->pkru = access_ldq(ac, ptr);
 }
 
-static void do_fxrstor(X86Access *ac, target_ulong ptr)
+static void do_fxrstor(X86Access *ac, uint64_t ptr)
 {
     CPUX86State *env = ac->env;
 
@@ -2955,7 +2955,7 @@ static void do_fxrstor(X86Access *ac, target_ulong ptr)
     }
 }
 
-void helper_fxrstor(CPUX86State *env, target_ulong ptr)
+void helper_fxrstor(CPUX86State *env, uint64_t ptr)
 {
     uintptr_t ra = GETPC();
     X86Access ac;
@@ -2971,7 +2971,7 @@ void helper_fxrstor(CPUX86State *env, target_ulong ptr)
 }
 
 static bool valid_xrstor_header(X86Access *ac, uint64_t *pxsbv,
-                                target_ulong ptr)
+                                uint64_t ptr)
 {
     uint64_t xstate_bv, xcomp_bv, reserve0;
 
@@ -2994,7 +2994,7 @@ static bool valid_xrstor_header(X86Access *ac, uint64_t *pxsbv,
     return (xstate_bv & ~ac->env->xcr0) == 0;
 }
 
-static void do_xrstor(X86Access *ac, target_ulong ptr,
+static void do_xrstor(X86Access *ac, uint64_t ptr,
                       uint64_t rfbm, uint64_t xstate_bv)
 {
     CPUX86State *env = ac->env;
@@ -3057,7 +3057,7 @@ static void do_xrstor(X86Access *ac, target_ulong ptr,
 
 #undef XO
 
-void helper_xrstor(CPUX86State *env, target_ulong ptr, uint64_t rfbm)
+void helper_xrstor(CPUX86State *env, uint64_t ptr, uint64_t rfbm)
 {
     uintptr_t ra = GETPC();
     X86Access ac;

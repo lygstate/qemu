@@ -34,40 +34,38 @@
 #include "cc_helper_template.h.inc"
 #undef SHIFT
 
-#ifdef TARGET_X86_64
 
 #define SHIFT 3
 #include "cc_helper_template.h.inc"
 #undef SHIFT
 
-#endif
 
-static target_ulong compute_all_adcx(target_ulong dst, target_ulong src1,
-                                     target_ulong src2)
+static uint64_t compute_all_adcx(uint64_t dst, uint64_t src1,
+                                     uint64_t src2)
 {
     return (src1 & ~CC_C) | (dst * CC_C);
 }
 
-static target_ulong compute_all_adox(target_ulong dst, target_ulong src1,
-                                     target_ulong src2)
+static uint64_t compute_all_adox(uint64_t dst, uint64_t src1,
+                                     uint64_t src2)
 {
     return (src1 & ~CC_O) | (src2 * CC_O);
 }
 
-static target_ulong compute_all_adcox(target_ulong dst, target_ulong src1,
-                                      target_ulong src2)
+static uint64_t compute_all_adcox(uint64_t dst, uint64_t src1,
+                                      uint64_t src2)
 {
     return (src1 & ~(CC_C | CC_O)) | (dst * CC_C) | (src2 * CC_O);
 }
 
-target_ulong helper_cc_compute_nz(target_ulong dst, target_ulong src1,
+uint64_t helper_cc_compute_nz(uint64_t dst, uint64_t src1,
                                   int op)
 {
     if (CC_OP_HAS_EFLAGS(op)) {
         return ~src1 & CC_Z;
     } else {
         MemOp size = cc_op_size(op);
-        target_ulong mask = MAKE_64BIT_MASK(0, 8 << size);
+        uint64_t mask = MAKE_64BIT_MASK(0, 8 << size);
 
         return dst & mask;
     }
@@ -76,7 +74,7 @@ target_ulong helper_cc_compute_nz(target_ulong dst, target_ulong src1,
 /* NOTE: we compute the flags like the P4. On olders CPUs, only OF and
    CF are modified and it is slower to do that.  Note as well that we
    don't truncate SRC1 for computing carry to DATA_TYPE.  */
-static inline uint32_t compute_aco_mul(target_long src1)
+static inline uint32_t compute_aco_mul(int64_t src1)
 {
     uint32_t cf, af, of;
 
@@ -86,8 +84,8 @@ static inline uint32_t compute_aco_mul(target_long src1)
     return cf + af + of;
 }
 
-target_ulong helper_cc_compute_all(target_ulong dst, target_ulong src1,
-                                   target_ulong src2, int op)
+uint64_t helper_cc_compute_all(uint64_t dst, uint64_t src1,
+                                   uint64_t src2, int op)
 {
     uint32_t flags = 0;
     int shift = 0;
@@ -231,7 +229,6 @@ target_ulong helper_cc_compute_all(target_ulong dst, target_ulong src1,
         flags = compute_aco_blsil(dst, src1);
         goto psz_l;
 
-#ifdef TARGET_X86_64
     case CC_OP_MULQ:
         flags = compute_aco_mul(src1);
         goto psz_q;
@@ -268,7 +265,6 @@ target_ulong helper_cc_compute_all(target_ulong dst, target_ulong src1,
     case CC_OP_BLSIQ:
         flags = compute_aco_blsiq(dst, src1);
         goto psz_q;
-#endif
     }
 
 psz_b:
@@ -276,15 +272,13 @@ psz_b:
 psz_w:
     shift += 16;
 psz_l:
-#ifdef TARGET_X86_64
     shift += 32;
 psz_q:
-#endif
 
     flags += compute_pf(dst);
     dst <<= shift;
     flags += dst == 0 ? CC_Z : 0;
-    flags += (target_long)dst < 0 ? CC_S : 0;
+    flags += (int64_t)dst < 0 ? CC_S : 0;
     return flags;
 }
 
@@ -293,8 +287,8 @@ uint32_t cpu_cc_compute_all(CPUX86State *env)
     return helper_cc_compute_all(CC_DST, CC_SRC, CC_SRC2, CC_OP);
 }
 
-target_ulong helper_cc_compute_c(target_ulong dst, target_ulong src1,
-                                 target_ulong src2, int op)
+uint64_t helper_cc_compute_c(uint64_t dst, uint64_t src1,
+                                 uint64_t src2, int op)
 {
     switch (op) {
     default: /* should never happen */
@@ -385,7 +379,6 @@ target_ulong helper_cc_compute_c(target_ulong dst, target_ulong src1,
     case CC_OP_BLSIL:
         return compute_c_blsil(dst, src1);
 
-#ifdef TARGET_X86_64
     case CC_OP_ADDQ:
         return compute_c_addq(dst, src1);
     case CC_OP_ADCQ:
@@ -400,17 +393,16 @@ target_ulong helper_cc_compute_c(target_ulong dst, target_ulong src1,
         return compute_c_bmilgq(dst, src1);
     case CC_OP_BLSIQ:
         return compute_c_blsiq(dst, src1);
-#endif
     }
 }
 
-void helper_write_eflags(CPUX86State *env, target_ulong t0,
+void helper_write_eflags(CPUX86State *env, uint64_t t0,
                          uint32_t update_mask)
 {
     cpu_load_eflags(env, t0, update_mask);
 }
 
-target_ulong helper_read_eflags(CPUX86State *env)
+uint64_t helper_read_eflags(CPUX86State *env)
 {
     uint32_t eflags;
 

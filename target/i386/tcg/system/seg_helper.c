@@ -23,7 +23,7 @@
 #include "qemu/main-loop.h"
 #include "cpu.h"
 #include "exec/helper-proto.h"
-#include "accel/tcg/cpu-ldst.h"
+#include "tcg/cpu-ldst-i386.h"
 #include "tcg/helper-tcg.h"
 #include "../seg_helper.h"
 
@@ -35,7 +35,6 @@ void helper_syscall(CPUX86State *env, int next_eip_addend)
         raise_exception_err_ra(env, EXCP06_ILLOP, 0, GETPC());
     }
     selector = (env->star >> 32) & 0xffff;
-#ifdef TARGET_X86_64
     if (env->hflags & HF_LMA_MASK) {
         int code64;
 
@@ -63,7 +62,6 @@ void helper_syscall(CPUX86State *env, int next_eip_addend)
             env->eip = env->cstar;
         }
     } else
-#endif
     {
         env->regs[R_ECX] = (uint32_t)(env->eip + next_eip_addend);
 
