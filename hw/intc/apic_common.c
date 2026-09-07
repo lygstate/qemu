@@ -113,7 +113,7 @@ void apic_enable_vapic(APICCommonState *s, hwaddr paddr)
     info->vapic_base_update(s);
 }
 
-void apic_handle_tpr_access_report(APICCommonState *s, target_ulong ip,
+void apic_handle_tpr_access_report(APICCommonState *s, uint64_t ip,
                                    TPRAccess access)
 {
     vapic_report_tpr_access(s->vapic, CPU(s->cpu), ip, access);

@@ -25,12 +25,7 @@
 #include "kvm/hyperv-proto.h"
 #include "exec/cpu-common.h"
 #include "exec/cpu-interrupt.h"
-#ifdef COMPILING_PER_TARGET_BASE
-typedef int64_t target_long;
-typedef uint64_t target_ulong;
-#define TARGET_LONG_SIZE 8
-#define MO_TL MO_64
-#else
+#ifndef COMPILING_PER_TARGET_BASE
 #include "exec/target_long.h"
 #endif
 #include "exec/target-long-types.h"
@@ -1610,26 +1605,22 @@ typedef enum {
     CC_OP_BLSIQ,
 
     /*
-     * Note that only CC_OP_POPCNT (i.e. the one with MO_TL size)
-     * is used or implemented, because the translation needs
-     * to zero-extend CC_DST anyway.
+     * Only the L or Q op is stored (see cc_op_popcnt). Translation
+     * zero-extends CC_DST to that width.
      */
     CC_OP_POPCNTB__, /* Z via CC_DST, all other flags clear.  */
     CC_OP_POPCNTW__,
     CC_OP_POPCNTL__,
     CC_OP_POPCNTQ__,
-    CC_OP_POPCNT = sizeof(target_ulong) == 8 ? CC_OP_POPCNTQ__ : CC_OP_POPCNTL__,
 
     /*
-     * Note that only CC_OP_SBB_SELF (i.e. the one with MO_TL size)
-     * is used or implemented, because the translator sign-extends
-     * the -1 or 0 value that is written in CC_DST.
+     * Only the L or Q op is stored (see cc_op_sbb_self). Translation
+     * sign-extends the -1 or 0 value written in CC_DST.
      */
     CC_OP_SBB_SELFB__, /* S/Z/C/A via CC_DST, O clear, P set.  */
     CC_OP_SBB_SELFW__,
     CC_OP_SBB_SELFL__,
     CC_OP_SBB_SELFQ__,
-    CC_OP_SBB_SELF = sizeof(target_ulong) == 8 ? CC_OP_SBB_SELFQ__ : CC_OP_SBB_SELFL__,
 #define CC_OP_LAST_BWLQ CC_OP_SBB_SELFQ__
 
     CC_OP_DYNAMIC, /* must use dynamic code to get cc_op */
@@ -1638,13 +1629,30 @@ typedef enum {
 /* See X86DecodedInsn.cc_op, using int8_t. */
 QEMU_BUILD_BUG_ON(CC_OP_DYNAMIC > INT8_MAX);
 
+static inline MemOp mo_tl(void)
+{
+    return target_x86_64() ? MO_64 : MO_32;
+}
+
+static inline CCOp cc_op_popcnt(void)
+{
+    return CC_OP_POPCNTB__ + mo_tl();
+}
+
+static inline CCOp cc_op_sbb_self(void)
+{
+    return CC_OP_SBB_SELFB__ + mo_tl();
+}
+
 static inline MemOp cc_op_size(CCOp op)
 {
     MemOp size = op & 3;
 
     QEMU_BUILD_BUG_ON(CC_OP_FIRST_BWLQ & 3);
+    QEMU_BUILD_BUG_ON(CC_OP_POPCNTB__ & 3);
+    QEMU_BUILD_BUG_ON(CC_OP_SBB_SELFB__ & 3);
     assert(op >= CC_OP_FIRST_BWLQ && op <= CC_OP_LAST_BWLQ);
-    assert(size <= MO_TL);
+    assert(size <= mo_tl());
 
     return size;
 }
@@ -3007,7 +3015,7 @@ bool cpu_svm_has_intercept(CPUX86State *env, uint32_t type);
 
 /* apic.c */
 void cpu_report_tpr_access(CPUX86State *env, TPRAccess access);
-void apic_handle_tpr_access_report(APICCommonState *s, target_ulong ip,
+void apic_handle_tpr_access_report(APICCommonState *s, uint64_t ip,
                                    TPRAccess access);
 
 /* Special values for X86CPUVersion: */

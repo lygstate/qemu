@@ -90,9 +90,9 @@ static const char * const cc_op_str[] = {
     [CC_OP_BMILGL] = "BMILGL",
     [CC_OP_BMILGQ] = "BMILGQ",
 
-    [CC_OP_POPCNT] = "POPCNT",
+    [CC_OP_POPCNTB__ ... CC_OP_POPCNTQ__] = "POPCNT",
 
-    [CC_OP_SBB_SELF] = "SBBx,x",
+    [CC_OP_SBB_SELFB__ ... CC_OP_SBB_SELFQ__] = "SBBx,x",
 };
 
 static void
