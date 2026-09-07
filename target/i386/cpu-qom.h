@@ -24,11 +24,7 @@
 
 #define TYPE_I386_CPU "i386-cpu"
 #define TYPE_X86_64_CPU "x86_64-cpu"
-#ifdef TARGET_X86_64
-#define TYPE_X86_CPU TYPE_X86_64_CPU
-#else
-#define TYPE_X86_CPU TYPE_I386_CPU
-#endif
+#define TYPE_X86_CPU "x86-cpu"
 
 OBJECT_DECLARE_CPU_TYPE(X86CPU, X86CPUClass, X86_CPU)
 
