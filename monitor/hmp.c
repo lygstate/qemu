@@ -58,6 +58,17 @@ MonitorHMP *monitor_cur_hmp(void)
     return NULL;
 }
 
+void hmp_info_mem(MonitorHMP *hmp, const QDict *qdict)
+{
+    if (target_base_i386()) {
+        hmp_info_mem_i386(hmp, qdict);
+    } else if (target_base_riscv()) {
+        hmp_info_mem_riscv(hmp, qdict);
+    } else {
+        monitor_hmp_printf(hmp, "info mem is not supported on this architecture\n");
+    }
+}
+
 static void monitor_hmp_finalize(Object *obj)
 {
     MonitorHMP *hmp = MONITOR_HMP(obj);
