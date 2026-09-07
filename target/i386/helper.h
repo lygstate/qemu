@@ -10,10 +10,8 @@ DEF_HELPER_2(divw_AX, void, env, tl)
 DEF_HELPER_2(idivw_AX, void, env, tl)
 DEF_HELPER_2(divl_EAX, void, env, tl)
 DEF_HELPER_2(idivl_EAX, void, env, tl)
-#ifdef TARGET_X86_64
 DEF_HELPER_2(divq_EAX, void, env, tl)
 DEF_HELPER_2(idivq_EAX, void, env, tl)
-#endif
 DEF_HELPER_FLAGS_2(cr4_testbit, TCG_CALL_NO_WG, void, env, i32)
 
 DEF_HELPER_FLAGS_2(bndck, TCG_CALL_NO_WG, void, env, i32)

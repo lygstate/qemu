@@ -25,11 +25,8 @@
 /* Maximum instruction code size */
 #define TARGET_MAX_INSN_SIZE 16
 
-#if defined(TARGET_X86_64)
-# define TCG_PHYS_ADDR_BITS 40
-#else
-# define TCG_PHYS_ADDR_BITS 36
-#endif
+#define TCG_PHYS_ADDR_BITS (target_x86_64() ? 40 : 36)
+#define TCG_TL_BITS 64
 
 /**
  * x86_cpu_do_interrupt:
@@ -45,7 +42,7 @@ bool x86_cpu_exec_interrupt(CPUState *cpu, int int_req);
 void breakpoint_handler(CPUState *cs);
 
 /* n must be a constant to be efficient */
-static inline target_long lshift(target_long x, int n)
+static inline int64_t lshift(int64_t x, int n)
 {
     if (n >= 0) {
         return x << n;
@@ -133,7 +130,7 @@ void do_vmexit(CPUX86State *env);
 /* seg_helper.c */
 void do_interrupt_x86_hardirq(CPUX86State *env, int intno, int is_hw);
 void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
-                      int error_code, target_ulong next_eip, int is_hw);
+                      int error_code, uint64_t next_eip, int is_hw);
 void handle_even_inj(CPUX86State *env, int intno, int is_int,
                      int error_code, int is_hw, int rm);
 int exception_has_error_code(int intno);

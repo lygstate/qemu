@@ -312,7 +312,7 @@ typedef struct X86DecodedOp {
     int offset;   /* For MMX and SSE */
 
     union {
-	target_ulong imm;
+	uint64_t imm;
         /*
          * This field is used internally by macros OP0_PTR/OP1_PTR/OP2_PTR,
          * do not access directly!
@@ -326,7 +326,7 @@ typedef struct AddressParts {
     int base;
     int index;
     int scale;
-    target_long disp;
+    int64_t disp;
 } AddressParts;
 
 struct X86DecodedInsn {
@@ -336,7 +336,7 @@ struct X86DecodedInsn {
      * Rightmost immediate, for convenience since most instructions have
      * one (and also for 4-operand instructions).
      */
-    target_ulong immediate;
+    uint64_t immediate;
     AddressParts mem;
 
     TCGv cc_dst, cc_src, cc_src2;

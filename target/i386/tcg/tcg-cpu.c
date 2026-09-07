@@ -240,15 +240,23 @@ static void x86_tcg_cpu_accel_class_init(ObjectClass *oc, const void *data)
 
     acc->cpu_instance_init = x86_tcg_cpu_instance_init;
 }
-static const TypeInfo x86_tcg_cpu_accel_type_info = {
-    .name = ACCEL_CPU_NAME("tcg"),
-
-    .parent = TYPE_ACCEL_CPU,
-    .class_init = x86_tcg_cpu_accel_class_init,
-    .abstract = true,
+static const TypeInfo x86_tcg_cpu_accel_type_info[] = {
+    {
+        .name = "tcg-accel-" TYPE_I386_CPU,
+        .parent = TYPE_ACCEL_CPU,
+        .class_init = x86_tcg_cpu_accel_class_init,
+        .abstract = true,
+    },
+    {
+        .name = "tcg-accel-" TYPE_X86_64_CPU,
+        .parent = TYPE_ACCEL_CPU,
+        .class_init = x86_tcg_cpu_accel_class_init,
+        .abstract = true,
+    },
 };
 static void x86_tcg_cpu_accel_register_types(void)
 {
-    type_register_static(&x86_tcg_cpu_accel_type_info);
+    type_register_static(&x86_tcg_cpu_accel_type_info[0]);
+    type_register_static(&x86_tcg_cpu_accel_type_info[1]);
 }
 type_init(x86_tcg_cpu_accel_register_types);

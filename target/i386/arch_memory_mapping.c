@@ -19,11 +19,11 @@
 /* PAE Paging or IA-32e Paging */
 static void walk_pte(MemoryMappingList *list, AddressSpace *as,
                      hwaddr pte_start_addr,
-                     int32_t a20_mask, target_ulong start_line_addr)
+                     int32_t a20_mask, uint64_t start_line_addr)
 {
     hwaddr pte_addr, start_paddr;
     uint64_t pte;
-    target_ulong start_vaddr;
+    uint64_t start_vaddr;
     int i;
 
     for (i = 0; i < 512; i++) {
@@ -49,11 +49,11 @@ static void walk_pte(MemoryMappingList *list, AddressSpace *as,
 /* 32-bit Paging */
 static void walk_pte2(MemoryMappingList *list, AddressSpace *as,
                       hwaddr pte_start_addr, int32_t a20_mask,
-                      target_ulong start_line_addr)
+                      uint64_t start_line_addr)
 {
     hwaddr pte_addr, start_paddr;
     uint32_t pte;
-    target_ulong start_vaddr;
+    uint64_t start_vaddr;
     int i;
 
     for (i = 0; i < 1024; i++) {
@@ -81,11 +81,11 @@ static void walk_pte2(MemoryMappingList *list, AddressSpace *as,
 
 static void walk_pde(MemoryMappingList *list, AddressSpace *as,
                      hwaddr pde_start_addr,
-                     int32_t a20_mask, target_ulong start_line_addr)
+                     int32_t a20_mask, uint64_t start_line_addr)
 {
     hwaddr pde_addr, pte_start_addr, start_paddr;
     uint64_t pde;
-    target_ulong line_addr, start_vaddr;
+    uint64_t line_addr, start_vaddr;
     int i;
 
     for (i = 0; i < 512; i++) {
@@ -122,7 +122,7 @@ static void walk_pde2(MemoryMappingList *list, AddressSpace *as,
 {
     hwaddr pde_addr, pte_start_addr, start_paddr, high_paddr;
     uint32_t pde;
-    target_ulong line_addr, start_vaddr;
+    uint64_t line_addr, start_vaddr;
     int i;
 
     for (i = 0; i < 1024; i++) {
@@ -163,7 +163,7 @@ static void walk_pdpe2(MemoryMappingList *list, AddressSpace *as,
 {
     hwaddr pdpe_addr, pde_start_addr;
     uint64_t pdpe;
-    target_ulong line_addr;
+    uint64_t line_addr;
     int i;
 
     for (i = 0; i < 4; i++) {
@@ -180,15 +180,14 @@ static void walk_pdpe2(MemoryMappingList *list, AddressSpace *as,
     }
 }
 
-#ifdef TARGET_X86_64
 /* IA-32e Paging */
 static void walk_pdpe(MemoryMappingList *list, AddressSpace *as,
                       hwaddr pdpe_start_addr, int32_t a20_mask,
-                      target_ulong start_line_addr)
+                      uint64_t start_line_addr)
 {
     hwaddr pdpe_addr, pde_start_addr, start_paddr;
     uint64_t pdpe;
-    target_ulong line_addr, start_vaddr;
+    uint64_t line_addr, start_vaddr;
     int i;
 
     for (i = 0; i < 512; i++) {
@@ -221,11 +220,11 @@ static void walk_pdpe(MemoryMappingList *list, AddressSpace *as,
 /* IA-32e Paging */
 static void walk_pml4e(MemoryMappingList *list, AddressSpace *as,
                        hwaddr pml4e_start_addr, int32_t a20_mask,
-                       target_ulong start_line_addr)
+                       uint64_t start_line_addr)
 {
     hwaddr pml4e_addr, pdpe_start_addr;
     uint64_t pml4e;
-    target_ulong line_addr;
+    uint64_t line_addr;
     int i;
 
     for (i = 0; i < 512; i++) {
@@ -248,7 +247,7 @@ static void walk_pml5e(MemoryMappingList *list, AddressSpace *as,
 {
     hwaddr pml5e_addr, pml4e_start_addr;
     uint64_t pml5e;
-    target_ulong line_addr;
+    uint64_t line_addr;
     int i;
 
     for (i = 0; i < 512; i++) {
@@ -265,7 +264,6 @@ static void walk_pml5e(MemoryMappingList *list, AddressSpace *as,
         walk_pml4e(list, as, pml4e_start_addr, a20_mask, line_addr);
     }
 }
-#endif
 
 bool x86_cpu_get_memory_mapping(CPUState *cs, MemoryMappingList *list,
                                 Error **errp)
@@ -281,7 +279,6 @@ bool x86_cpu_get_memory_mapping(CPUState *cs, MemoryMappingList *list,
 
     a20_mask = x86_get_a20_mask(env);
     if (target_ulong_array_val(&env->cr.rec, 4) & CR4_PAE_MASK) {
-#ifdef TARGET_X86_64
         if (env->hflags & HF_LMA_MASK) {
             if (target_ulong_array_val(&env->cr.rec, 4) & CR4_LA57_MASK) {
                 hwaddr pml5e_addr;
@@ -295,9 +292,7 @@ bool x86_cpu_get_memory_mapping(CPUState *cs, MemoryMappingList *list,
                 walk_pml4e(list, cs->as, pml4e_addr, a20_mask,
                         0xffffULL << 48);
             }
-        } else
-#endif
-        {
+        } else {
             hwaddr pdpe_addr;
 
             pdpe_addr = (target_ulong_array_val(&env->cr.rec, 3) & ~0x1f) & a20_mask;

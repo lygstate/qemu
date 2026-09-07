@@ -30,7 +30,7 @@
 
 /* division, flags are undefined */
 
-void helper_divb_AL(CPUX86State *env, target_ulong t0)
+void helper_divb_AL(CPUX86State *env, uint64_t t0)
 {
     unsigned int num, den, q, r;
 
@@ -48,7 +48,7 @@ void helper_divb_AL(CPUX86State *env, target_ulong t0)
     target_ulong_array_set(&env->regs.rec, R_EAX, (target_ulong_array_val(&env->regs.rec, R_EAX) & ~0xffff) | (r << 8) | q);
 }
 
-void helper_idivb_AL(CPUX86State *env, target_ulong t0)
+void helper_idivb_AL(CPUX86State *env, uint64_t t0)
 {
     int num, den, q, r;
 
@@ -66,7 +66,7 @@ void helper_idivb_AL(CPUX86State *env, target_ulong t0)
     target_ulong_array_set(&env->regs.rec, R_EAX, (target_ulong_array_val(&env->regs.rec, R_EAX) & ~0xffff) | (r << 8) | q);
 }
 
-void helper_divw_AX(CPUX86State *env, target_ulong t0)
+void helper_divw_AX(CPUX86State *env, uint64_t t0)
 {
     unsigned int num, den, q, r;
 
@@ -85,7 +85,7 @@ void helper_divw_AX(CPUX86State *env, target_ulong t0)
     target_ulong_array_set(&env->regs.rec, R_EDX, (target_ulong_array_val(&env->regs.rec, R_EDX) & ~0xffff) | r);
 }
 
-void helper_idivw_AX(CPUX86State *env, target_ulong t0)
+void helper_idivw_AX(CPUX86State *env, uint64_t t0)
 {
     int num, den, q, r;
 
@@ -104,7 +104,7 @@ void helper_idivw_AX(CPUX86State *env, target_ulong t0)
     target_ulong_array_set(&env->regs.rec, R_EDX, (target_ulong_array_val(&env->regs.rec, R_EDX) & ~0xffff) | r);
 }
 
-void helper_divl_EAX(CPUX86State *env, target_ulong t0)
+void helper_divl_EAX(CPUX86State *env, uint64_t t0)
 {
     unsigned int den, r;
     uint64_t num, q;
@@ -123,7 +123,7 @@ void helper_divl_EAX(CPUX86State *env, target_ulong t0)
     target_ulong_array_set(&env->regs.rec, R_EDX, (uint32_t)r);
 }
 
-void helper_idivl_EAX(CPUX86State *env, target_ulong t0)
+void helper_idivl_EAX(CPUX86State *env, uint64_t t0)
 {
     int den, r;
     int64_t num, q;
@@ -144,7 +144,7 @@ void helper_idivl_EAX(CPUX86State *env, target_ulong t0)
 
 /* bcd */
 
-target_ulong helper_aam(target_ulong al, target_ulong base)
+uint64_t helper_aam(uint64_t al, uint64_t base)
 {
     int ah;
 
@@ -154,7 +154,7 @@ target_ulong helper_aam(target_ulong al, target_ulong base)
     return al | (ah << 8);
 }
 
-target_ulong helper_aad(target_ulong ax, target_ulong base)
+uint64_t helper_aad(uint64_t ax, uint64_t base)
 {
     int al, ah;
 
@@ -274,7 +274,6 @@ void helper_das(CPUX86State *env)
     CC_OP = CC_OP_EFLAGS;
 }
 
-#ifdef TARGET_X86_64
 static void add128(uint64_t *plow, uint64_t *phigh, uint64_t a, uint64_t b)
 {
     *plow += a;
@@ -364,7 +363,7 @@ static int idiv64(uint64_t *plow, uint64_t *phigh, int64_t b)
     return 0;
 }
 
-void helper_divq_EAX(CPUX86State *env, target_ulong t0)
+void helper_divq_EAX(CPUX86State *env, uint64_t t0)
 {
     uint64_t r0, r1;
 
@@ -380,7 +379,7 @@ void helper_divq_EAX(CPUX86State *env, target_ulong t0)
     target_ulong_array_set(&env->regs.rec, R_EDX, r1);
 }
 
-void helper_idivq_EAX(CPUX86State *env, target_ulong t0)
+void helper_idivq_EAX(CPUX86State *env, uint64_t t0)
 {
     uint64_t r0, r1;
 
@@ -395,19 +394,13 @@ void helper_idivq_EAX(CPUX86State *env, target_ulong t0)
     target_ulong_array_set(&env->regs.rec, R_EAX, r0);
     target_ulong_array_set(&env->regs.rec, R_EDX, r1);
 }
-#endif
 
-#if TARGET_LONG_BITS == 32
-# define ctztl  ctz32
-# define clztl  clz32
-#else
 # define ctztl  ctz64
 # define clztl  clz64
-#endif
 
-target_ulong helper_pdep(target_ulong src, target_ulong mask)
+uint64_t helper_pdep(uint64_t src, uint64_t mask)
 {
-    target_ulong dest = 0;
+    uint64_t dest = 0;
     int i, o;
 
     for (i = 0; mask != 0; i++) {
@@ -420,7 +413,7 @@ target_ulong helper_pdep(target_ulong src, target_ulong mask)
 
 uint64_t helper_i386_pext(uint64_t src, uint64_t mask)
 {
-    target_ulong dest = 0;
+    uint64_t dest = 0;
     int i, o;
 
     for (o = 0; mask != 0; o++) {
@@ -441,10 +434,10 @@ void helper_cr4_testbit(CPUX86State *env, uint32_t bit)
     }
 }
 
-target_ulong HELPER(rdrand)(CPUX86State *env)
+uint64_t HELPER(rdrand)(CPUX86State *env)
 {
     Error *err = NULL;
-    target_ulong ret;
+    uint64_t ret;
 
     if (qemu_guest_getrandom(&ret, sizeof(ret), &err) < 0) {
         qemu_log_mask(LOG_UNIMP, "rdrand: Crypto failure: %s",
