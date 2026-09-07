@@ -3050,7 +3050,7 @@ static void gen_POPA(DisasContext *s, X86DecodedInsn *decode)
 static void gen_POPCNT(DisasContext *s, X86DecodedInsn *decode)
 {
     decode->cc_dst = tcg_temp_new();
-    decode->cc_op = CC_OP_POPCNT;
+    decode->cc_op = cc_op_popcnt();
 
     tcg_gen_mov_tl(decode->cc_dst, s->T0);
     tcg_gen_ctpop_tl(s->T0, s->T0);
@@ -3879,7 +3879,7 @@ static void gen_SBB(DisasContext *s, X86DecodedInsn *decode)
     /* SBB x,x has its own CCOp so that's even easier.  */
     if (decode->e.op2 != X86_TYPE_I && !decode->op[0].has_ea && decode->op[0].n == decode->op[2].n) {
         gen_neg_setcc(s, JCC_B << 1, s->T0);
-        prepare_update1_cc(decode, s, CC_OP_SBB_SELF);
+        prepare_update1_cc(decode, s, cc_op_sbb_self());
         return;
     }
 
