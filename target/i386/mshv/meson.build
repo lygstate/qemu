@@ -6,5 +6,5 @@ i386_mshv_ss.add(files(
   'synic.c',
 ))
 
-i386_system_ss.add_all(when: 'CONFIG_MSHV', if_true: i386_mshv_ss)
+accel_i386_ss.add_all(when: 'CONFIG_MSHV', if_true: i386_mshv_ss)
 
