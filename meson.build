@@ -4460,8 +4460,10 @@ single_binary_available = false
 single_binary_supported_targets = [
   'aarch64-softmmu',
   'arm-softmmu',
+  'i386-softmmu',
   'riscv32-softmmu',
   'riscv64-softmmu',
+  'x86_64-softmmu',
 ]
 
 # Endian siblings of riscv32/riscv64: TargetInfo only in qemu-system.
