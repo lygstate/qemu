@@ -486,7 +486,6 @@ static void sev_apply_cpu_context(CPUState *cpu)
             target_ulong_array_set(&env->regs.rec, R_EBP, launch_vmsa->vmsa.rbp);
             target_ulong_array_set(&env->regs.rec, R_ESI, launch_vmsa->vmsa.rsi);
             target_ulong_array_set(&env->regs.rec, R_EDI, launch_vmsa->vmsa.rdi);
-#ifdef TARGET_X86_64
             target_ulong_array_set(&env->regs.rec, R_R8, launch_vmsa->vmsa.r8);
             target_ulong_array_set(&env->regs.rec, R_R9, launch_vmsa->vmsa.r9);
             target_ulong_array_set(&env->regs.rec, R_R10, launch_vmsa->vmsa.r10);
@@ -495,7 +494,6 @@ static void sev_apply_cpu_context(CPUState *cpu)
             target_ulong_array_set(&env->regs.rec, R_R13, launch_vmsa->vmsa.r13);
             target_ulong_array_set(&env->regs.rec, R_R14, launch_vmsa->vmsa.r14);
             target_ulong_array_set(&env->regs.rec, R_R15, launch_vmsa->vmsa.r15);
-#endif
             target_ulong_set(&(env)->eip,  launch_vmsa->vmsa.rip);
             target_ulong_set(&(env)->eflags,  launch_vmsa->vmsa.rflags);
 
@@ -2315,7 +2313,6 @@ static void initialize_vmsa(const CPUState *cpu, struct sev_es_save_area *vmsa)
     vmsa->rsi = target_ulong_array_val(&env->regs.rec, R_ESI);
     vmsa->rdi = target_ulong_array_val(&env->regs.rec, R_EDI);
 
-#ifdef TARGET_X86_64
     vmsa->r8 = target_ulong_array_val(&env->regs.rec, R_R8);
     vmsa->r9 = target_ulong_array_val(&env->regs.rec, R_R9);
     vmsa->r10 = target_ulong_array_val(&env->regs.rec, R_R10);
@@ -2324,7 +2321,6 @@ static void initialize_vmsa(const CPUState *cpu, struct sev_es_save_area *vmsa)
     vmsa->r13 = target_ulong_array_val(&env->regs.rec, R_R13);
     vmsa->r14 = target_ulong_array_val(&env->regs.rec, R_R14);
     vmsa->r15 = target_ulong_array_val(&env->regs.rec, R_R15);
-#endif
 
     vmsa->rip = target_ulong_val(&(env)->eip);
     vmsa->rflags = target_ulong_val(&(env)->eflags);

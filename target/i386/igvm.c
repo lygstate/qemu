@@ -108,7 +108,6 @@ static void qigvm_x86_load_context(struct IgvmNativeVpContextX64 *context,
     target_ulong_array_set(&env->regs.rec, R_EBP, context->rbp);
     target_ulong_array_set(&env->regs.rec, R_ESI, context->rsi);
     target_ulong_array_set(&env->regs.rec, R_EDI, context->rdi);
-#ifdef TARGET_X86_64
     target_ulong_array_set(&env->regs.rec, R_R8, context->r8);
     target_ulong_array_set(&env->regs.rec, R_R9, context->r9);
     target_ulong_array_set(&env->regs.rec, R_R10, context->r10);
@@ -117,7 +116,6 @@ static void qigvm_x86_load_context(struct IgvmNativeVpContextX64 *context,
     target_ulong_array_set(&env->regs.rec, R_R13, context->r13);
     target_ulong_array_set(&env->regs.rec, R_R14, context->r14);
     target_ulong_array_set(&env->regs.rec, R_R15, context->r15);
-#endif
     target_ulong_set(&(env)->eip,  context->rip);
     target_ulong_set(&(env)->eflags,  context->rflags);
 }

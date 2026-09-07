@@ -31,6 +31,8 @@
 #include "cpu-internal.h"
 #include "qemu/target-info-qom.h"
 
+GuestPanicInformation *kvm_arch_get_crash_info(CPUState *cs);
+
 /* Return a QDict containing keys for all properties that can be included
  * in static expansion of CPU models. All properties set by x86_cpu_load_model()
  * must be included in the dictionary.
@@ -278,27 +280,11 @@ GuestPanicInformation *x86_cpu_get_crash_info(CPUState *cs)
     CPUX86State *env = &cpu->env;
     GuestPanicInformation *panic_info = NULL;
 
-#ifdef CONFIG_KVM
     if (kvm_enabled()) {
-        struct kvm_run *run = cs->kvm_run;
+        panic_info = kvm_arch_get_crash_info(cs);
+    }
 
-        if (run->exit_reason == KVM_EXIT_SYSTEM_EVENT &&
-            run->system_event.type == KVM_SYSTEM_EVENT_SEV_TERM) {
-            panic_info = g_new0(GuestPanicInformation, 1);
-
-            panic_info->type = GUEST_PANIC_INFORMATION_TYPE_SEV;
-            /* There should always be one data item, otherwise use zeroes.  */
-            if (run->system_event.ndata > 0) {
-                panic_info->u.sev.set = (run->system_event.data[0] >> 12) & 0xf;
-                panic_info->u.sev.code = (run->system_event.data[0] >> 16) & 0xff;
-            } else {
-                warn_report("Hypervisor did not provide any data for SEV-ES termination");
-            }
-        }
-    } else
-#endif
-
-    if (hyperv_feat_enabled(cpu, HYPERV_FEAT_CRASH)) {
+    if (!panic_info && hyperv_feat_enabled(cpu, HYPERV_FEAT_CRASH)) {
         panic_info = g_new0(GuestPanicInformation, 1);
 
         panic_info->type = GUEST_PANIC_INFORMATION_TYPE_HYPER_V;
