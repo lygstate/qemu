@@ -218,7 +218,7 @@ static void mem_info_svxx(MonitorHMP *hmp, CPUArchState *env)
               last_paddr + last_size - pbase, last_attr);
 }
 
-void hmp_info_mem(MonitorHMP *hmp, const QDict *qdict)
+void hmp_info_mem_riscv(MonitorHMP *hmp, const QDict *qdict)
 {
     CPUArchState *env;
 
