@@ -2840,8 +2840,8 @@ uint64_t cpu_get_tsc(CPUX86State *env);
 
 static inline const char *target_default_cpu_type(void)
 {
-    return target_x86_64() ? "qemu64-" TYPE_X86_64_CPU
-                           : "qemu32-" TYPE_I386_CPU;
+    return target_x86_64() ? X86_CPU_TYPE_NAME("qemu64")
+                           : X86_CPU_TYPE_NAME("qemu32");
 }
 
 #define TARGET_DEFAULT_CPU_TYPE target_default_cpu_type()
