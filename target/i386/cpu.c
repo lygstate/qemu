@@ -31,7 +31,6 @@
 #include "whpx/whpx-i386.h"
 #include "hvf/hvf-i386.h"
 #include "kvm/kvm_i386.h"
-#include "kvm/tdx.h"
 #include "sev.h"
 #include "qapi/error.h"
 #include "qemu/error-report.h"
@@ -914,11 +913,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           CPUID_EXT_TSC_DEADLINE_TIMER
           */
 
-#ifdef TARGET_X86_64
 #define TCG_EXT2_X86_64_FEATURES CPUID_EXT2_LM
-#else
-#define TCG_EXT2_X86_64_FEATURES 0
-#endif
 
 /*
  * CPUID_*_KERNEL_FEATURES denotes bits and features that are not usable
@@ -932,9 +927,9 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
  * and therefore using the 32-bit ABI; the CPU itself might be 64-bit
  * but again the difference is only visible in kernel mode.
  */
-#if defined CONFIG_LINUX_USER
+#if defined(CONFIG_USER_ONLY) && defined(CONFIG_LINUX)
 #define CPUID_EXT2_KERNEL_FEATURES (CPUID_EXT2_LM | CPUID_EXT2_FFXSR)
-#elif defined CONFIG_USER_ONLY
+#elif defined(CONFIG_USER_ONLY)
 /* FIXME: Long mode not yet supported for i386 bsd-user */
 #define CPUID_EXT2_KERNEL_FEATURES CPUID_EXT2_FFXSR
 #else
@@ -8262,18 +8257,18 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w)
     }
 
     switch (w) {
-#ifndef TARGET_X86_64
     case FEAT_8000_0001_EDX:
         /*
          * 32-bit TCG can emulate 64-bit compatibility mode.  If there is no
          * way for userspace to get out of its 32-bit jail, we can leave
          * the LM bit set.
          */
-        unavail = tcg_enabled()
-            ? CPUID_EXT2_LM & ~CPUID_EXT2_KERNEL_FEATURES
-            : CPUID_EXT2_LM;
+        if (!target_x86_64()) {
+            unavail = tcg_enabled()
+                ? CPUID_EXT2_LM & ~CPUID_EXT2_KERNEL_FEATURES
+                : CPUID_EXT2_LM;
+        }
         break;
-#endif
 
     case FEAT_8000_0007_EBX:
         if (cpu && !IS_AMD_CPU(&cpu->env)) {
@@ -8524,11 +8519,7 @@ static void x86_cpu_load_model(X86CPU *cpu, const X86CPUModel *model)
 
 static const gchar *x86_gdb_arch_name(CPUState *cs)
 {
-#ifdef TARGET_X86_64
-    return "i386:x86-64";
-#else
-    return "i386";
-#endif
+    return target_x86_64() ? "i386:x86-64" : "i386";
 }
 
 static void x86_cpu_cpudef_class_init(ObjectClass *oc, const void *data)
@@ -10515,6 +10506,10 @@ static void x86_cpu_initfn(Object *obj)
     X86CPU *cpu = X86_CPU(obj);
     X86CPUClass *xcc = X86_CPU_GET_CLASS(obj);
     CPUX86State *env = &cpu->env;
+    CPUClass *cc = CPU_GET_CLASS(obj);
+
+    cc->gdb_core_xml_file = target_x86_64() ? "i386-64bit.xml"
+                                            : "i386-32bit.xml";
 
     x86_cpu_init_default_topo(cpu);
 
@@ -10941,11 +10936,7 @@ static void x86_cpu_common_class_init(ObjectClass *oc, const void *data)
 #endif /* CONFIG_TCG */
 
     cc->gdb_arch_name = x86_gdb_arch_name;
-#ifdef TARGET_X86_64
-    cc->gdb_core_xml_file = "i386-64bit.xml";
-#else
-    cc->gdb_core_xml_file = "i386-32bit.xml";
-#endif
+    /* Selected in x86_cpu_initfn after TargetInfo is known. */
     cc->disas_set_info = x86_disas_set_info;
 
     dc->user_creatable = true;

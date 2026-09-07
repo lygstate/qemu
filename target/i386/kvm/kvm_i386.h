@@ -41,8 +41,13 @@ uint64_t kvm_arch_get_supported_msr_feature(KVMState *s, uint32_t index);
 
 void kvm_set_max_apic_id(uint32_t max_apic_id);
 void kvm_request_xsave_components(X86CPU *cpu, uint64_t mask);
+bool kvm_has_exception_payload(void);
+bool kvm_nested_guest_mode_consistent(CPUX86State *env);
+bool is_tdx_vm(void);
+typedef struct GuestPanicInformation GuestPanicInformation;
+GuestPanicInformation *kvm_arch_get_crash_info(CPUState *cs);
 
-#ifdef CONFIG_KVM
+#ifndef CPU_DEFS_H
 
 #include <linux/kvm.h>
 
@@ -53,7 +58,6 @@ typedef struct KvmCpuidInfo {
 
 bool kvm_is_vm_type_supported(int type);
 bool kvm_has_adjust_clock_stable(void);
-bool kvm_has_exception_payload(void);
 void kvm_synchronize_all_tsc(void);
 
 void kvm_get_apic_state(APICCommonState *s, struct kvm_lapic_state *kapic);
@@ -72,7 +76,7 @@ struct kvm_cpuid_entry2 *cpuid_find_entry(struct kvm_cpuid2 *cpuid,
 uint32_t cpuid_entry_get_reg(struct kvm_cpuid_entry2 *entry, int reg);
 uint32_t kvm_x86_build_cpuid(CPUX86State *env, struct kvm_cpuid_entry2 *entries,
                              uint32_t cpuid_i);
-#endif /* CONFIG_KVM */
+#endif /* !CPU_DEFS_H */
 
 void kvm_smm_cpu_address_space_init(X86CPU *cpu);
 void kvm_pc_setup_irq_routing(bool pci_enabled);

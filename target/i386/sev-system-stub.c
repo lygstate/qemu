@@ -17,6 +17,36 @@
 #include "qapi/error.h"
 #include "sev.h"
 
+bool sev_enabled(void)
+{
+    return false;
+}
+
+bool sev_es_enabled(void)
+{
+    return false;
+}
+
+bool sev_snp_enabled(void)
+{
+    return false;
+}
+
+uint32_t sev_get_cbit_position(void)
+{
+    return 0;
+}
+
+uint32_t sev_get_reduced_phys_bits(void)
+{
+    return 0;
+}
+
+bool sev_add_kernel_loader_hashes(SevKernelLoaderContext *ctx, Error **errp)
+{
+    return false;
+}
+
 int sev_encrypt_flash(hwaddr gpa, uint8_t *ptr, uint64_t len, Error **errp)
 {
     g_assert_not_reached();
