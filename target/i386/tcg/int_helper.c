@@ -418,7 +418,7 @@ target_ulong helper_pdep(target_ulong src, target_ulong mask)
     return dest;
 }
 
-target_ulong helper_pext(target_ulong src, target_ulong mask)
+uint64_t helper_i386_pext(uint64_t src, uint64_t mask)
 {
     target_ulong dest = 0;
     int i, o;
