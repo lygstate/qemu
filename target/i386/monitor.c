@@ -36,17 +36,17 @@
 /* Perform linear address sign extension */
 static hwaddr addr_canonical(CPUArchState *env, hwaddr addr)
 {
-#ifdef TARGET_X86_64
-    if (env->cr[4] & CR4_LA57_MASK) {
-        if (addr & (1ULL << 56)) {
-            addr |= (hwaddr)-(1LL << 57);
-        }
-    } else {
-        if (addr & (1ULL << 47)) {
-            addr |= (hwaddr)-(1LL << 48);
+    if (target_x86_64()) {
+        if (env->cr[4] & CR4_LA57_MASK) {
+            if (addr & (1ULL << 56)) {
+                addr |= (hwaddr)-(1LL << 57);
+            }
+        } else {
+            if (addr & (1ULL << 47)) {
+                addr |= (hwaddr)-(1LL << 48);
+            }
         }
     }
-#endif
     return addr;
 }
 
@@ -136,7 +136,6 @@ static void tlb_info_pae32(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
     }
 }
 
-#ifdef TARGET_X86_64
 static void tlb_info_la48(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as,
         uint64_t l0, uint64_t pml4_addr)
 {
@@ -209,7 +208,6 @@ static void tlb_info_la57(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
         }
     }
 }
-#endif /* TARGET_X86_64 */
 
 void hmp_info_tlb(MonitorHMP *hmp, const QDict *qdict)
 {
@@ -228,15 +226,13 @@ void hmp_info_tlb(MonitorHMP *hmp, const QDict *qdict)
     }
     as = cpu_get_address_space(env_cpu(env), X86ASIdx_MEM);
     if (env->cr[4] & CR4_PAE_MASK) {
-#ifdef TARGET_X86_64
-        if (env->hflags & HF_LMA_MASK) {
+        if (target_x86_64() && (env->hflags & HF_LMA_MASK)) {
             if (env->cr[4] & CR4_LA57_MASK) {
                 tlb_info_la57(hmp, env, as);
             } else {
                 tlb_info_la48(hmp, env, as, 0, env->cr[3] & 0x3fffffffff000ULL);
             }
         } else
-#endif
         {
             tlb_info_pae32(hmp, env, as);
         }
@@ -366,7 +362,6 @@ static void mem_info_pae32(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
 }
 
 
-#ifdef TARGET_X86_64
 static void mem_info_la48(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
 {
     const MemTxAttrs attrs = MEMTXATTRS_UNSPECIFIED;
@@ -535,9 +530,8 @@ static void mem_info_la57(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
     /* Flush last range */
     mem_print(hmp, env, &start, &last_prot, (hwaddr)1 << 57, 0);
 }
-#endif /* TARGET_X86_64 */
 
-void hmp_info_mem(MonitorHMP *hmp, const QDict *qdict)
+void hmp_info_mem_i386(MonitorHMP *hmp, const QDict *qdict)
 {
     CPUArchState *env;
     AddressSpace *as;
@@ -554,16 +548,13 @@ void hmp_info_mem(MonitorHMP *hmp, const QDict *qdict)
     }
     as = cpu_get_address_space(env_cpu(env), X86ASIdx_MEM);
     if (env->cr[4] & CR4_PAE_MASK) {
-#ifdef TARGET_X86_64
-        if (env->hflags & HF_LMA_MASK) {
+        if (target_x86_64() && (env->hflags & HF_LMA_MASK)) {
             if (env->cr[4] & CR4_LA57_MASK) {
                 mem_info_la57(hmp, env, as);
             } else {
                 mem_info_la48(hmp, env, as);
             }
-        } else
-#endif
-        {
+        } else {
             mem_info_pae32(hmp, env, as);
         }
     } else {

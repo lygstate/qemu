@@ -88,6 +88,7 @@ if have_system
   stub_ss.add(files('qmp-cpu-s390x-kvm.c'))
   if have_hmp
     stub_ss.add(files('hmp-cmd-info_mem.c'))
+    stub_ss.add(files('hmp-cmd-info_mem_riscv.c'))
     stub_ss.add(files('hmp-cmd-info_sev.c'))
     stub_ss.add(files('hmp-cmd-info_tlb.c'))
     stub_ss.add(files('hmp-cmds-hw-s390x.c'))
