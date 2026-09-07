@@ -303,8 +303,8 @@ static const uint8_t cc_op_live_[] = {
     [CC_OP_ADCX] = USES_CC_DST | USES_CC_SRC,
     [CC_OP_ADOX] = USES_CC_SRC | USES_CC_SRC2,
     [CC_OP_ADCOX] = USES_CC_DST | USES_CC_SRC | USES_CC_SRC2,
-    [CC_OP_POPCNT] = USES_CC_DST,
-    [CC_OP_SBB_SELF] = USES_CC_DST,
+    [CC_OP_POPCNTB__ ... CC_OP_POPCNTQ__] = USES_CC_DST,
+    [CC_OP_SBB_SELFB__ ... CC_OP_SBB_SELFQ__] = USES_CC_DST,
 };
 
 static uint8_t cc_op_live(CCOp op)
@@ -890,7 +890,7 @@ static CCPrepare gen_prepare_eflags_c(DisasContext *s, TCGv reg)
                              .reg2 = cpu_cc_src, .rhs_type = CC_PREPARE_REG };
 
     case CC_OP_LOGICB ... CC_OP_LOGICQ:
-    case CC_OP_POPCNT:
+    case CC_OP_POPCNTB__ ... CC_OP_POPCNTQ__:
         return (CCPrepare) { .cond = TCG_COND_NEVER };
 
     case CC_OP_INCB ... CC_OP_INCQ:
@@ -915,7 +915,7 @@ static CCPrepare gen_prepare_eflags_c(DisasContext *s, TCGv reg)
         size = cc_op_size(s->cc_op);
         return gen_prepare_val_nz(cpu_cc_src, size, false);
 
-    case CC_OP_SBB_SELF:
+    case CC_OP_SBB_SELFB__ ... CC_OP_SBB_SELFQ__:
         return (CCPrepare) { .cond = TCG_COND_NE, .reg = cpu_cc_dst };
 
     case CC_OP_ADCX:
@@ -964,7 +964,7 @@ static CCPrepare gen_prepare_eflags_s(DisasContext *s, TCGv reg)
     case CC_OP_ADCOX:
         return (CCPrepare) { .cond = TCG_COND_TSTNE, .reg = cpu_cc_src,
                              .imm = CC_S };
-    case CC_OP_POPCNT:
+    case CC_OP_POPCNTB__ ... CC_OP_POPCNTQ__:
         return (CCPrepare) { .cond = TCG_COND_NEVER };
     default:
         return gen_prepare_sign_nz(cpu_cc_dst, cc_op_size(s->cc_op));
@@ -979,9 +979,9 @@ static CCPrepare gen_prepare_eflags_o(DisasContext *s, TCGv reg)
     case CC_OP_ADCOX:
         return (CCPrepare) { .cond = TCG_COND_NE, .reg = cpu_cc_src2,
                              .rhs_type = CC_PREPARE_DIRECT };
-    case CC_OP_SBB_SELF:
+    case CC_OP_SBB_SELFB__ ... CC_OP_SBB_SELFQ__:
     case CC_OP_LOGICB ... CC_OP_LOGICQ:
-    case CC_OP_POPCNT:
+    case CC_OP_POPCNTB__ ... CC_OP_POPCNTQ__:
         return (CCPrepare) { .cond = TCG_COND_NEVER };
     case CC_OP_MULB ... CC_OP_MULQ:
         return (CCPrepare) { .cond = TCG_COND_NE, .reg = cpu_cc_src };
@@ -1009,7 +1009,7 @@ static CCPrepare gen_prepare_eflags_z(DisasContext *s, TCGv reg)
         }
         gen_helper_cc_compute_nz(reg, cpu_cc_dst, cpu_cc_src, cpu_cc_op);
         return (CCPrepare) { .cond = TCG_COND_EQ, .reg = reg, .imm = 0 };
-    case CC_OP_POPCNT:
+    case CC_OP_POPCNTB__ ... CC_OP_POPCNTQ__:
         return (CCPrepare) { .cond = TCG_COND_EQ, .reg = cpu_cc_dst };
     default:
         {
@@ -1059,7 +1059,7 @@ static CCPrepare gen_prepare_cc(DisasContext *s, int b, TCGv reg)
         }
         break;
 
-    case CC_OP_SBB_SELF:
+    case CC_OP_SBB_SELFB__ ... CC_OP_SBB_SELFQ__:
         /* checking for nonzero is usually the most efficient */
         if (jcc_op == JCC_L || jcc_op == JCC_B || jcc_op == JCC_S) {
             jcc_op = JCC_Z;
