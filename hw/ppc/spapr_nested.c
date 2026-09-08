@@ -138,80 +138,80 @@ static void nested_save_state(struct nested_ppc_state *save, PowerPCCPU *cpu)
     CPUPPCState *env = &cpu->env;
     SpaprMachineState *spapr = SPAPR_MACHINE(qdev_get_machine());
 
-    memcpy(save->gpr, env->gpr, sizeof(save->gpr));
+    memcpy(save->gpr, &env->gpr, sizeof(save->gpr));
 
     save->lr = env->lr;
     save->ctr = env->ctr;
     save->cfar = env->cfar;
-    save->msr = env->msr;
-    save->nip = env->nip;
+    save->msr = target_ulong_val(&env->msr);
+    save->nip = target_ulong_val(&env->nip);
 
     save->cr = ppc_get_cr(env);
     save->xer = cpu_read_xer(env);
 
-    save->lpcr = env->spr[SPR_LPCR];
-    save->lpidr = env->spr[SPR_LPIDR];
-    save->pcr = env->spr[SPR_PCR];
-    save->dpdes = env->spr[SPR_DPDES];
-    save->hfscr = env->spr[SPR_HFSCR];
-    save->srr0 = env->spr[SPR_SRR0];
-    save->srr1 = env->spr[SPR_SRR1];
-    save->sprg0 = env->spr[SPR_SPRG0];
-    save->sprg1 = env->spr[SPR_SPRG1];
-    save->sprg2 = env->spr[SPR_SPRG2];
-    save->sprg3 = env->spr[SPR_SPRG3];
-    save->pidr = env->spr[SPR_BOOKS_PID];
-    save->ppr = env->spr[SPR_PPR];
+    save->lpcr = target_ulong_array_val(&env->spr.rec, SPR_LPCR);
+    save->lpidr = target_ulong_array_val(&env->spr.rec, SPR_LPIDR);
+    save->pcr = target_ulong_array_val(&env->spr.rec, SPR_PCR);
+    save->dpdes = target_ulong_array_val(&env->spr.rec, SPR_DPDES);
+    save->hfscr = target_ulong_array_val(&env->spr.rec, SPR_HFSCR);
+    save->srr0 = target_ulong_array_val(&env->spr.rec, SPR_SRR0);
+    save->srr1 = target_ulong_array_val(&env->spr.rec, SPR_SRR1);
+    save->sprg0 = target_ulong_array_val(&env->spr.rec, SPR_SPRG0);
+    save->sprg1 = target_ulong_array_val(&env->spr.rec, SPR_SPRG1);
+    save->sprg2 = target_ulong_array_val(&env->spr.rec, SPR_SPRG2);
+    save->sprg3 = target_ulong_array_val(&env->spr.rec, SPR_SPRG3);
+    save->pidr = target_ulong_array_val(&env->spr.rec, SPR_BOOKS_PID);
+    save->ppr = target_ulong_array_val(&env->spr.rec, SPR_PPR);
 
     if (spapr_nested_api(spapr) == NESTED_API_PAPR) {
-        save->amor = env->spr[SPR_AMOR];
-        save->dawr0 = env->spr[SPR_DAWR0];
-        save->dawrx0 = env->spr[SPR_DAWRX0];
-        save->ciabr = env->spr[SPR_CIABR];
-        save->purr = env->spr[SPR_PURR];
-        save->spurr = env->spr[SPR_SPURR];
-        save->ic = env->spr[SPR_IC];
-        save->vtb = env->spr[SPR_VTB];
-        save->hdar = env->spr[SPR_HDAR];
-        save->hdsisr = env->spr[SPR_HDSISR];
-        save->heir = env->spr[SPR_HEIR];
-        save->asdr = env->spr[SPR_ASDR];
-        save->dawr1 = env->spr[SPR_DAWR1];
-        save->dawrx1 = env->spr[SPR_DAWRX1];
-        save->dexcr = env->spr[SPR_DEXCR];
-        save->hdexcr = env->spr[SPR_HDEXCR];
-        save->hashkeyr = env->spr[SPR_HASHKEYR];
-        save->hashpkeyr = env->spr[SPR_HASHPKEYR];
+        save->amor = target_ulong_array_val(&env->spr.rec, SPR_AMOR);
+        save->dawr0 = target_ulong_array_val(&env->spr.rec, SPR_DAWR0);
+        save->dawrx0 = target_ulong_array_val(&env->spr.rec, SPR_DAWRX0);
+        save->ciabr = target_ulong_array_val(&env->spr.rec, SPR_CIABR);
+        save->purr = target_ulong_array_val(&env->spr.rec, SPR_PURR);
+        save->spurr = target_ulong_array_val(&env->spr.rec, SPR_SPURR);
+        save->ic = target_ulong_array_val(&env->spr.rec, SPR_IC);
+        save->vtb = target_ulong_array_val(&env->spr.rec, SPR_VTB);
+        save->hdar = target_ulong_array_val(&env->spr.rec, SPR_HDAR);
+        save->hdsisr = target_ulong_array_val(&env->spr.rec, SPR_HDSISR);
+        save->heir = target_ulong_array_val(&env->spr.rec, SPR_HEIR);
+        save->asdr = target_ulong_array_val(&env->spr.rec, SPR_ASDR);
+        save->dawr1 = target_ulong_array_val(&env->spr.rec, SPR_DAWR1);
+        save->dawrx1 = target_ulong_array_val(&env->spr.rec, SPR_DAWRX1);
+        save->dexcr = target_ulong_array_val(&env->spr.rec, SPR_DEXCR);
+        save->hdexcr = target_ulong_array_val(&env->spr.rec, SPR_HDEXCR);
+        save->hashkeyr = target_ulong_array_val(&env->spr.rec, SPR_HASHKEYR);
+        save->hashpkeyr = target_ulong_array_val(&env->spr.rec, SPR_HASHPKEYR);
         memcpy(save->vsr, env->vsr, sizeof(save->vsr));
-        save->ebbhr = env->spr[SPR_EBBHR];
-        save->tar = env->spr[SPR_TAR];
-        save->ebbrr = env->spr[SPR_EBBRR];
-        save->bescr = env->spr[SPR_BESCR];
-        save->iamr = env->spr[SPR_IAMR];
-        save->amr = env->spr[SPR_AMR];
-        save->uamor = env->spr[SPR_UAMOR];
-        save->dscr = env->spr[SPR_DSCR];
-        save->fscr = env->spr[SPR_FSCR];
-        save->pspb = env->spr[SPR_PSPB];
-        save->ctrl = env->spr[SPR_CTRL];
-        save->vrsave = env->spr[SPR_VRSAVE];
-        save->dar = env->spr[SPR_DAR];
-        save->dsisr = env->spr[SPR_DSISR];
-        save->pmc1 = env->spr[SPR_POWER_PMC1];
-        save->pmc2 = env->spr[SPR_POWER_PMC2];
-        save->pmc3 = env->spr[SPR_POWER_PMC3];
-        save->pmc4 = env->spr[SPR_POWER_PMC4];
-        save->pmc5 = env->spr[SPR_POWER_PMC5];
-        save->pmc6 = env->spr[SPR_POWER_PMC6];
-        save->mmcr0 = env->spr[SPR_POWER_MMCR0];
-        save->mmcr1 = env->spr[SPR_POWER_MMCR1];
-        save->mmcr2 = env->spr[SPR_POWER_MMCR2];
-        save->mmcra = env->spr[SPR_POWER_MMCRA];
-        save->sdar = env->spr[SPR_POWER_SDAR];
-        save->siar = env->spr[SPR_POWER_SIAR];
-        save->sier = env->spr[SPR_POWER_SIER];
+        save->ebbhr = target_ulong_array_val(&env->spr.rec, SPR_EBBHR);
+        save->tar = target_ulong_array_val(&env->spr.rec, SPR_TAR);
+        save->ebbrr = target_ulong_array_val(&env->spr.rec, SPR_EBBRR);
+        save->bescr = target_ulong_array_val(&env->spr.rec, SPR_BESCR);
+        save->iamr = target_ulong_array_val(&env->spr.rec, SPR_IAMR);
+        save->amr = target_ulong_array_val(&env->spr.rec, SPR_AMR);
+        save->uamor = target_ulong_array_val(&env->spr.rec, SPR_UAMOR);
+        save->dscr = target_ulong_array_val(&env->spr.rec, SPR_DSCR);
+        save->fscr = target_ulong_array_val(&env->spr.rec, SPR_FSCR);
+        save->pspb = target_ulong_array_val(&env->spr.rec, SPR_PSPB);
+        save->ctrl = target_ulong_array_val(&env->spr.rec, SPR_CTRL);
+        save->vrsave = target_ulong_array_val(&env->spr.rec, SPR_VRSAVE);
+        save->dar = target_ulong_array_val(&env->spr.rec, SPR_DAR);
+        save->dsisr = target_ulong_array_val(&env->spr.rec, SPR_DSISR);
+        save->pmc1 = target_ulong_array_val(&env->spr.rec, SPR_POWER_PMC1);
+        save->pmc2 = target_ulong_array_val(&env->spr.rec, SPR_POWER_PMC2);
+        save->pmc3 = target_ulong_array_val(&env->spr.rec, SPR_POWER_PMC3);
+        save->pmc4 = target_ulong_array_val(&env->spr.rec, SPR_POWER_PMC4);
+        save->pmc5 = target_ulong_array_val(&env->spr.rec, SPR_POWER_PMC5);
+        save->pmc6 = target_ulong_array_val(&env->spr.rec, SPR_POWER_PMC6);
+        save->mmcr0 = target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR0);
+        save->mmcr1 = target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR1);
+        save->mmcr2 = target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR2);
+        save->mmcra = target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCRA);
+        save->sdar = target_ulong_array_val(&env->spr.rec, SPR_POWER_SDAR);
+        save->siar = target_ulong_array_val(&env->spr.rec, SPR_POWER_SIAR);
+        save->sier = target_ulong_array_val(&env->spr.rec, SPR_POWER_SIER);
         save->vscr = ppc_get_vscr(env);
-        save->fpscr = env->fpscr;
+        save->fpscr = target_ulong_val(&env->fpscr);
     } else if (spapr_nested_api(spapr) == NESTED_API_KVM_HV) {
         save->tb_offset = env->tb_env->tb_offset;
     }
@@ -229,7 +229,7 @@ static void nested_post_load_state(CPUPPCState *env, CPUState *cs)
      * flush on transition.
      */
     tlb_flush(cs);
-    env->reserve_addr = -1; /* Reset the reservation */
+    target_ulong_set(&env->reserve_addr, -1); /* Reset the reservation */
 }
 
 static void nested_load_state(PowerPCCPU *cpu, struct nested_ppc_state *load)
@@ -237,78 +237,78 @@ static void nested_load_state(PowerPCCPU *cpu, struct nested_ppc_state *load)
     CPUPPCState *env = &cpu->env;
     SpaprMachineState *spapr = SPAPR_MACHINE(qdev_get_machine());
 
-    memcpy(env->gpr, load->gpr, sizeof(env->gpr));
+    memcpy(&env->gpr, load->gpr, sizeof(load->gpr));
 
     env->lr = load->lr;
     env->ctr = load->ctr;
     env->cfar = load->cfar;
-    env->msr = load->msr;
-    env->nip = load->nip;
+    target_ulong_set(&env->msr, load->msr);
+    target_ulong_set(&env->nip, load->nip);
 
     ppc_set_cr(env, load->cr);
     cpu_write_xer(env, load->xer);
 
-    env->spr[SPR_LPCR] = load->lpcr;
-    env->spr[SPR_LPIDR] = load->lpidr;
-    env->spr[SPR_PCR] = load->pcr;
-    env->spr[SPR_DPDES] = load->dpdes;
-    env->spr[SPR_HFSCR] = load->hfscr;
-    env->spr[SPR_SRR0] = load->srr0;
-    env->spr[SPR_SRR1] = load->srr1;
-    env->spr[SPR_SPRG0] = load->sprg0;
-    env->spr[SPR_SPRG1] = load->sprg1;
-    env->spr[SPR_SPRG2] = load->sprg2;
-    env->spr[SPR_SPRG3] = load->sprg3;
-    env->spr[SPR_BOOKS_PID] = load->pidr;
-    env->spr[SPR_PPR] = load->ppr;
+    target_ulong_array_set(&env->spr.rec, SPR_LPCR, load->lpcr);
+    target_ulong_array_set(&env->spr.rec, SPR_LPIDR, load->lpidr);
+    target_ulong_array_set(&env->spr.rec, SPR_PCR, load->pcr);
+    target_ulong_array_set(&env->spr.rec, SPR_DPDES, load->dpdes);
+    target_ulong_array_set(&env->spr.rec, SPR_HFSCR, load->hfscr);
+    target_ulong_array_set(&env->spr.rec, SPR_SRR0, load->srr0);
+    target_ulong_array_set(&env->spr.rec, SPR_SRR1, load->srr1);
+    target_ulong_array_set(&env->spr.rec, SPR_SPRG0, load->sprg0);
+    target_ulong_array_set(&env->spr.rec, SPR_SPRG1, load->sprg1);
+    target_ulong_array_set(&env->spr.rec, SPR_SPRG2, load->sprg2);
+    target_ulong_array_set(&env->spr.rec, SPR_SPRG3, load->sprg3);
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKS_PID, load->pidr);
+    target_ulong_array_set(&env->spr.rec, SPR_PPR, load->ppr);
 
     if (spapr_nested_api(spapr) == NESTED_API_PAPR) {
-        env->spr[SPR_AMOR] = load->amor;
-        env->spr[SPR_DAWR0] = load->dawr0;
-        env->spr[SPR_DAWRX0] = load->dawrx0;
-        env->spr[SPR_CIABR] = load->ciabr;
-        env->spr[SPR_PURR] = load->purr;
-        env->spr[SPR_SPURR] = load->purr;
-        env->spr[SPR_IC] = load->ic;
-        env->spr[SPR_VTB] = load->vtb;
-        env->spr[SPR_HDAR] = load->hdar;
-        env->spr[SPR_HDSISR] = load->hdsisr;
-        env->spr[SPR_HEIR] = load->heir;
-        env->spr[SPR_ASDR] = load->asdr;
-        env->spr[SPR_DAWR1] = load->dawr1;
-        env->spr[SPR_DAWRX1] = load->dawrx1;
-        env->spr[SPR_DEXCR] = load->dexcr;
-        env->spr[SPR_HDEXCR] = load->hdexcr;
-        env->spr[SPR_HASHKEYR] = load->hashkeyr;
-        env->spr[SPR_HASHPKEYR] = load->hashpkeyr;
+        target_ulong_array_set(&env->spr.rec, SPR_AMOR, load->amor);
+        target_ulong_array_set(&env->spr.rec, SPR_DAWR0, load->dawr0);
+        target_ulong_array_set(&env->spr.rec, SPR_DAWRX0, load->dawrx0);
+        target_ulong_array_set(&env->spr.rec, SPR_CIABR, load->ciabr);
+        target_ulong_array_set(&env->spr.rec, SPR_PURR, load->purr);
+        target_ulong_array_set(&env->spr.rec, SPR_SPURR, load->purr);
+        target_ulong_array_set(&env->spr.rec, SPR_IC, load->ic);
+        target_ulong_array_set(&env->spr.rec, SPR_VTB, load->vtb);
+        target_ulong_array_set(&env->spr.rec, SPR_HDAR, load->hdar);
+        target_ulong_array_set(&env->spr.rec, SPR_HDSISR, load->hdsisr);
+        target_ulong_array_set(&env->spr.rec, SPR_HEIR, load->heir);
+        target_ulong_array_set(&env->spr.rec, SPR_ASDR, load->asdr);
+        target_ulong_array_set(&env->spr.rec, SPR_DAWR1, load->dawr1);
+        target_ulong_array_set(&env->spr.rec, SPR_DAWRX1, load->dawrx1);
+        target_ulong_array_set(&env->spr.rec, SPR_DEXCR, load->dexcr);
+        target_ulong_array_set(&env->spr.rec, SPR_HDEXCR, load->hdexcr);
+        target_ulong_array_set(&env->spr.rec, SPR_HASHKEYR, load->hashkeyr);
+        target_ulong_array_set(&env->spr.rec, SPR_HASHPKEYR, load->hashpkeyr);
         memcpy(env->vsr, load->vsr, sizeof(env->vsr));
-        env->spr[SPR_EBBHR] = load->ebbhr;
-        env->spr[SPR_TAR] = load->tar;
-        env->spr[SPR_EBBRR] = load->ebbrr;
-        env->spr[SPR_BESCR] = load->bescr;
-        env->spr[SPR_IAMR] = load->iamr;
-        env->spr[SPR_AMR] = load->amr;
-        env->spr[SPR_UAMOR] = load->uamor;
-        env->spr[SPR_DSCR] = load->dscr;
-        env->spr[SPR_FSCR] = load->fscr;
-        env->spr[SPR_PSPB] = load->pspb;
-        env->spr[SPR_CTRL] = load->ctrl;
-        env->spr[SPR_VRSAVE] = load->vrsave;
-        env->spr[SPR_DAR] = load->dar;
-        env->spr[SPR_DSISR] = load->dsisr;
-        env->spr[SPR_POWER_PMC1] = load->pmc1;
-        env->spr[SPR_POWER_PMC2] = load->pmc2;
-        env->spr[SPR_POWER_PMC3] = load->pmc3;
-        env->spr[SPR_POWER_PMC4] = load->pmc4;
-        env->spr[SPR_POWER_PMC5] = load->pmc5;
-        env->spr[SPR_POWER_PMC6] = load->pmc6;
-        env->spr[SPR_POWER_MMCR0] = load->mmcr0;
-        env->spr[SPR_POWER_MMCR1] = load->mmcr1;
-        env->spr[SPR_POWER_MMCR2] = load->mmcr2;
-        env->spr[SPR_POWER_MMCRA] = load->mmcra;
-        env->spr[SPR_POWER_SDAR] = load->sdar;
-        env->spr[SPR_POWER_SIAR] = load->siar;
-        env->spr[SPR_POWER_SIER] = load->sier;
+        target_ulong_array_set(&env->spr.rec, SPR_EBBHR, load->ebbhr);
+        target_ulong_array_set(&env->spr.rec, SPR_TAR, load->tar);
+        target_ulong_array_set(&env->spr.rec, SPR_EBBRR, load->ebbrr);
+        target_ulong_array_set(&env->spr.rec, SPR_BESCR, load->bescr);
+        target_ulong_array_set(&env->spr.rec, SPR_IAMR, load->iamr);
+        target_ulong_array_set(&env->spr.rec, SPR_AMR, load->amr);
+        target_ulong_array_set(&env->spr.rec, SPR_UAMOR, load->uamor);
+        target_ulong_array_set(&env->spr.rec, SPR_DSCR, load->dscr);
+        target_ulong_array_set(&env->spr.rec, SPR_FSCR, load->fscr);
+        target_ulong_array_set(&env->spr.rec, SPR_PSPB, load->pspb);
+        target_ulong_array_set(&env->spr.rec, SPR_CTRL, load->ctrl);
+        target_ulong_array_set(&env->spr.rec, SPR_VRSAVE, load->vrsave);
+        target_ulong_array_set(&env->spr.rec, SPR_DAR, load->dar);
+        target_ulong_array_set(&env->spr.rec, SPR_DSISR, load->dsisr);
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_PMC1, load->pmc1);
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_PMC2, load->pmc2);
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_PMC3, load->pmc3);
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_PMC4, load->pmc4);
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_PMC5, load->pmc5);
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_PMC6, load->pmc6);
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_MMCR0, load->mmcr0);
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_MMCR1, load->mmcr1);
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_MMCR2, load->mmcr2);
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_MMCRA, load->mmcra);
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_SDAR, load->sdar);
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_SIAR, load->siar);
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_SIER, load->sier);
         ppc_store_vscr(env, load->vscr);
         ppc_store_fpscr(env, load->fpscr);
     } else if (spapr_nested_api(spapr) == NESTED_API_KVM_HV) {
@@ -373,8 +373,8 @@ static target_ulong h_enter_nested(PowerPCCPU *cpu,
         return H_NO_MEM;
     }
 
-    assert(env->spr[SPR_LPIDR] == 0);
-    assert(env->spr[SPR_DPDES] == 0);
+    assert(target_ulong_array_val(&env->spr.rec, SPR_LPIDR) == 0);
+    assert(target_ulong_array_val(&env->spr.rec, SPR_DPDES) == 0);
     nested_save_state(spapr_cpu->nested_host_state, cpu);
 
     len = sizeof(*regs);
@@ -403,7 +403,7 @@ static target_ulong h_enter_nested(PowerPCCPU *cpu,
     l2_state.lpidr = hv_state.lpid;
 
     lpcr_mask = LPCR_DPFD | LPCR_ILE | LPCR_AIL | LPCR_LD | LPCR_MER;
-    lpcr = (env->spr[SPR_LPCR] & ~lpcr_mask) | (hv_state.lpcr & lpcr_mask);
+    lpcr = (target_ulong_array_val(&env->spr.rec, SPR_LPCR) & ~lpcr_mask) | (hv_state.lpcr & lpcr_mask);
     lpcr |= LPCR_HR | LPCR_UPRT | LPCR_GTSE | LPCR_HVICE | LPCR_HDICE;
     lpcr &= ~LPCR_LPES0;
     l2_state.lpcr = lpcr & pcc->lpcr_mask;
@@ -448,12 +448,12 @@ static target_ulong h_enter_nested(PowerPCCPU *cpu,
     spapr_cpu->in_nested = true;
 
     /*
-     * The spapr hcall helper sets env->gpr[3] to the return value, but at
+     * The spapr hcall helper sets target_ulong_array_val(&env->gpr.rec, 3) to the return value, but at
      * this point the L1 is not returning from the hcall but rather we
-     * start running the L2, so r3 must not be clobbered, so return env->gpr[3]
+     * start running the L2, so r3 must not be clobbered, so return target_ulong_array_val(&env->gpr.rec, 3)
      * to leave it unchanged.
      */
-    return env->gpr[3];
+    return target_ulong_array_val(&env->gpr.rec, 3);
 }
 
 static void spapr_exit_nested_hv(PowerPCCPU *cpu, int excp)
@@ -470,19 +470,19 @@ static void spapr_exit_nested_hv(PowerPCCPU *cpu, int excp)
     hwaddr len;
 
     nested_save_state(&l2_state, cpu);
-    hsrr0 = env->spr[SPR_HSRR0];
-    hsrr1 = env->spr[SPR_HSRR1];
-    hdar = env->spr[SPR_HDAR];
-    hdsisr = env->spr[SPR_HDSISR];
-    asdr = env->spr[SPR_ASDR];
+    hsrr0 = target_ulong_array_val(&env->spr.rec, SPR_HSRR0);
+    hsrr1 = target_ulong_array_val(&env->spr.rec, SPR_HSRR1);
+    hdar = target_ulong_array_val(&env->spr.rec, SPR_HDAR);
+    hdsisr = target_ulong_array_val(&env->spr.rec, SPR_HDSISR);
+    asdr = target_ulong_array_val(&env->spr.rec, SPR_ASDR);
 
     /*
      * Switch back to the host environment (including for any error).
      */
-    assert(env->spr[SPR_LPIDR] != 0);
+    assert(target_ulong_array_val(&env->spr.rec, SPR_LPIDR) != 0);
     nested_load_state(cpu, spapr_cpu->nested_host_state);
     nested_post_load_state(env, cs);
-    env->gpr[3] = env->excp_vectors[excp]; /* hcall return value */
+    target_ulong_array_set(&env->gpr.rec, 3, env->excp_vectors[excp]); /* hcall return value */
 
     cpu_ppc_hdecr_exit(env);
 
@@ -496,7 +496,7 @@ static void spapr_exit_nested_hv(PowerPCCPU *cpu, int excp)
                                 MEMTXATTRS_UNSPECIFIED);
     if (len != sizeof(*hvstate)) {
         address_space_unmap(CPU(cpu)->as, hvstate, len, 0, true);
-        env->gpr[3] = H_PARAMETER;
+        target_ulong_array_set(&env->gpr.rec, 3, H_PARAMETER);
         return;
     }
 
@@ -532,7 +532,7 @@ static void spapr_exit_nested_hv(PowerPCCPU *cpu, int excp)
                                 MEMTXATTRS_UNSPECIFIED);
     if (!regs || len != sizeof(*regs)) {
         address_space_unmap(CPU(cpu)->as, regs, len, 0, true);
-        env->gpr[3] = H_P2;
+        target_ulong_array_set(&env->gpr.rec, 3, H_P2);
         return;
     }
 
@@ -1221,19 +1221,19 @@ static target_ulong h_guest_get_capabilities(PowerPCCPU *cpu,
     /* P11 capabilities */
     if (ppc_check_compat(cpu, CPU_POWERPC_LOGICAL_3_10_P11, 0,
         spapr->max_compat_pvr)) {
-        env->gpr[4] |= H_GUEST_CAPABILITIES_P11_MODE;
+        target_ulong_array_set(&env->gpr.rec, 4, target_ulong_array_val(&env->gpr.rec, 4) | (H_GUEST_CAPABILITIES_P11_MODE));
     }
 
     /* P10 capabilities */
     if (ppc_check_compat(cpu, CPU_POWERPC_LOGICAL_3_10, 0,
         spapr->max_compat_pvr)) {
-        env->gpr[4] |= H_GUEST_CAPABILITIES_P10_MODE;
+        target_ulong_array_set(&env->gpr.rec, 4, target_ulong_array_val(&env->gpr.rec, 4) | (H_GUEST_CAPABILITIES_P10_MODE));
     }
 
     /* P9 capabilities */
     if (ppc_check_compat(cpu, CPU_POWERPC_LOGICAL_3_00, 0,
         spapr->max_compat_pvr)) {
-        env->gpr[4] |= H_GUEST_CAPABILITIES_P9_MODE;
+        target_ulong_array_set(&env->gpr.rec, 4, target_ulong_array_val(&env->gpr.rec, 4) | (H_GUEST_CAPABILITIES_P9_MODE));
     }
 
     return H_SUCCESS;
@@ -1247,14 +1247,14 @@ static target_ulong h_guest_set_capabilities(PowerPCCPU *cpu,
     CPUPPCState *env = &cpu->env;
     target_ulong flags = args[0];
     target_ulong capabilities = args[1];
-    env->gpr[4] = 0;
+    target_ulong_array_set(&env->gpr.rec, 4, 0);
 
     if (flags) { /* don't handle any flags capabilities for now */
         return H_PARAMETER;
     }
 
     if (capabilities & H_GUEST_CAPABILITIES_COPY_MEM) {
-        env->gpr[4] = 1;
+        target_ulong_array_set(&env->gpr.rec, 4, 1);
         return H_P2; /* isn't supported */
     }
 
@@ -1263,18 +1263,18 @@ static target_ulong h_guest_set_capabilities(PowerPCCPU *cpu,
      * the first supported Power Processor Mode
      */
     if (!capabilities) {
-        env->gpr[4] = 1;
+        target_ulong_array_set(&env->gpr.rec, 4, 1);
 
         /* set R5 to the first supported Power Processor Mode */
         if (ppc_check_compat(cpu, CPU_POWERPC_LOGICAL_3_10_P11, 0,
                              spapr->max_compat_pvr)) {
-            env->gpr[5] = H_GUEST_CAP_P11_MODE_BMAP;
+            target_ulong_array_set(&env->gpr.rec, 5, H_GUEST_CAP_P11_MODE_BMAP);
         } else if (ppc_check_compat(cpu, CPU_POWERPC_LOGICAL_3_10, 0,
                              spapr->max_compat_pvr)) {
-            env->gpr[5] = H_GUEST_CAP_P10_MODE_BMAP;
+            target_ulong_array_set(&env->gpr.rec, 5, H_GUEST_CAP_P10_MODE_BMAP);
         } else if (ppc_check_compat(cpu, CPU_POWERPC_LOGICAL_3_00, 0,
                                     spapr->max_compat_pvr)) {
-            env->gpr[5] = H_GUEST_CAP_P9_MODE_BMAP;
+            target_ulong_array_set(&env->gpr.rec, 5, H_GUEST_CAP_P9_MODE_BMAP);
         }
 
         return H_P2;
@@ -1285,17 +1285,17 @@ static target_ulong h_guest_set_capabilities(PowerPCCPU *cpu,
      * invalid capability bit
      */
     if (capabilities & ~H_GUEST_CAP_VALID_MASK) {
-        env->gpr[4] = 1;
+        target_ulong_array_set(&env->gpr.rec, 4, 1);
 
         /* Set R5 to the index of the invalid capability */
-        env->gpr[5] = 63 - ctz64(capabilities);
+        target_ulong_array_set(&env->gpr.rec, 5, 63 - ctz64(capabilities));
 
         return H_P2;
     }
 
     if (!spapr->nested.capabilities_set) {
         spapr->nested.capabilities_set = true;
-        spapr->nested.pvr_base = env->spr[SPR_PVR];
+        spapr->nested.pvr_base = target_ulong_array_val(&env->spr.rec, SPR_PVR);
         return H_SUCCESS;
     } else {
         return H_STATE;
@@ -1366,7 +1366,7 @@ static target_ulong h_guest_create(PowerPCCPU *cpu,
 
     guest->pvr_logical = spapr->nested.pvr_base;
     g_hash_table_insert(spapr->nested.guests, GINT_TO_POINTER(guestid), guest);
-    env->gpr[4] = guestid;
+    target_ulong_array_set(&env->gpr.rec, 4, guestid);
 
     return H_SUCCESS;
 }
@@ -1624,11 +1624,11 @@ static void exit_nested_store_l2(PowerPCCPU *cpu, int excp,
     if (excp == POWERPC_EXCP_MCHECK ||
         excp == POWERPC_EXCP_RESET ||
         excp == POWERPC_EXCP_SYSCALL) {
-        vcpu->state.nip = env->spr[SPR_SRR0];
-        vcpu->state.msr = env->spr[SPR_SRR1] & env->msr_mask;
+        vcpu->state.nip = target_ulong_array_val(&env->spr.rec, SPR_SRR0);
+        vcpu->state.msr = target_ulong_array_val(&env->spr.rec, SPR_SRR1) & env->msr_mask;
     } else {
-        vcpu->state.nip = env->spr[SPR_HSRR0];
-        vcpu->state.msr = env->spr[SPR_HSRR1] & env->msr_mask;
+        vcpu->state.nip = target_ulong_array_val(&env->spr.rec, SPR_HSRR0);
+        vcpu->state.msr = target_ulong_array_val(&env->spr.rec, SPR_HSRR1) & env->msr_mask;
     }
 
     /* hdar, hdsisr, asdr should be retained unless certain exceptions */
@@ -1759,11 +1759,11 @@ void spapr_exit_nested_papr(SpaprMachineState *spapr, PowerPCCPU *cpu, int excp)
     /* do the output buffer for run_vcpu*/
     exit_process_output_buffer(spapr, cpu, guest, vcpuid, &r3_return);
 
-    assert(env->spr[SPR_LPIDR] != 0);
+    assert(target_ulong_array_val(&env->spr.rec, SPR_LPIDR) != 0);
     nested_load_state(cpu, spapr_cpu->nested_host_state);
     cpu_ppc_decrease_tb_by_offset(env, vcpu->tb_offset);
-    env->gpr[3] = H_SUCCESS;
-    env->gpr[4] = r3_return;
+    target_ulong_array_set(&env->gpr.rec, 3, H_SUCCESS);
+    target_ulong_array_set(&env->gpr.rec, 4, r3_return);
     nested_post_load_state(env, cs);
     cpu_ppc_hdecr_exit(env);
 
@@ -1799,11 +1799,11 @@ static void nested_papr_load_l2(PowerPCCPU *cpu,
     assert(vcpu);
     assert(sizeof(env->gpr) == sizeof(vcpu->state.gpr));
     nested_load_state(cpu, &vcpu->state);
-    lpcr = (env->spr[SPR_LPCR] & ~lpcr_mask) |
+    lpcr = (target_ulong_array_val(&env->spr.rec, SPR_LPCR) & ~lpcr_mask) |
            (vcpu->state.lpcr & lpcr_mask);
     lpcr |= LPCR_HR | LPCR_UPRT | LPCR_GTSE | LPCR_HVICE | LPCR_HDICE;
     lpcr &= ~LPCR_LPES0;
-    env->spr[SPR_LPCR] = lpcr & pcc->lpcr_mask;
+    target_ulong_array_set(&env->spr.rec, SPR_LPCR, lpcr & pcc->lpcr_mask);
 
     hdec = vcpu->hdecr_expiry_tb - now;
     cpu_ppc_store_decr(env, vcpu->state.dec_expiry_tb - now);
@@ -1823,14 +1823,14 @@ static void nested_papr_run_vcpu(PowerPCCPU *cpu,
     SpaprCpuState *spapr_cpu = spapr_cpu_state(cpu);
     target_ulong now = cpu_ppc_load_tbl(env);
 
-    assert(env->spr[SPR_LPIDR] == 0);
+    assert(target_ulong_array_val(&env->spr.rec, SPR_LPIDR) == 0);
     assert(spapr->nested.api); /* ensure API version is initialized */
     spapr_cpu->nested_host_state = g_try_new(struct nested_ppc_state, 1);
     assert(spapr_cpu->nested_host_state);
     nested_save_state(spapr_cpu->nested_host_state, cpu);
     spapr_cpu->nested_host_state->dec_expiry_tb = now - cpu_ppc_load_decr(env);
     nested_papr_load_l2(cpu, env, vcpu, now);
-    env->spr[SPR_LPIDR] = lpid; /* post load l2 */
+    target_ulong_array_set(&env->spr.rec, SPR_LPIDR, lpid); /* post load l2 */
 
     spapr_cpu->in_nested = true;
     nested_post_load_state(env, cs);
@@ -1876,9 +1876,9 @@ static target_ulong h_guest_run_vcpu(PowerPCCPU *cpu,
     if (rc == H_SUCCESS) {
         nested_papr_run_vcpu(cpu, lpid, vcpu);
     } else {
-        env->gpr[3] = rc;
+        target_ulong_array_set(&env->gpr.rec, 3, rc);
     }
-    return env->gpr[3];
+    return target_ulong_array_val(&env->gpr.rec, 3);
 }
 
 void spapr_register_nested_hv(void)

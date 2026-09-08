@@ -25,7 +25,7 @@
 
 static inline bool ppc_env_is_little_endian(const CPUPPCState *env)
 {
-    return FIELD_EX64(env->msr, MSR, LE);
+    return FIELD_EX64(target_ulong_val(&env->msr), MSR, LE);
 }
 
 /**
@@ -270,9 +270,9 @@ static inline int pte_is_valid(target_ulong pte0)
     return pte0 & 0x80000000 ? 1 : 0;
 }
 
-static inline void pte_invalidate(target_ulong *pte0)
+static inline void pte_invalidate(target_ulong_t *pte0)
 {
-    *pte0 &= ~0x80000000;
+    target_ulong_set(pte0, target_ulong_val(pte0) & ~0x80000000);
 }
 
 #define PTE_PTEM_MASK 0x7FFFFFBF

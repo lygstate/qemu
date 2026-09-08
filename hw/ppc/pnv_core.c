@@ -55,13 +55,13 @@ static void pnv_core_cpu_reset(PnvCore *pc, PowerPCCPU *cpu)
      * the skiboot firmware elects a primary thread to initialize the
      * system and it can be any.
      */
-    env->gpr[3] = PNV_FDT_ADDR;
-    env->nip = 0x10;
-    env->msr |= MSR_HVB; /* Hypervisor mode */
-    env->spr[SPR_HRMOR] = pc->hrmor;
+    target_ulong_array_set(&env->gpr.rec, 3, PNV_FDT_ADDR);
+    target_ulong_set(&env->nip, 0x10);
+    target_ulong_set(&env->msr, target_ulong_val(&env->msr) | MSR_HVB); /* Hypervisor mode */
+    target_ulong_array_set(&env->spr.rec, SPR_HRMOR, pc->hrmor);
     if (pc->big_core) {
         /* Clear "small core" bit on Power9/10 (this is set in default PVR) */
-        env->spr[SPR_PVR] &= ~PPC_BIT(51);
+        target_ulong_array_set(&env->spr.rec, SPR_PVR, target_ulong_array_val(&env->spr.rec, SPR_PVR) & (~PPC_BIT(51)));
     }
     hreg_compute_hflags(env);
     ppc_maybe_interrupt(env);

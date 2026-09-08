@@ -178,11 +178,11 @@ static void rtas_start_cpu(PowerPCCPU *callcpu, SpaprMachineState *spapr,
 
     cpu_synchronize_state(CPU(newcpu));
 
-    env->msr = (1ULL << MSR_SF) | (1ULL << MSR_ME);
+    target_ulong_set(&env->msr, (1ULL << MSR_SF) | (1ULL << MSR_ME));
     hreg_compute_hflags(env);
 
-    caller_lpcr = callcpu->env.spr[SPR_LPCR];
-    lpcr = env->spr[SPR_LPCR];
+    caller_lpcr = target_ulong_array_val(&callcpu->env.spr.rec, SPR_LPCR);
+    lpcr = target_ulong_array_val(&env->spr.rec, SPR_LPCR);
 
     /* Set ILE the same way */
     lpcr = (lpcr & ~LPCR_ILE) | (caller_lpcr & LPCR_ILE);
@@ -200,7 +200,7 @@ static void rtas_start_cpu(PowerPCCPU *callcpu, SpaprMachineState *spapr,
         } else {
             lpcr &= ~(LPCR_UPRT | LPCR_GTSE | LPCR_HR);
         }
-        env->spr[SPR_PSSCR] &= ~PSSCR_EC;
+        target_ulong_array_set(&env->spr.rec, SPR_PSSCR, target_ulong_array_val(&env->spr.rec, SPR_PSSCR) & (~PSSCR_EC));
     }
     ppc_store_lpcr(newcpu, lpcr);
 
@@ -232,11 +232,11 @@ static void rtas_stop_self(PowerPCCPU *cpu, SpaprMachineState *spapr,
      * guest.
      * For the same reason, set PSSCR_EC.
      */
-    env->spr[SPR_PSSCR] |= PSSCR_EC;
+    target_ulong_array_set(&env->spr.rec, SPR_PSSCR, target_ulong_array_val(&env->spr.rec, SPR_PSSCR) | (PSSCR_EC));
     env->quiesced = true; /* set "RTAS stopped" state. */
     ppc_maybe_interrupt(env);
     cs->halted = 1;
-    ppc_store_lpcr(cpu, env->spr[SPR_LPCR] & ~pcc->lpcr_pm);
+    ppc_store_lpcr(cpu, target_ulong_array_val(&env->spr.rec, SPR_LPCR) & ~pcc->lpcr_pm);
     kvmppc_set_reg_ppc_online(cpu, 0);
     cpu_exit(cs);
 }
@@ -261,7 +261,7 @@ static void rtas_ibm_suspend_me(PowerPCCPU *cpu, SpaprMachineState *spapr,
         }
 
         /* See h_join */
-        if (!cs->halted || (e->msr & (1ULL << MSR_EE))) {
+        if (!cs->halted || (target_ulong_val(&e->msr) & (1ULL << MSR_EE))) {
             rtas_st(rets, 0, H_MULTI_THREADS_ACTIVE);
             return;
         }

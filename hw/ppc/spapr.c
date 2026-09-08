@@ -718,7 +718,7 @@ static void spapr_dt_cpu(CPUState *cs, void *fdt, int offset,
     _FDT((fdt_setprop_cell(fdt, offset, "reg", index)));
     _FDT((fdt_setprop_string(fdt, offset, "device_type", "cpu")));
 
-    _FDT((fdt_setprop_cell(fdt, offset, "cpu-version", env->spr[SPR_PVR])));
+    _FDT((fdt_setprop_cell(fdt, offset, "cpu-version", target_ulong_array_val(&env->spr.rec, SPR_PVR))));
     _FDT((fdt_setprop_cell(fdt, offset, "d-cache-block-size",
                            env->dcache_line_size)));
     _FDT((fdt_setprop_cell(fdt, offset, "d-cache-line-size",
@@ -1399,11 +1399,11 @@ static void emulate_spapr_hypercall(PPCVirtualHypervisor *vhyp,
 
     g_assert(!vhyp_cpu_in_nested(cpu));
 
-    if (FIELD_EX64(env->msr, MSR, PR)) {
+    if (FIELD_EX64(target_ulong_val(&env->msr), MSR, PR)) {
         hcall_dprintf("Hypercall made with MSR[PR]=1\n");
-        env->gpr[3] = H_PRIVILEGE;
+        target_ulong_array_set(&env->gpr.rec, 3, H_PRIVILEGE);
     } else {
-        env->gpr[3] = spapr_hypercall(cpu, env->gpr[3], &env->gpr[4]);
+        target_ulong_array_set(&env->gpr.rec, 3, spapr_hypercall(cpu, target_ulong_array_val(&env->gpr.rec, 3), target_ulong_array_elem(&env->gpr.rec, 4)));
     }
 }
 
@@ -1420,7 +1420,7 @@ static void do_lpcr_sync(CPUState *cs, run_on_cpu_data arg)
     target_ulong lpcr;
 
     cpu_synchronize_state(cs);
-    lpcr = env->spr[SPR_LPCR];
+    lpcr = target_ulong_array_val(&env->spr.rec, SPR_LPCR);
     lpcr &= ~s->mask;
     lpcr |= s->value;
     ppc_store_lpcr(cpu, lpcr);
@@ -1447,7 +1447,7 @@ void spapr_init_all_lpcrs(target_ulong value, target_ulong mask)
         CPUPPCState *env = &cpu->env;
         target_ulong lpcr;
 
-        lpcr = env->spr[SPR_LPCR];
+        lpcr = target_ulong_array_val(&env->spr.rec, SPR_LPCR);
         lpcr &= ~(LPCR_HR | LPCR_UPRT);
         ppc_store_lpcr(cpu, lpcr);
     }
@@ -1871,7 +1871,7 @@ static void spapr_machine_reset(MachineState *machine, ResetType type)
     machine->fdt = fdt;
 
     /* Set up the entry state */
-    first_ppc_cpu->env.gpr[5] = 0;
+    target_ulong_array_set(&first_ppc_cpu->env.gpr.rec, 5, 0);
 
     spapr->fwnmi_system_reset_addr = -1;
     spapr->fwnmi_machine_check_addr = -1;
@@ -1966,7 +1966,7 @@ static int spapr_post_load(void *opaque, int version_id)
     if (kvm_enabled() && spapr->patb_entry) {
         PowerPCCPU *cpu = POWERPC_CPU(first_cpu);
         bool radix = !!(spapr->patb_entry & PATE1_GR);
-        bool gtse = !!(cpu->env.spr[SPR_LPCR] & LPCR_GTSE);
+        bool gtse = !!(target_ulong_array_val(&cpu->env.spr.rec, SPR_LPCR) & LPCR_GTSE);
 
         /*
          * Update LPCR:HR and UPRT as they may not be set properly in
@@ -3540,13 +3540,13 @@ void spapr_do_system_reset_on_cpu(CPUState *cs, run_on_cpu_data arg)
         }
 
         addr = rtas_addr + RTAS_ERROR_LOG_MAX + cs->cpu_index * sizeof(uint64_t)*2;
-        stq_be_phys(&address_space_memory, addr, env->gpr[3]);
+        stq_be_phys(&address_space_memory, addr, target_ulong_array_val(&env->gpr.rec, 3));
         stq_be_phys(&address_space_memory, addr + sizeof(uint64_t), 0);
-        env->gpr[3] = addr;
+        target_ulong_array_set(&env->gpr.rec, 3, addr);
     }
     ppc_cpu_do_system_reset(cs);
     if (spapr->fwnmi_system_reset_addr != -1) {
-        env->nip = spapr->fwnmi_system_reset_addr;
+        target_ulong_set(&env->nip, spapr->fwnmi_system_reset_addr);
     }
 }
 

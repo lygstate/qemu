@@ -24,10 +24,10 @@
 static bool pmc_has_overflow_enabled(CPUPPCState *env, int sprn)
 {
     if (sprn == SPR_POWER_PMC1) {
-        return env->spr[SPR_POWER_MMCR0] & MMCR0_PMC1CE;
+        return target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR0) & MMCR0_PMC1CE;
     }
 
-    return env->spr[SPR_POWER_MMCR0] & MMCR0_PMCjCE;
+    return target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR0) & MMCR0_PMCjCE;
 }
 
 /*
@@ -36,8 +36,8 @@ static bool pmc_has_overflow_enabled(CPUPPCState *env, int sprn)
  */
 static void pmu_update_summaries(CPUPPCState *env)
 {
-    target_ulong mmcr0 = env->spr[SPR_POWER_MMCR0];
-    target_ulong mmcr1 = env->spr[SPR_POWER_MMCR1];
+    target_ulong mmcr0 = target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR0);
+    target_ulong mmcr1 = target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR1);
     int ins_cnt = 0;
     int cyc_cnt = 0;
 
@@ -85,13 +85,13 @@ static void hreg_bhrb_filter_update(CPUPPCState *env)
 {
     target_long ifm;
 
-    if (!(env->spr[SPR_POWER_MMCR0] & MMCR0_PMAE)) {
+    if (!(target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR0) & MMCR0_PMAE)) {
         /* disable recording to BHRB */
         env->bhrb_filter = BHRB_TYPE_NORECORD;
         return;
     }
 
-    ifm = (env->spr[SPR_POWER_MMCRA] & MMCRA_IFM_MASK) >> MMCRA_IFM_SHIFT;
+    ifm = (target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCRA) & MMCRA_IFM_MASK) >> MMCRA_IFM_SHIFT;
     switch (ifm) {
     case 0:
         /* record all branches */
@@ -119,7 +119,7 @@ void pmu_mmcr01a_updated(CPUPPCState *env)
     pmu_update_summaries(env);
     hreg_update_pmu_hflags(env);
 
-    if (env->spr[SPR_POWER_MMCR0] & MMCR0_PMAO) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR0) & MMCR0_PMAO) {
         ppc_set_irq(cpu, PPC_INTERRUPT_PERFM, 1);
     } else {
         ppc_set_irq(cpu, PPC_INTERRUPT_PERFM, 0);
@@ -135,63 +135,63 @@ void pmu_mmcr01a_updated(CPUPPCState *env)
 
 static bool pmu_increment_insns(CPUPPCState *env, uint32_t num_insns)
 {
-    target_ulong mmcr0 = env->spr[SPR_POWER_MMCR0];
+    target_ulong mmcr0 = target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR0);
     unsigned ins_cnt = env->pmc_ins_cnt;
     bool overflow_triggered = false;
     target_ulong tmp;
 
     if (ins_cnt & (1 << 1)) {
-        tmp = env->spr[SPR_POWER_PMC1];
+        tmp = target_ulong_array_val(&env->spr.rec, SPR_POWER_PMC1);
         tmp += num_insns;
         if (tmp >= PMC_COUNTER_NEGATIVE_VAL && (mmcr0 & MMCR0_PMC1CE)) {
             tmp = PMC_COUNTER_NEGATIVE_VAL;
             overflow_triggered = true;
         }
-        env->spr[SPR_POWER_PMC1] = tmp;
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_PMC1, tmp);
     }
 
     if (ins_cnt & (1 << 2)) {
-        tmp = env->spr[SPR_POWER_PMC2];
+        tmp = target_ulong_array_val(&env->spr.rec, SPR_POWER_PMC2);
         tmp += num_insns;
         if (tmp >= PMC_COUNTER_NEGATIVE_VAL && (mmcr0 & MMCR0_PMCjCE)) {
             tmp = PMC_COUNTER_NEGATIVE_VAL;
             overflow_triggered = true;
         }
-        env->spr[SPR_POWER_PMC2] = tmp;
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_PMC2, tmp);
     }
 
     if (ins_cnt & (1 << 3)) {
-        tmp = env->spr[SPR_POWER_PMC3];
+        tmp = target_ulong_array_val(&env->spr.rec, SPR_POWER_PMC3);
         tmp += num_insns;
         if (tmp >= PMC_COUNTER_NEGATIVE_VAL && (mmcr0 & MMCR0_PMCjCE)) {
             tmp = PMC_COUNTER_NEGATIVE_VAL;
             overflow_triggered = true;
         }
-        env->spr[SPR_POWER_PMC3] = tmp;
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_PMC3, tmp);
     }
 
     if (ins_cnt & (1 << 4)) {
-        target_ulong mmcr1 = env->spr[SPR_POWER_MMCR1];
+        target_ulong mmcr1 = target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR1);
         int sel = extract64(mmcr1, MMCR1_PMC4EVT_EXTR, MMCR1_EVT_SIZE);
-        if (sel == 0x02 || (env->spr[SPR_CTRL] & CTRL_RUN)) {
-            tmp = env->spr[SPR_POWER_PMC4];
+        if (sel == 0x02 || (target_ulong_array_val(&env->spr.rec, SPR_CTRL) & CTRL_RUN)) {
+            tmp = target_ulong_array_val(&env->spr.rec, SPR_POWER_PMC4);
             tmp += num_insns;
             if (tmp >= PMC_COUNTER_NEGATIVE_VAL && (mmcr0 & MMCR0_PMCjCE)) {
                 tmp = PMC_COUNTER_NEGATIVE_VAL;
                 overflow_triggered = true;
             }
-            env->spr[SPR_POWER_PMC4] = tmp;
+            target_ulong_array_set(&env->spr.rec, SPR_POWER_PMC4, tmp);
         }
     }
 
     if (ins_cnt & (1 << 5)) {
-        tmp = env->spr[SPR_POWER_PMC5];
+        tmp = target_ulong_array_val(&env->spr.rec, SPR_POWER_PMC5);
         tmp += num_insns;
         if (tmp >= PMC_COUNTER_NEGATIVE_VAL && (mmcr0 & MMCR0_PMCjCE)) {
             tmp = PMC_COUNTER_NEGATIVE_VAL;
             overflow_triggered = true;
         }
-        env->spr[SPR_POWER_PMC5] = tmp;
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_PMC5, tmp);
     }
 
     return overflow_triggered;
@@ -209,7 +209,7 @@ static void pmu_update_cycles(CPUPPCState *env)
              * The pseries and powernv clock runs at 1Ghz, meaning
              * that 1 nanosec equals 1 cycle.
              */
-            env->spr[sprn] += time_delta;
+            target_ulong_array_set(&env->spr.rec, sprn, target_ulong_array_val(&env->spr.rec, sprn) + (time_delta));
         }
     }
 
@@ -246,10 +246,10 @@ static void pmc_update_overflow_timer(CPUPPCState *env, int sprn)
         return;
     }
 
-    if (env->spr[sprn] >= PMC_COUNTER_NEGATIVE_VAL) {
+    if (target_ulong_array_val(&env->spr.rec, sprn) >= PMC_COUNTER_NEGATIVE_VAL) {
         timeout = 0;
     } else {
-        timeout = PMC_COUNTER_NEGATIVE_VAL - env->spr[sprn];
+        timeout = PMC_COUNTER_NEGATIVE_VAL - target_ulong_array_val(&env->spr.rec, sprn);
     }
 
     /*
@@ -290,7 +290,7 @@ void helper_store_mmcr0(CPUPPCState *env, target_ulong value)
 {
     pmu_update_cycles(env);
 
-    env->spr[SPR_POWER_MMCR0] = value;
+    target_ulong_array_set(&env->spr.rec, SPR_POWER_MMCR0, value);
 
     pmu_mmcr01a_updated(env);
 
@@ -302,14 +302,14 @@ void helper_store_mmcr1(CPUPPCState *env, uint64_t value)
 {
     pmu_update_cycles(env);
 
-    env->spr[SPR_POWER_MMCR1] = value;
+    target_ulong_array_set(&env->spr.rec, SPR_POWER_MMCR1, value);
 
     pmu_mmcr01a_updated(env);
 }
 
 void helper_store_mmcrA(CPUPPCState *env, uint64_t value)
 {
-    env->spr[SPR_POWER_MMCRA] = value;
+    target_ulong_array_set(&env->spr.rec, SPR_POWER_MMCRA, value);
 
     pmu_mmcr01a_updated(env);
 }
@@ -318,14 +318,14 @@ target_ulong helper_read_pmc(CPUPPCState *env, uint32_t sprn)
 {
     pmu_update_cycles(env);
 
-    return env->spr[sprn];
+    return target_ulong_array_val(&env->spr.rec, sprn);
 }
 
 void helper_store_pmc(CPUPPCState *env, uint32_t sprn, uint64_t value)
 {
     pmu_update_cycles(env);
 
-    env->spr[sprn] = (uint32_t)value;
+    target_ulong_array_set(&env->spr.rec, sprn, (uint32_t)value);
 
     pmc_update_overflow_timer(env, sprn);
 }
@@ -336,8 +336,8 @@ static void perfm_alert(PowerPCCPU *cpu)
 
     pmu_update_cycles(env);
 
-    if (env->spr[SPR_POWER_MMCR0] & MMCR0_FCECE) {
-        env->spr[SPR_POWER_MMCR0] |= MMCR0_FC;
+    if (target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR0) & MMCR0_FCECE) {
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_MMCR0, target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR0) | (MMCR0_FC));
 
         /* Changing MMCR0_FC requires summaries and hflags update */
         pmu_mmcr01a_updated(env);
@@ -350,10 +350,10 @@ static void perfm_alert(PowerPCCPU *cpu)
         pmu_delete_timers(env);
     }
 
-    if (env->spr[SPR_POWER_MMCR0] & MMCR0_PMAE) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR0) & MMCR0_PMAE) {
         /* These MMCR0 bits do not require summaries or hflags update. */
-        env->spr[SPR_POWER_MMCR0] &= ~MMCR0_PMAE;
-        env->spr[SPR_POWER_MMCR0] |= MMCR0_PMAO;
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_MMCR0, target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR0) & (~MMCR0_PMAE));
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_MMCR0, target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR0) | (MMCR0_PMAO));
         ppc_set_irq(cpu, PPC_INTERRUPT_PERFM, 1);
     }
 
@@ -362,7 +362,7 @@ static void perfm_alert(PowerPCCPU *cpu)
 
 void helper_handle_pmc5_overflow(CPUPPCState *env)
 {
-    env->spr[SPR_POWER_PMC5] = PMC_COUNTER_NEGATIVE_VAL;
+    target_ulong_array_set(&env->spr.rec, SPR_POWER_PMC5, PMC_COUNTER_NEGATIVE_VAL);
     perfm_alert(env_archcpu(env));
 }
 

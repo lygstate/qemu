@@ -38,10 +38,10 @@ void booke_set_tlb(ppcemb_tlb_t *tlb, target_ulong va, hwaddr pa,
 {
     tlb->attr = 0;
     tlb->prot = PAGE_RWX << 4 | PAGE_VALID;
-    tlb->size = size;
-    tlb->EPN = va & TARGET_PAGE_MASK;
+    target_ulong_set(&tlb->size, size);
+    target_ulong_set(&tlb->EPN, va & TARGET_PAGE_MASK);
     tlb->RPN = pa & TARGET_PAGE_MASK;
-    tlb->PID = 0;
+    target_ulong_set(&tlb->PID, 0);
 }
 
 /* Timer Control Register */
@@ -90,27 +90,27 @@ static void booke_update_irq(PowerPCCPU *cpu)
     CPUPPCState *env = &cpu->env;
 
     ppc_set_irq(cpu, PPC_INTERRUPT_DECR,
-                (env->spr[SPR_BOOKE_TSR] & TSR_DIS
-                 && env->spr[SPR_BOOKE_TCR] & TCR_DIE));
+                (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TSR) & TSR_DIS
+                 && target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TCR) & TCR_DIE));
 
     ppc_set_irq(cpu, PPC_INTERRUPT_WDT,
-                (env->spr[SPR_BOOKE_TSR] & TSR_WIS
-                 && env->spr[SPR_BOOKE_TCR] & TCR_WIE));
+                (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TSR) & TSR_WIS
+                 && target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TCR) & TCR_WIE));
 
     ppc_set_irq(cpu, PPC_INTERRUPT_FIT,
-                (env->spr[SPR_BOOKE_TSR] & TSR_FIS
-                 && env->spr[SPR_BOOKE_TCR] & TCR_FIE));
+                (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TSR) & TSR_FIS
+                 && target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TCR) & TCR_FIE));
 }
 
 /* Return the location of the bit of time base at which the FIT will raise an
    interrupt */
 static uint8_t booke_get_fit_target(CPUPPCState *env, ppc_tb_t *tb_env)
 {
-    uint8_t fp = (env->spr[SPR_BOOKE_TCR] & TCR_FP_MASK) >> TCR_FP_SHIFT;
+    uint8_t fp = (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TCR) & TCR_FP_MASK) >> TCR_FP_SHIFT;
 
     if (tb_env->flags & PPC_TIMER_E500) {
         /* e500 Fixed-interval timer period extension */
-        uint32_t fpext = (env->spr[SPR_BOOKE_TCR] & TCR_E500_FPEXT_MASK)
+        uint32_t fpext = (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TCR) & TCR_E500_FPEXT_MASK)
             >> TCR_E500_FPEXT_SHIFT;
         fp = 63 - (fp | fpext << 2);
     } else {
@@ -124,11 +124,11 @@ static uint8_t booke_get_fit_target(CPUPPCState *env, ppc_tb_t *tb_env)
    interrupt */
 static uint8_t booke_get_wdt_target(CPUPPCState *env, ppc_tb_t *tb_env)
 {
-    uint8_t wp = (env->spr[SPR_BOOKE_TCR] & TCR_WP_MASK) >> TCR_WP_SHIFT;
+    uint8_t wp = (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TCR) & TCR_WP_MASK) >> TCR_WP_SHIFT;
 
     if (tb_env->flags & PPC_TIMER_E500) {
         /* e500 Watchdog timer period extension */
-        uint32_t wpext = (env->spr[SPR_BOOKE_TCR] & TCR_E500_WPEXT_MASK)
+        uint32_t wpext = (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TCR) & TCR_E500_WPEXT_MASK)
             >> TCR_E500_WPEXT_SHIFT;
         wp = 63 - (wp | wpext << 2);
     } else {
@@ -150,7 +150,7 @@ static void booke_update_fixed_timer(CPUPPCState         *env,
     uint64_t period;
     uint64_t now;
 
-    if (!(env->spr[SPR_BOOKE_TSR] & tsr_bit)) {
+    if (!(target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TSR) & tsr_bit)) {
         /*
          * Don't arm the timer again when the guest has the current
          * interrupt still pending. Wait for it to ack it.
@@ -204,15 +204,15 @@ static void booke_decr_cb(void *opaque)
     PowerPCCPU *cpu = opaque;
     CPUPPCState *env = &cpu->env;
 
-    env->spr[SPR_BOOKE_TSR] |= TSR_DIS;
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_TSR, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TSR) | (TSR_DIS));
     booke_update_irq(cpu);
 
-    if (env->spr[SPR_BOOKE_TCR] & TCR_ARE) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TCR) & TCR_ARE) {
         /* Do not reload 0, it is already there. It would just trigger
          * the timer again and lead to infinite loop */
-        if (env->spr[SPR_BOOKE_DECAR] != 0) {
+        if (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_DECAR) != 0) {
             /* Auto Reload */
-            cpu_ppc_store_decr(env, env->spr[SPR_BOOKE_DECAR]);
+            cpu_ppc_store_decr(env, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_DECAR));
         }
     }
 }
@@ -226,7 +226,7 @@ static void booke_fit_cb(void *opaque)
 
     tb_env = env->tb_env;
     booke_timer = tb_env->opaque;
-    env->spr[SPR_BOOKE_TSR] |= TSR_FIS;
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_TSR, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TSR) | (TSR_FIS));
 
     booke_update_irq(cpu);
 
@@ -264,7 +264,7 @@ void store_booke_tsr(CPUPPCState *env, target_ulong val)
     ppc_tb_t *tb_env = env->tb_env;
     booke_timer_t *booke_timer = tb_env->opaque;
 
-    env->spr[SPR_BOOKE_TSR] &= ~val;
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_TSR, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TSR) & (~val));
     kvmppc_clear_tsr_bits(cpu, val);
 
     if (val & TSR_FIS) {
@@ -292,7 +292,7 @@ void store_booke_tcr(CPUPPCState *env, target_ulong val)
     ppc_tb_t *tb_env = env->tb_env;
     booke_timer_t *booke_timer = tb_env->opaque;
 
-    env->spr[SPR_BOOKE_TCR] = val;
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_TCR, val);
     kvmppc_set_tcr(cpu);
 
     booke_update_irq(cpu);

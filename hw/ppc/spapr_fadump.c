@@ -351,67 +351,67 @@ static FadumpRegEntry *populate_cpu_reg_entries(CPUState *cpu,
         ++num_regs_per_cpu;                            \
     } while (0)
 
-    REG_ENTRY(ACOP, env->spr[SPR_ACOP]);
-    REG_ENTRY(AMR, env->spr[SPR_AMR]);
-    REG_ENTRY(BESCR, env->spr[SPR_BESCR]);
-    REG_ENTRY(CFAR, env->spr[SPR_CFAR]);
-    REG_ENTRY(CIABR, env->spr[SPR_CIABR]);
+    REG_ENTRY(ACOP, target_ulong_array_val(&env->spr.rec, SPR_ACOP));
+    REG_ENTRY(AMR, target_ulong_array_val(&env->spr.rec, SPR_AMR));
+    REG_ENTRY(BESCR, target_ulong_array_val(&env->spr.rec, SPR_BESCR));
+    REG_ENTRY(CFAR, target_ulong_array_val(&env->spr.rec, SPR_CFAR));
+    REG_ENTRY(CIABR, target_ulong_array_val(&env->spr.rec, SPR_CIABR));
 
     /* Save the condition register */
     REG_ENTRY(CR, ppc_get_cr(env));
 
-    REG_ENTRY(CTR, env->spr[SPR_CTR]);
-    REG_ENTRY(CTRL, env->spr[SPR_CTRL]);
-    REG_ENTRY(DABR, env->spr[SPR_DABR]);
-    REG_ENTRY(DABRX, env->spr[SPR_DABRX]);
-    REG_ENTRY(DAR, env->spr[SPR_DAR]);
-    REG_ENTRY(DAWR0, env->spr[SPR_DAWR0]);
-    REG_ENTRY(DAWR1, env->spr[SPR_DAWR1]);
-    REG_ENTRY(DAWRX0, env->spr[SPR_DAWRX0]);
-    REG_ENTRY(DAWRX1, env->spr[SPR_DAWRX1]);
-    REG_ENTRY(DPDES, env->spr[SPR_DPDES]);
-    REG_ENTRY(DSCR, env->spr[SPR_DSCR]);
-    REG_ENTRY(DSISR, env->spr[SPR_DSISR]);
-    REG_ENTRY(EBBHR, env->spr[SPR_EBBHR]);
-    REG_ENTRY(EBBRR, env->spr[SPR_EBBRR]);
+    REG_ENTRY(CTR, target_ulong_array_val(&env->spr.rec, SPR_CTR));
+    REG_ENTRY(CTRL, target_ulong_array_val(&env->spr.rec, SPR_CTRL));
+    REG_ENTRY(DABR, target_ulong_array_val(&env->spr.rec, SPR_DABR));
+    REG_ENTRY(DABRX, target_ulong_array_val(&env->spr.rec, SPR_DABRX));
+    REG_ENTRY(DAR, target_ulong_array_val(&env->spr.rec, SPR_DAR));
+    REG_ENTRY(DAWR0, target_ulong_array_val(&env->spr.rec, SPR_DAWR0));
+    REG_ENTRY(DAWR1, target_ulong_array_val(&env->spr.rec, SPR_DAWR1));
+    REG_ENTRY(DAWRX0, target_ulong_array_val(&env->spr.rec, SPR_DAWRX0));
+    REG_ENTRY(DAWRX1, target_ulong_array_val(&env->spr.rec, SPR_DAWRX1));
+    REG_ENTRY(DPDES, target_ulong_array_val(&env->spr.rec, SPR_DPDES));
+    REG_ENTRY(DSCR, target_ulong_array_val(&env->spr.rec, SPR_DSCR));
+    REG_ENTRY(DSISR, target_ulong_array_val(&env->spr.rec, SPR_DSISR));
+    REG_ENTRY(EBBHR, target_ulong_array_val(&env->spr.rec, SPR_EBBHR));
+    REG_ENTRY(EBBRR, target_ulong_array_val(&env->spr.rec, SPR_EBBRR));
 
-    REG_ENTRY(FPSCR, env->fpscr);
-    REG_ENTRY(FSCR, env->spr[SPR_FSCR]);
+    REG_ENTRY(FPSCR, target_ulong_val(&env->fpscr));
+    REG_ENTRY(FSCR, target_ulong_array_val(&env->spr.rec, SPR_FSCR));
 
     /* Save the GPRs */
     for (int gpr_id = 0; gpr_id < 32; ++gpr_id) {
         curr_reg_entry->reg_id =
             cpu_to_be64(fadump_gpr_id_to_u64(gpr_id));
         curr_reg_entry->reg_value =
-            cpu_to_be64(env->gpr[gpr_id]);
+            cpu_to_be64(target_ulong_array_val(&env->gpr.rec, gpr_id));
         ++curr_reg_entry;
         ++num_regs_per_cpu;
     }
 
-    REG_ENTRY(IAMR, env->spr[SPR_IAMR]);
-    REG_ENTRY(IC, env->spr[SPR_IC]);
-    REG_ENTRY(LR, env->spr[SPR_LR]);
+    REG_ENTRY(IAMR, target_ulong_array_val(&env->spr.rec, SPR_IAMR));
+    REG_ENTRY(IC, target_ulong_array_val(&env->spr.rec, SPR_IC));
+    REG_ENTRY(LR, target_ulong_array_val(&env->spr.rec, SPR_LR));
 
-    REG_ENTRY(MSR, env->msr);
-    REG_ENTRY(NIA, env->nip);   /* NIA */
-    REG_ENTRY(PIR, env->spr[SPR_PIR]);
-    REG_ENTRY(PSPB, env->spr[SPR_PSPB]);
-    REG_ENTRY(PVR, env->spr[SPR_PVR]);
-    REG_ENTRY(RPR, env->spr[SPR_RPR]);
-    REG_ENTRY(SPURR, env->spr[SPR_SPURR]);
-    REG_ENTRY(SRR0, env->spr[SPR_SRR0]);
-    REG_ENTRY(SRR1, env->spr[SPR_SRR1]);
-    REG_ENTRY(TAR, env->spr[SPR_TAR]);
-    REG_ENTRY(TEXASR, env->spr[SPR_TEXASR]);
-    REG_ENTRY(TFHAR, env->spr[SPR_TFHAR]);
-    REG_ENTRY(TFIAR, env->spr[SPR_TFIAR]);
-    REG_ENTRY(TIR, env->spr[SPR_TIR]);
-    REG_ENTRY(UAMOR, env->spr[SPR_UAMOR]);
-    REG_ENTRY(VRSAVE, env->spr[SPR_VRSAVE]);
+    REG_ENTRY(MSR, target_ulong_val(&env->msr));
+    REG_ENTRY(NIA, target_ulong_val(&env->nip));   /* NIA */
+    REG_ENTRY(PIR, target_ulong_array_val(&env->spr.rec, SPR_PIR));
+    REG_ENTRY(PSPB, target_ulong_array_val(&env->spr.rec, SPR_PSPB));
+    REG_ENTRY(PVR, target_ulong_array_val(&env->spr.rec, SPR_PVR));
+    REG_ENTRY(RPR, target_ulong_array_val(&env->spr.rec, SPR_RPR));
+    REG_ENTRY(SPURR, target_ulong_array_val(&env->spr.rec, SPR_SPURR));
+    REG_ENTRY(SRR0, target_ulong_array_val(&env->spr.rec, SPR_SRR0));
+    REG_ENTRY(SRR1, target_ulong_array_val(&env->spr.rec, SPR_SRR1));
+    REG_ENTRY(TAR, target_ulong_array_val(&env->spr.rec, SPR_TAR));
+    REG_ENTRY(TEXASR, target_ulong_array_val(&env->spr.rec, SPR_TEXASR));
+    REG_ENTRY(TFHAR, target_ulong_array_val(&env->spr.rec, SPR_TFHAR));
+    REG_ENTRY(TFIAR, target_ulong_array_val(&env->spr.rec, SPR_TFIAR));
+    REG_ENTRY(TIR, target_ulong_array_val(&env->spr.rec, SPR_TIR));
+    REG_ENTRY(UAMOR, target_ulong_array_val(&env->spr.rec, SPR_UAMOR));
+    REG_ENTRY(VRSAVE, target_ulong_array_val(&env->spr.rec, SPR_VRSAVE));
     REG_ENTRY(VSCR, env->vscr);
-    REG_ENTRY(VTB, env->spr[SPR_VTB]);
-    REG_ENTRY(WORT, env->spr[SPR_WORT]);
-    REG_ENTRY(XER, env->spr[SPR_XER]);
+    REG_ENTRY(VTB, target_ulong_array_val(&env->spr.rec, SPR_VTB));
+    REG_ENTRY(WORT, target_ulong_array_val(&env->spr.rec, SPR_WORT));
+    REG_ENTRY(XER, target_ulong_array_val(&env->spr.rec, SPR_XER));
 
     /*
      * Ignoring transaction checkpoint and few other registers

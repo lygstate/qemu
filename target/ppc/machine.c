@@ -13,13 +13,13 @@
 
 static void post_load_update_msr(CPUPPCState *env)
 {
-    target_ulong msr = env->msr;
+    target_ulong msr = target_ulong_val(&env->msr);
 
     /*
      * Invalidate all supported msr bits except MSR_TGPR/MSR_HVB
      * before restoring.  Note that this recomputes hflags.
      */
-    env->msr ^= env->msr_mask & ~((1ULL << MSR_TGPR) | MSR_HVB);
+    target_ulong_set(&env->msr, target_ulong_val(&env->msr) ^ (env->msr_mask & ~((1ULL << MSR_TGPR) | MSR_HVB)));
     ppc_store_msr(env, msr);
 }
 
@@ -124,36 +124,36 @@ static int cpu_pre_save(void *opaque)
     CPUPPCState *env = &cpu->env;
     int i;
 
-    env->spr[SPR_LR] = env->lr;
-    env->spr[SPR_CTR] = env->ctr;
-    env->spr[SPR_XER] = cpu_read_xer(env);
+    target_ulong_array_set(&env->spr.rec, SPR_LR, env->lr);
+    target_ulong_array_set(&env->spr.rec, SPR_CTR, env->ctr);
+    target_ulong_array_set(&env->spr.rec, SPR_XER, cpu_read_xer(env));
 #if defined(TARGET_PPC64)
-    env->spr[SPR_CFAR] = env->cfar;
+    target_ulong_array_set(&env->spr.rec, SPR_CFAR, env->cfar);
 #endif
-    env->spr[SPR_BOOKE_SPEFSCR] = env->spe_fscr;
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_SPEFSCR, env->spe_fscr);
 
     for (i = 0; (i < 4) && (i < env->nb_BATs); i++) {
-        env->spr[SPR_DBAT0U + 2 * i] = env->DBAT[0][i];
-        env->spr[SPR_DBAT0U + 2 * i + 1] = env->DBAT[1][i];
-        env->spr[SPR_IBAT0U + 2 * i] = env->IBAT[0][i];
-        env->spr[SPR_IBAT0U + 2 * i + 1] = env->IBAT[1][i];
+        target_ulong_array_set(&env->spr.rec, SPR_DBAT0U + 2 * i, env->DBAT[0][i]);
+        target_ulong_array_set(&env->spr.rec, SPR_DBAT0U + 2 * i + 1, env->DBAT[1][i]);
+        target_ulong_array_set(&env->spr.rec, SPR_IBAT0U + 2 * i, env->IBAT[0][i]);
+        target_ulong_array_set(&env->spr.rec, SPR_IBAT0U + 2 * i + 1, env->IBAT[1][i]);
     }
     for (i = 0; (i < 4) && ((i + 4) < env->nb_BATs); i++) {
-        env->spr[SPR_DBAT4U + 2 * i] = env->DBAT[0][i + 4];
-        env->spr[SPR_DBAT4U + 2 * i + 1] = env->DBAT[1][i + 4];
-        env->spr[SPR_IBAT4U + 2 * i] = env->IBAT[0][i + 4];
-        env->spr[SPR_IBAT4U + 2 * i + 1] = env->IBAT[1][i + 4];
+        target_ulong_array_set(&env->spr.rec, SPR_DBAT4U + 2 * i, env->DBAT[0][i + 4]);
+        target_ulong_array_set(&env->spr.rec, SPR_DBAT4U + 2 * i + 1, env->DBAT[1][i + 4]);
+        target_ulong_array_set(&env->spr.rec, SPR_IBAT4U + 2 * i, env->IBAT[0][i + 4]);
+        target_ulong_array_set(&env->spr.rec, SPR_IBAT4U + 2 * i + 1, env->IBAT[1][i + 4]);
     }
 
     /* Used to retain migration compatibility for pre 6.0 for 601 machines. */
-    env->hflags_compat_nmsr = 0;
+    target_ulong_set(&env->hflags_compat_nmsr, 0);
 
     if (tcg_enabled()) {
         /*
          * TCG does not maintain the DECR spr (unlike KVM) so have to save
          * it here.
          */
-        env->spr[SPR_DECR] = cpu_ppc_load_decr(env);
+        target_ulong_array_set(&env->spr.rec, SPR_DECR, cpu_ppc_load_decr(env));
     }
 
     return 0;
@@ -209,7 +209,7 @@ static int cpu_post_load(void *opaque, int version_id)
     } else
 #endif
     {
-        if (!pvr_match(cpu, env->spr[SPR_PVR])) {
+        if (!pvr_match(cpu, target_ulong_array_val(&env->spr.rec, SPR_PVR))) {
             return -EINVAL;
         }
     }
@@ -230,32 +230,32 @@ static int cpu_post_load(void *opaque, int version_id)
      *
      */
     if (kvmppc_pvr_workaround_required(cpu)) {
-        env->spr[SPR_PVR] = env->spr_cb[SPR_PVR].default_value;
+        target_ulong_array_set(&env->spr.rec, SPR_PVR, env->spr_cb[SPR_PVR].default_value);
     }
 
-    env->lr = env->spr[SPR_LR];
-    env->ctr = env->spr[SPR_CTR];
-    cpu_write_xer(env, env->spr[SPR_XER]);
+    env->lr = target_ulong_array_val(&env->spr.rec, SPR_LR);
+    env->ctr = target_ulong_array_val(&env->spr.rec, SPR_CTR);
+    cpu_write_xer(env, target_ulong_array_val(&env->spr.rec, SPR_XER));
 #if defined(TARGET_PPC64)
-    env->cfar = env->spr[SPR_CFAR];
+    env->cfar = target_ulong_array_val(&env->spr.rec, SPR_CFAR);
 #endif
-    env->spe_fscr = env->spr[SPR_BOOKE_SPEFSCR];
+    env->spe_fscr = target_ulong_array_val(&env->spr.rec, SPR_BOOKE_SPEFSCR);
 
     for (i = 0; (i < 4) && (i < env->nb_BATs); i++) {
-        env->DBAT[0][i] = env->spr[SPR_DBAT0U + 2 * i];
-        env->DBAT[1][i] = env->spr[SPR_DBAT0U + 2 * i + 1];
-        env->IBAT[0][i] = env->spr[SPR_IBAT0U + 2 * i];
-        env->IBAT[1][i] = env->spr[SPR_IBAT0U + 2 * i + 1];
+        env->DBAT[0][i] = target_ulong_array_val(&env->spr.rec, SPR_DBAT0U + 2 * i);
+        env->DBAT[1][i] = target_ulong_array_val(&env->spr.rec, SPR_DBAT0U + 2 * i + 1);
+        env->IBAT[0][i] = target_ulong_array_val(&env->spr.rec, SPR_IBAT0U + 2 * i);
+        env->IBAT[1][i] = target_ulong_array_val(&env->spr.rec, SPR_IBAT0U + 2 * i + 1);
     }
     for (i = 0; (i < 4) && ((i + 4) < env->nb_BATs); i++) {
-        env->DBAT[0][i + 4] = env->spr[SPR_DBAT4U + 2 * i];
-        env->DBAT[1][i + 4] = env->spr[SPR_DBAT4U + 2 * i + 1];
-        env->IBAT[0][i + 4] = env->spr[SPR_IBAT4U + 2 * i];
-        env->IBAT[1][i + 4] = env->spr[SPR_IBAT4U + 2 * i + 1];
+        env->DBAT[0][i + 4] = target_ulong_array_val(&env->spr.rec, SPR_DBAT4U + 2 * i);
+        env->DBAT[1][i + 4] = target_ulong_array_val(&env->spr.rec, SPR_DBAT4U + 2 * i + 1);
+        env->IBAT[0][i + 4] = target_ulong_array_val(&env->spr.rec, SPR_IBAT4U + 2 * i);
+        env->IBAT[1][i + 4] = target_ulong_array_val(&env->spr.rec, SPR_IBAT4U + 2 * i + 1);
     }
 
     if (!cpu->vhyp) {
-        ppc_store_sdr1(env, env->spr[SPR_SDR1]);
+        ppc_store_sdr1(env, target_ulong_array_val(&env->spr.rec, SPR_SDR1));
     }
 
     if (!cpu->rtas_stopped_state) {
@@ -282,8 +282,8 @@ static int cpu_post_load(void *opaque, int version_id)
              * and rtas_stop and cleared at rtas_start, it's a good
              * heuristic.
              */
-            if ((env->spr[SPR_PSSCR] & PSSCR_EC) &&
-                (env->spr[SPR_LPCR] & pcc->lpcr_pm)) {
+            if ((target_ulong_array_val(&env->spr.rec, SPR_PSSCR) & PSSCR_EC) &&
+                (target_ulong_array_val(&env->spr.rec, SPR_LPCR) & pcc->lpcr_pm)) {
                 env->quiesced = true;
             } else {
                 env->quiesced = false;
@@ -311,7 +311,7 @@ static int cpu_post_load(void *opaque, int version_id)
          * interrupt. This works for level-triggered decrementer. Edge
          * triggered types (including HDEC) would need to carry more state.
          */
-        cpu_ppc_store_decr(env, env->spr[SPR_DECR]);
+        cpu_ppc_store_decr(env, target_ulong_array_val(&env->spr.rec, SPR_DECR));
         pmu_mmcr01a_updated(env);
     }
 
@@ -416,7 +416,7 @@ static bool tm_needed(void *opaque)
 {
     PowerPCCPU *cpu = opaque;
     CPUPPCState *env = &cpu->env;
-    return FIELD_EX64(env->msr, MSR, TS);
+    return FIELD_EX64(target_ulong_val(&env->msr), MSR, TS);
 }
 
 static const VMStateDescription vmstate_tm = {

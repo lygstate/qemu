@@ -1703,8 +1703,8 @@ void glue(glue(helper_VINS, SUFFIX), LX)(CPUPPCState *env, ppc_avr_t *t,       \
     if (idx < 0 || idx > maxidx) {                                             \
         idx =  idx < 0 ? sizeof(TYPE) - idx : idx;                             \
         qemu_log_mask(LOG_GUEST_ERROR,                                         \
-            "Invalid index for Vector Insert Element after 0x" TARGET_FMT_lx   \
-            ", RA = " TARGET_FMT_ld " > %d\n", env->nip, idx, maxidx);         \
+            "Invalid index for Vector Insert Element after 0x" "%016" PRIx64   \
+            ", RA = " TARGET_FMT_ld " > %d\n", target_ulong_val(&env->nip), idx, maxidx);         \
     } else {                                                                   \
         TYPE src = val;                                                        \
         memcpy(ELEM_ADDR(t, idx, sizeof(TYPE)), &src, sizeof(TYPE));           \
@@ -1728,8 +1728,8 @@ void helper_##NAME(CPUPPCState *env, ppc_avr_t *t, ppc_avr_t *a, ppc_avr_t *b, \
         memcpy(&t->u8[ARRAY_SIZE(t->u8) / 2 - SIZE], (void *)tmp + idx, SIZE); \
     } else {                                                                   \
         qemu_log_mask(LOG_GUEST_ERROR, "Invalid index for " #NAME " after 0x"  \
-                      TARGET_FMT_lx ", RC = " TARGET_FMT_ld " > %d\n",         \
-                      env->nip, idx < 0 ? SIZE - idx : idx, 32 - SIZE);        \
+                      "%016" PRIx64 ", RC = " TARGET_FMT_ld " > %d\n",         \
+                      target_ulong_val(&env->nip), idx < 0 ? SIZE - idx : idx, 32 - SIZE);        \
     }                                                                          \
 }
 #else
@@ -1745,8 +1745,8 @@ void helper_##NAME(CPUPPCState *env, ppc_avr_t *t, ppc_avr_t *a, ppc_avr_t *b, \
                (void *)tmp + sizeof(tmp) - SIZE - idx, SIZE);                  \
     } else {                                                                   \
         qemu_log_mask(LOG_GUEST_ERROR, "Invalid index for " #NAME " after 0x"  \
-                      TARGET_FMT_lx ", RC = " TARGET_FMT_ld " > %d\n",         \
-                      env->nip, idx < 0 ? SIZE - idx : idx, 32 - SIZE);        \
+                      "%016" PRIx64 ", RC = " TARGET_FMT_ld " > %d\n",         \
+                      target_ulong_val(&env->nip), idx < 0 ? SIZE - idx : idx, 32 - SIZE);        \
     }                                                                          \
 }
 #endif

@@ -131,12 +131,12 @@ abi_ulong get_elf_hwcap2(CPUState *cs)
 
 void elf_core_copy_regs(target_elf_gregset_t *r, const CPUPPCState *env)
 {
-    for (int i = 0; i < ARRAY_SIZE(env->gpr); i++) {
-        r->pt.gpr[i] = tswapal(env->gpr[i]);
+    for (int i = 0; i < ARRAY_SIZE(env->gpr.u64); i++) {
+        r->pt.gpr[i] = tswapal(target_ulong_array_val(&env->gpr.rec, i));
     }
 
-    r->pt.nip = tswapal(env->nip);
-    r->pt.msr = tswapal(env->msr);
+    r->pt.nip = tswapal(target_ulong_val(&env->nip));
+    r->pt.msr = tswapal(target_ulong_val(&env->msr));
     r->pt.ctr = tswapal(env->ctr);
     r->pt.link = tswapal(env->lr);
     r->pt.xer = tswapal(cpu_read_xer(env));

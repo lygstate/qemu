@@ -9,7 +9,7 @@
 #include "qom/object.h"
 #include "system/address-spaces.h"
 #include "system/memory.h"
-#include "exec/cpu-defs.h"
+#include "exec/target_long.h"
 
 typedef struct Vof {
     uint64_t top_addr; /* copied from rma_size */

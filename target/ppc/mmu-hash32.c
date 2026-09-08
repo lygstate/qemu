@@ -142,16 +142,16 @@ static bool ppc_hash32_direct_store(PowerPCCPU *cpu, target_ulong sr,
         /* Floating point load/store */
         cs->exception_index = POWERPC_EXCP_ALIGN;
         env->error_code = POWERPC_EXCP_ALIGN_FP;
-        env->spr[SPR_DAR] = eaddr;
+        target_ulong_array_set(&env->spr.rec, SPR_DAR, eaddr);
         return false;
     case ACCESS_RES:
         /* lwarx, ldarx or srwcx. */
         env->error_code = 0;
-        env->spr[SPR_DAR] = eaddr;
+        target_ulong_array_set(&env->spr.rec, SPR_DAR, eaddr);
         if (access_type == MMU_DATA_STORE) {
-            env->spr[SPR_DSISR] = 0x06000000;
+            target_ulong_array_set(&env->spr.rec, SPR_DSISR, 0x06000000);
         } else {
-            env->spr[SPR_DSISR] = 0x04000000;
+            target_ulong_array_set(&env->spr.rec, SPR_DSISR, 0x04000000);
         }
         return false;
     case ACCESS_CACHE:
@@ -167,11 +167,11 @@ static bool ppc_hash32_direct_store(PowerPCCPU *cpu, target_ulong sr,
         /* eciwx or ecowx */
         cs->exception_index = POWERPC_EXCP_DSI;
         env->error_code = 0;
-        env->spr[SPR_DAR] = eaddr;
+        target_ulong_array_set(&env->spr.rec, SPR_DAR, eaddr);
         if (access_type == MMU_DATA_STORE) {
-            env->spr[SPR_DSISR] = 0x06100000;
+            target_ulong_array_set(&env->spr.rec, SPR_DSISR, 0x06100000);
         } else {
-            env->spr[SPR_DSISR] = 0x04100000;
+            target_ulong_array_set(&env->spr.rec, SPR_DSISR, 0x04100000);
         }
         return false;
     default:
@@ -191,11 +191,11 @@ static bool ppc_hash32_direct_store(PowerPCCPU *cpu, target_ulong sr,
     if (guest_visible) {
         cs->exception_index = POWERPC_EXCP_DSI;
         env->error_code = 0;
-        env->spr[SPR_DAR] = eaddr;
+        target_ulong_array_set(&env->spr.rec, SPR_DAR, eaddr);
         if (access_type == MMU_DATA_STORE) {
-            env->spr[SPR_DSISR] = 0x0a000000;
+            target_ulong_array_set(&env->spr.rec, SPR_DSISR, 0x0a000000);
         } else {
-            env->spr[SPR_DSISR] = 0x08000000;
+            target_ulong_array_set(&env->spr.rec, SPR_DSISR, 0x08000000);
         }
     }
     return false;
@@ -340,11 +340,11 @@ bool ppc_hash32_xlate(PowerPCCPU *cpu, vaddr eaddr, MMUAccessType access_type,
                     } else {
                         cs->exception_index = POWERPC_EXCP_DSI;
                         env->error_code = 0;
-                        env->spr[SPR_DAR] = eaddr;
+                        target_ulong_array_set(&env->spr.rec, SPR_DAR, eaddr);
                         if (access_type == MMU_DATA_STORE) {
-                            env->spr[SPR_DSISR] = 0x0a000000;
+                            target_ulong_array_set(&env->spr.rec, SPR_DSISR, 0x0a000000);
                         } else {
-                            env->spr[SPR_DSISR] = 0x08000000;
+                            target_ulong_array_set(&env->spr.rec, SPR_DSISR, 0x08000000);
                         }
                     }
                 }
@@ -356,7 +356,7 @@ bool ppc_hash32_xlate(PowerPCCPU *cpu, vaddr eaddr, MMUAccessType access_type,
     }
 
     /* 3. Look up the Segment Register */
-    sr = env->sr[eaddr >> 28];
+    sr = target_ulong_array_val(&env->sr.rec, eaddr >> 28);
 
     /* 4. Handle direct store segments */
     if (sr & SR32_T) {
@@ -383,11 +383,11 @@ bool ppc_hash32_xlate(PowerPCCPU *cpu, vaddr eaddr, MMUAccessType access_type,
             } else {
                 cs->exception_index = POWERPC_EXCP_DSI;
                 env->error_code = 0;
-                env->spr[SPR_DAR] = eaddr;
+                target_ulong_array_set(&env->spr.rec, SPR_DAR, eaddr);
                 if (access_type == MMU_DATA_STORE) {
-                    env->spr[SPR_DSISR] = 0x42000000;
+                    target_ulong_array_set(&env->spr.rec, SPR_DSISR, 0x42000000);
                 } else {
-                    env->spr[SPR_DSISR] = 0x40000000;
+                    target_ulong_array_set(&env->spr.rec, SPR_DSISR, 0x40000000);
                 }
             }
         }
@@ -410,11 +410,11 @@ bool ppc_hash32_xlate(PowerPCCPU *cpu, vaddr eaddr, MMUAccessType access_type,
             } else {
                 cs->exception_index = POWERPC_EXCP_DSI;
                 env->error_code = 0;
-                env->spr[SPR_DAR] = eaddr;
+                target_ulong_array_set(&env->spr.rec, SPR_DAR, eaddr);
                 if (access_type == MMU_DATA_STORE) {
-                    env->spr[SPR_DSISR] = 0x0a000000;
+                    target_ulong_array_set(&env->spr.rec, SPR_DSISR, 0x0a000000);
                 } else {
-                    env->spr[SPR_DSISR] = 0x08000000;
+                    target_ulong_array_set(&env->spr.rec, SPR_DSISR, 0x08000000);
                 }
             }
         }

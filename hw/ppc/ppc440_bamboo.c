@@ -116,9 +116,9 @@ static void main_cpu_reset(void *opaque)
     CPUPPCState *env = &cpu->env;
 
     cpu_reset(CPU(cpu));
-    env->gpr[1] = (16 * MiB) - 8;
-    env->gpr[3] = FDT_ADDR;
-    env->nip = entry;
+    target_ulong_array_set(&env->gpr.rec, 1, (16 * MiB) - 8);
+    target_ulong_array_set(&env->gpr.rec, 3, FDT_ADDR);
+    target_ulong_set(&env->nip, entry);
 
     /* Create a mapping spanning the 32bit addr space. */
     booke_set_tlb(&env->tlb.tlbe[0], 0, 0, 1U << 31);
