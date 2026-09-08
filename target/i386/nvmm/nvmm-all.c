@@ -8,6 +8,7 @@
  */
 
 #include "qemu/osdep.h"
+#include "qemu/target-info.h"
 #include "cpu.h"
 #include "system/address-spaces.h"
 #include "system/ioport.h"
@@ -105,16 +106,16 @@ nvmm_set_registers(CPUState *cpu)
     state->gprs[NVMM_X64_GPR_RBP] = target_ulong_array_val(&env->regs.rec, R_EBP);
     state->gprs[NVMM_X64_GPR_RSI] = target_ulong_array_val(&env->regs.rec, R_ESI);
     state->gprs[NVMM_X64_GPR_RDI] = target_ulong_array_val(&env->regs.rec, R_EDI);
-#ifdef TARGET_X86_64
-    state->gprs[NVMM_X64_GPR_R8]  = target_ulong_array_val(&env->regs.rec, R_R8);
-    state->gprs[NVMM_X64_GPR_R9]  = target_ulong_array_val(&env->regs.rec, R_R9);
-    state->gprs[NVMM_X64_GPR_R10] = target_ulong_array_val(&env->regs.rec, R_R10);
-    state->gprs[NVMM_X64_GPR_R11] = target_ulong_array_val(&env->regs.rec, R_R11);
-    state->gprs[NVMM_X64_GPR_R12] = target_ulong_array_val(&env->regs.rec, R_R12);
-    state->gprs[NVMM_X64_GPR_R13] = target_ulong_array_val(&env->regs.rec, R_R13);
-    state->gprs[NVMM_X64_GPR_R14] = target_ulong_array_val(&env->regs.rec, R_R14);
-    state->gprs[NVMM_X64_GPR_R15] = target_ulong_array_val(&env->regs.rec, R_R15);
-#endif
+    if (target_x86_64()) {
+        state->gprs[NVMM_X64_GPR_R8]  = target_ulong_array_val(&env->regs.rec, R_R8);
+        state->gprs[NVMM_X64_GPR_R9]  = target_ulong_array_val(&env->regs.rec, R_R9);
+        state->gprs[NVMM_X64_GPR_R10] = target_ulong_array_val(&env->regs.rec, R_R10);
+        state->gprs[NVMM_X64_GPR_R11] = target_ulong_array_val(&env->regs.rec, R_R11);
+        state->gprs[NVMM_X64_GPR_R12] = target_ulong_array_val(&env->regs.rec, R_R12);
+        state->gprs[NVMM_X64_GPR_R13] = target_ulong_array_val(&env->regs.rec, R_R13);
+        state->gprs[NVMM_X64_GPR_R14] = target_ulong_array_val(&env->regs.rec, R_R14);
+        state->gprs[NVMM_X64_GPR_R15] = target_ulong_array_val(&env->regs.rec, R_R15);
+    }
 
     /* RIP and RFLAGS. */
     state->gprs[NVMM_X64_GPR_RIP] = target_ulong_val(&(env)->eip);
@@ -174,12 +175,12 @@ nvmm_set_registers(CPUState *cpu)
     /* MSRs. */
     state->msrs[NVMM_X64_MSR_EFER] = env->efer;
     state->msrs[NVMM_X64_MSR_STAR] = env->star;
-#ifdef TARGET_X86_64
-    state->msrs[NVMM_X64_MSR_LSTAR] = env->lstar;
-    state->msrs[NVMM_X64_MSR_CSTAR] = env->cstar;
-    state->msrs[NVMM_X64_MSR_SFMASK] = env->fmask;
-    state->msrs[NVMM_X64_MSR_KERNELGSBASE] = env->kernelgsbase;
-#endif
+    if (target_x86_64()) {
+        state->msrs[NVMM_X64_MSR_LSTAR] = env->lstar;
+        state->msrs[NVMM_X64_MSR_CSTAR] = env->cstar;
+        state->msrs[NVMM_X64_MSR_SFMASK] = env->fmask;
+        state->msrs[NVMM_X64_MSR_KERNELGSBASE] = env->kernelgsbase;
+    }
     state->msrs[NVMM_X64_MSR_SYSENTER_CS]  = env->sysenter_cs;
     state->msrs[NVMM_X64_MSR_SYSENTER_ESP] = target_ulong_val(&(env)->sysenter_esp);
     state->msrs[NVMM_X64_MSR_SYSENTER_EIP] = target_ulong_val(&(env)->sysenter_eip);
@@ -257,16 +258,16 @@ nvmm_get_registers(CPUState *cpu)
     target_ulong_array_set(&env->regs.rec, R_EBP, state->gprs[NVMM_X64_GPR_RBP]);
     target_ulong_array_set(&env->regs.rec, R_ESI, state->gprs[NVMM_X64_GPR_RSI]);
     target_ulong_array_set(&env->regs.rec, R_EDI, state->gprs[NVMM_X64_GPR_RDI]);
-#ifdef TARGET_X86_64
-    target_ulong_array_set(&env->regs.rec, R_R8, state->gprs[NVMM_X64_GPR_R8]);
-    target_ulong_array_set(&env->regs.rec, R_R9, state->gprs[NVMM_X64_GPR_R9]);
-    target_ulong_array_set(&env->regs.rec, R_R10, state->gprs[NVMM_X64_GPR_R10]);
-    target_ulong_array_set(&env->regs.rec, R_R11, state->gprs[NVMM_X64_GPR_R11]);
-    target_ulong_array_set(&env->regs.rec, R_R12, state->gprs[NVMM_X64_GPR_R12]);
-    target_ulong_array_set(&env->regs.rec, R_R13, state->gprs[NVMM_X64_GPR_R13]);
-    target_ulong_array_set(&env->regs.rec, R_R14, state->gprs[NVMM_X64_GPR_R14]);
-    target_ulong_array_set(&env->regs.rec, R_R15, state->gprs[NVMM_X64_GPR_R15]);
-#endif
+    if (target_x86_64()) {
+        target_ulong_array_set(&env->regs.rec, R_R8, state->gprs[NVMM_X64_GPR_R8]);
+        target_ulong_array_set(&env->regs.rec, R_R9, state->gprs[NVMM_X64_GPR_R9]);
+        target_ulong_array_set(&env->regs.rec, R_R10, state->gprs[NVMM_X64_GPR_R10]);
+        target_ulong_array_set(&env->regs.rec, R_R11, state->gprs[NVMM_X64_GPR_R11]);
+        target_ulong_array_set(&env->regs.rec, R_R12, state->gprs[NVMM_X64_GPR_R12]);
+        target_ulong_array_set(&env->regs.rec, R_R13, state->gprs[NVMM_X64_GPR_R13]);
+        target_ulong_array_set(&env->regs.rec, R_R14, state->gprs[NVMM_X64_GPR_R14]);
+        target_ulong_array_set(&env->regs.rec, R_R15, state->gprs[NVMM_X64_GPR_R15]);
+    }
 
     /* RIP and RFLAGS. */
     target_ulong_set(&(env)->eip,  state->gprs[NVMM_X64_GPR_RIP]);
@@ -329,12 +330,12 @@ nvmm_get_registers(CPUState *cpu)
     /* MSRs. */
     env->efer = state->msrs[NVMM_X64_MSR_EFER];
     env->star = state->msrs[NVMM_X64_MSR_STAR];
-#ifdef TARGET_X86_64
-    env->lstar = state->msrs[NVMM_X64_MSR_LSTAR];
-    env->cstar = state->msrs[NVMM_X64_MSR_CSTAR];
-    env->fmask = state->msrs[NVMM_X64_MSR_SFMASK];
-    env->kernelgsbase = state->msrs[NVMM_X64_MSR_KERNELGSBASE];
-#endif
+    if (target_x86_64()) {
+        env->lstar = state->msrs[NVMM_X64_MSR_LSTAR];
+        env->cstar = state->msrs[NVMM_X64_MSR_CSTAR];
+        env->fmask = state->msrs[NVMM_X64_MSR_SFMASK];
+        env->kernelgsbase = state->msrs[NVMM_X64_MSR_KERNELGSBASE];
+    }
     env->sysenter_cs  = state->msrs[NVMM_X64_MSR_SYSENTER_CS];
     target_ulong_set(&(env)->sysenter_esp,  state->msrs[NVMM_X64_MSR_SYSENTER_ESP]);
     target_ulong_set(&(env)->sysenter_eip,  state->msrs[NVMM_X64_MSR_SYSENTER_EIP]);

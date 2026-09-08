@@ -112,19 +112,19 @@ static const WHV_REGISTER_NAME whpx_register_names[] = {
 
     /* X64 MSRs */
     WHvX64RegisterEfer,
-#ifdef TARGET_X86_64
+    /* TARGET_X86_64 begin */
     WHvX64RegisterKernelGsBase,
-#endif
+    /* TARGET_X86_64 end */
     WHvX64RegisterPat,
     WHvX64RegisterSysenterCs,
     WHvX64RegisterSysenterEip,
     WHvX64RegisterSysenterEsp,
     WHvX64RegisterStar,
-#ifdef TARGET_X86_64
+    /* TARGET_X86_64 begin */
     WHvX64RegisterLstar,
     WHvX64RegisterCstar,
     WHvX64RegisterSfmask,
-#endif
+    /* TARGET_X86_64 end */
 
     /* Interrupt / Event Registers */
     /*
@@ -465,7 +465,7 @@ static void whpx_set_legacy_fp_registers(CPUState *cpu, WHPXStateLevel level)
     /* 16 XMM registers */
     assert(whpx_register_names_legacy_fp[idx] == WHvX64RegisterXmm0);
     idx_next = idx + 16;
-    for (i = 0; i < sizeof(env->xmm_regs) / sizeof(ZMMReg); i += 1, idx += 1) {
+    for (i = 0; i < CPU_NB_REGS64; i += 1, idx += 1) {
         vcxt.values[idx].Reg128.Low64 = env->xmm_regs[i].ZMM_Q(0);
         vcxt.values[idx].Reg128.High64 = env->xmm_regs[i].ZMM_Q(1);
     }
@@ -620,10 +620,10 @@ void whpx_set_registers(CPUState *cpu, WHPXStateLevel level)
         /* MSRs */
         assert(whpx_register_names[idx] == WHvX64RegisterEfer);
         vcxt.values[idx++].Reg64 = env->efer;
-#ifdef TARGET_X86_64
+        /* TARGET_X86_64 begin */
         assert(whpx_register_names[idx] == WHvX64RegisterKernelGsBase);
         vcxt.values[idx++].Reg64 = env->kernelgsbase;
-#endif
+        /* TARGET_X86_64 end */
         assert(whpx_register_names[idx] == WHvX64RegisterPat);
         vcxt.values[idx++].Reg64 = env->pat;
         assert(whpx_register_names[idx] == WHvX64RegisterSysenterCs);
@@ -634,14 +634,14 @@ void whpx_set_registers(CPUState *cpu, WHPXStateLevel level)
         vcxt.values[idx++].Reg64 = target_ulong_val(&(env)->sysenter_esp);
         assert(whpx_register_names[idx] == WHvX64RegisterStar);
         vcxt.values[idx++].Reg64 = env->star;
-#ifdef TARGET_X86_64
+        /* TARGET_X86_64 begin */
         assert(whpx_register_names[idx] == WHvX64RegisterLstar);
         vcxt.values[idx++].Reg64 = env->lstar;
         assert(whpx_register_names[idx] == WHvX64RegisterCstar);
         vcxt.values[idx++].Reg64 = env->cstar;
         assert(whpx_register_names[idx] == WHvX64RegisterSfmask);
         vcxt.values[idx++].Reg64 = env->fmask;
-#endif
+        /* TARGET_X86_64 end */
 
         /* Interrupt / Event Registers - Skipped */
 
@@ -776,7 +776,7 @@ static void whpx_get_legacy_fp_registers(CPUState *cpu, WHPXStateLevel level)
     /* 16 XMM registers */
     assert(whpx_register_names_legacy_fp[idx] == WHvX64RegisterXmm0);
     idx_next = idx + 16;
-    for (i = 0; i < sizeof(env->xmm_regs) / sizeof(ZMMReg); i += 1, idx += 1) {
+    for (i = 0; i < CPU_NB_REGS64; i += 1, idx += 1) {
         env->xmm_regs[i].ZMM_Q(0) = vcxt.values[idx].Reg128.Low64;
         env->xmm_regs[i].ZMM_Q(1) = vcxt.values[idx].Reg128.High64;
     }
@@ -956,10 +956,10 @@ void whpx_get_registers(CPUState *cpu, WHPXStateLevel level)
     /* MSRs */
     assert(whpx_register_names[idx] == WHvX64RegisterEfer);
     env->efer = vcxt.values[idx++].Reg64;
-#ifdef TARGET_X86_64
+    /* TARGET_X86_64 begin */
     assert(whpx_register_names[idx] == WHvX64RegisterKernelGsBase);
     env->kernelgsbase = vcxt.values[idx++].Reg64;
-#endif
+    /* TARGET_X86_64 end */
     assert(whpx_register_names[idx] == WHvX64RegisterPat);
     env->pat = vcxt.values[idx++].Reg64;
     assert(whpx_register_names[idx] == WHvX64RegisterSysenterCs);
@@ -970,14 +970,14 @@ void whpx_get_registers(CPUState *cpu, WHPXStateLevel level)
     target_ulong_set(&(env)->sysenter_esp,  vcxt.values[idx++].Reg64);
     assert(whpx_register_names[idx] == WHvX64RegisterStar);
     env->star = vcxt.values[idx++].Reg64;
-#ifdef TARGET_X86_64
+    /* TARGET_X86_64 begin */
     assert(whpx_register_names[idx] == WHvX64RegisterLstar);
     env->lstar = vcxt.values[idx++].Reg64;
     assert(whpx_register_names[idx] == WHvX64RegisterCstar);
     env->cstar = vcxt.values[idx++].Reg64;
     assert(whpx_register_names[idx] == WHvX64RegisterSfmask);
     env->fmask = vcxt.values[idx++].Reg64;
-#endif
+    /* TARGET_X86_64 end */
 
     /* Interrupt / Event Registers - Skipped */
 
