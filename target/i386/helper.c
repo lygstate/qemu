@@ -175,12 +175,12 @@ void cpu_x86_update_cr0(CPUX86State *env, uint32_t new_cr0)
 
 /* XXX: in legacy PAE mode, generate a GPF if reserved bits are set in
    the PDPT */
-void cpu_x86_update_cr3(CPUX86State *env, target_ulong new_cr3)
+void cpu_x86_update_cr3(CPUX86State *env, uint64_t new_cr3)
 {
     target_ulong_array_set(&env->cr.rec, 3, new_cr3);
     if (target_ulong_array_val(&env->cr.rec, 0) & CR0_PG_MASK) {
         qemu_log_mask(CPU_LOG_MMU,
-                        "CR3 update: CR3=" TARGET_FMT_lx "\n", new_cr3);
+                        "CR3 update: CR3=%016" PRIx64 "\n", new_cr3);
         tlb_flush(env_cpu(env));
     }
 }
@@ -548,7 +548,7 @@ bool cpu_x86_inject_mce(X86CPU *cpu, int bank,
     return true;
 }
 
-static inline target_ulong get_memio_eip(CPUX86State *env)
+static inline uint64_t get_memio_eip(CPUX86State *env)
 {
 #ifdef CONFIG_TCG
     uint64_t data[INSN_START_WORDS];
@@ -579,7 +579,7 @@ void cpu_report_tpr_access(CPUX86State *env, TPRAccess access)
 
         cpu_interrupt(cs, CPU_INTERRUPT_TPR);
     } else if (tcg_enabled()) {
-        target_ulong eip = get_memio_eip(env);
+        uint64_t eip = get_memio_eip(env);
 
         apic_handle_tpr_access_report(cpu->apic_state, eip, access);
     }
@@ -587,12 +587,12 @@ void cpu_report_tpr_access(CPUX86State *env, TPRAccess access)
 #endif /* !CONFIG_USER_ONLY */
 
 int cpu_x86_get_descr_debug(CPUX86State *env, unsigned int selector,
-                            target_ulong *base, unsigned int *limit,
+                            uint64_t *base, unsigned int *limit,
                             unsigned int *flags)
 {
     CPUState *cs = env_cpu(env);
     SegmentCache *dt;
-    target_ulong ptr;
+    uint64_t ptr;
     uint32_t e1, e2;
     int index;
 

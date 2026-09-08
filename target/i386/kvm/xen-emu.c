@@ -10,6 +10,7 @@
  */
 
 #include "qemu/osdep.h"
+#include "qemu/target-info.h"
 #include "qemu/log.h"
 #include "qemu/main-loop.h"
 #include "qemu/error-report.h"
@@ -51,11 +52,10 @@ static void xen_vcpu_periodic_timer_event(void *opaque);
 static int vcpuop_stop_singleshot_timer(CPUState *cs);
 static int do_initialize_xen_caps(KVMState *s, uint32_t hypercall_msr);
 
-#ifdef TARGET_X86_64
-#define hypercall_compat32(longmode) (!(longmode))
-#else
-#define hypercall_compat32(longmode) (false)
-#endif
+static inline bool hypercall_compat32(bool longmode)
+{
+    return target_x86_64() && !longmode;
+}
 
 static int xen_handle_vmfd_change(NotifierWithReturn *n,
                                   void *data, Error** errp)
