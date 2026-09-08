@@ -474,12 +474,12 @@ void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
                      (uint32_t)target_ulong_array_val(&env->cr.rec, 3),
                      (uint32_t)target_ulong_array_val(&env->cr.rec, 4));
         for(i = 0; i < 4; i++) {
-            qemu_fprintf(f, "DR%d=" "%016" PRIx64 " ", i,
-                         target_ulong_array_val(&env->dr.rec, i));
+            qemu_fprintf(f, "DR%d=%08x ", i,
+                         (uint32_t)target_ulong_array_val(&env->dr.rec, i));
         }
-        qemu_fprintf(f, "\nDR6=" "%016" PRIx64 " DR7=" "%016" PRIx64 "\n",
-                     target_ulong_array_val(&env->dr.rec, 6),
-                     target_ulong_array_val(&env->dr.rec, 7));
+        qemu_fprintf(f, "\nDR6=%08x DR7=%08x\n",
+                     (uint32_t)target_ulong_array_val(&env->dr.rec, 6),
+                     (uint32_t)target_ulong_array_val(&env->dr.rec, 7));
     }
     if (flags & CPU_DUMP_CCOP) {
         const char *cc_op_name = NULL;
