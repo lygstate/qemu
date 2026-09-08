@@ -313,12 +313,12 @@ static void patch_and_save_context(WinDumpHeader *h, bool x64,
                 .SegGs = env->segs[5].selector,
                 .EFlags = cpu_compute_eflags(env),
 
-                .Dr0 = env->dr[0],
-                .Dr1 = env->dr[1],
-                .Dr2 = env->dr[2],
-                .Dr3 = env->dr[3],
-                .Dr6 = env->dr[6],
-                .Dr7 = env->dr[7],
+                .Dr0 = target_ulong_array_val(&env->dr.rec, 0),
+                .Dr1 = target_ulong_array_val(&env->dr.rec, 1),
+                .Dr2 = target_ulong_array_val(&env->dr.rec, 2),
+                .Dr3 = target_ulong_array_val(&env->dr.rec, 3),
+                .Dr6 = target_ulong_array_val(&env->dr.rec, 6),
+                .Dr7 = target_ulong_array_val(&env->dr.rec, 7),
 
                 .Rax = target_ulong_array_val(&env->regs.rec, R_EAX),
                 .Rbx = target_ulong_array_val(&env->regs.rec, R_EBX),
@@ -354,12 +354,12 @@ static void patch_and_save_context(WinDumpHeader *h, bool x64,
                 .SegGs = env->segs[5].selector,
                 .EFlags = cpu_compute_eflags(env),
 
-                .Dr0 = env->dr[0],
-                .Dr1 = env->dr[1],
-                .Dr2 = env->dr[2],
-                .Dr3 = env->dr[3],
-                .Dr6 = env->dr[6],
-                .Dr7 = env->dr[7],
+                .Dr0 = target_ulong_array_val(&env->dr.rec, 0),
+                .Dr1 = target_ulong_array_val(&env->dr.rec, 1),
+                .Dr2 = target_ulong_array_val(&env->dr.rec, 2),
+                .Dr3 = target_ulong_array_val(&env->dr.rec, 3),
+                .Dr6 = target_ulong_array_val(&env->dr.rec, 6),
+                .Dr7 = target_ulong_array_val(&env->dr.rec, 7),
 
                 .Eax = target_ulong_array_val(&env->regs.rec, R_EAX),
                 .Ebx = target_ulong_array_val(&env->regs.rec, R_EBX),
@@ -447,7 +447,7 @@ void create_win_dump(DumpState *s, Error **errp)
 {
     WinDumpHeader *h = (void *)(s->guest_note + VMCOREINFO_ELF_NOTE_HDR_SIZE);
     X86CPU *first_x86_cpu = X86_CPU(first_cpu);
-    uint64_t saved_cr3 = first_x86_cpu->env.cr[3];
+    uint64_t saved_cr3 = target_ulong_array_val(&first_x86_cpu->env.cr.rec, 3);
     struct saved_context *saved_ctx = NULL;
     Error *local_err = NULL;
     bool x64 = true;
@@ -471,7 +471,8 @@ void create_win_dump(DumpState *s, Error **errp)
      * should be made from system context.
      */
 
-    first_x86_cpu->env.cr[3] = WIN_DUMP_FIELD(DirectoryTableBase);
+    target_ulong_array_set(&first_x86_cpu->env.cr.rec, 3,
+                          WIN_DUMP_FIELD(DirectoryTableBase));
 
     check_kdbg(h, x64, &local_err);
     if (local_err) {
@@ -513,5 +514,5 @@ out_restore:
 out_free:
     g_free(saved_ctx);
 out_cr3:
-    first_x86_cpu->env.cr[3] = saved_cr3;
+    target_ulong_array_set(&first_x86_cpu->env.cr.rec, 3, saved_cr3);
 }

@@ -102,13 +102,13 @@ cpu_x86_dump_seg_cache(CPUX86State *env, FILE *f,
 #ifdef TARGET_X86_64
     if (env->hflags & HF_CS64_MASK) {
         qemu_fprintf(f, "%-3s=%04x %016" PRIx64 " %08x %08x", name,
-                     sc->selector, sc->base, sc->limit,
+                     sc->selector, target_ulong_val(&sc->base), sc->limit,
                      sc->flags & 0x00ffff00);
     } else
 #endif
     {
         qemu_fprintf(f, "%-3s=%04x %08x %08x %08x", name, sc->selector,
-                     (uint32_t)sc->base, sc->limit,
+                     (uint32_t)target_ulong_val(&sc->base), sc->limit,
                      sc->flags & 0x00ffff00);
     }
 
@@ -449,35 +449,37 @@ void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
 #ifdef TARGET_X86_64
     if (env->hflags & HF_LMA_MASK) {
         qemu_fprintf(f, "GDT=     %016" PRIx64 " %08x\n",
-                     env->gdt.base, env->gdt.limit);
+                     target_ulong_val(&(env->gdt).base), env->gdt.limit);
         qemu_fprintf(f, "IDT=     %016" PRIx64 " %08x\n",
-                     env->idt.base, env->idt.limit);
+                     target_ulong_val(&(env->idt).base), env->idt.limit);
         qemu_fprintf(f, "CR0=%08x CR2=%016" PRIx64 " CR3=%016" PRIx64 " CR4=%08x\n",
-                     (uint32_t)env->cr[0],
-                     env->cr[2],
-                     env->cr[3],
-                     (uint32_t)env->cr[4]);
+                     (uint32_t)target_ulong_array_val(&env->cr.rec, 0),
+                     target_ulong_array_val(&env->cr.rec, 2),
+                     target_ulong_array_val(&env->cr.rec, 3),
+                     (uint32_t)target_ulong_array_val(&env->cr.rec, 4));
         for(i = 0; i < 4; i++)
-            qemu_fprintf(f, "DR%d=%016" PRIx64 " ", i, env->dr[i]);
+            qemu_fprintf(f, "DR%d=%016" PRIx64 " ", i, target_ulong_array_val(&env->dr.rec, i));
         qemu_fprintf(f, "\nDR6=%016" PRIx64 " DR7=%016" PRIx64 "\n",
-                     env->dr[6], env->dr[7]);
+                     target_ulong_array_val(&env->dr.rec, 6), target_ulong_array_val(&env->dr.rec, 7));
     } else
 #endif
     {
         qemu_fprintf(f, "GDT=     %08x %08x\n",
-                     (uint32_t)env->gdt.base, env->gdt.limit);
+                     (uint32_t)target_ulong_val(&(env->gdt).base), env->gdt.limit);
         qemu_fprintf(f, "IDT=     %08x %08x\n",
-                     (uint32_t)env->idt.base, env->idt.limit);
+                     (uint32_t)target_ulong_val(&(env->idt).base), env->idt.limit);
         qemu_fprintf(f, "CR0=%08x CR2=%08x CR3=%08x CR4=%08x\n",
-                     (uint32_t)env->cr[0],
-                     (uint32_t)env->cr[2],
-                     (uint32_t)env->cr[3],
-                     (uint32_t)env->cr[4]);
+                     (uint32_t)target_ulong_array_val(&env->cr.rec, 0),
+                     (uint32_t)target_ulong_array_val(&env->cr.rec, 2),
+                     (uint32_t)target_ulong_array_val(&env->cr.rec, 3),
+                     (uint32_t)target_ulong_array_val(&env->cr.rec, 4));
         for(i = 0; i < 4; i++) {
-            qemu_fprintf(f, "DR%d=" TARGET_FMT_lx " ", i, env->dr[i]);
+            qemu_fprintf(f, "DR%d=" "%016" PRIx64 " ", i,
+                         target_ulong_array_val(&env->dr.rec, i));
         }
-        qemu_fprintf(f, "\nDR6=" TARGET_FMT_lx " DR7=" TARGET_FMT_lx "\n",
-                     env->dr[6], env->dr[7]);
+        qemu_fprintf(f, "\nDR6=" "%016" PRIx64 " DR7=" "%016" PRIx64 "\n",
+                     target_ulong_array_val(&env->dr.rec, 6),
+                     target_ulong_array_val(&env->dr.rec, 7));
     }
     if (flags & CPU_DUMP_CCOP) {
         const char *cc_op_name = NULL;
@@ -578,7 +580,7 @@ void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
         }
     }
     if (flags & CPU_DUMP_CODE) {
-        target_ulong base = env->segs[R_CS].base + target_ulong_val(&(env)->eip);
+        target_ulong base = target_ulong_val(&(env->segs[R_CS]).base) + target_ulong_val(&(env)->eip);
         target_ulong offs = MIN(target_ulong_val(&(env)->eip), DUMP_CODE_BYTES_BACKWARD);
         uint8_t code;
         char codestr[3];

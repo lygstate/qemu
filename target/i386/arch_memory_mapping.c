@@ -280,18 +280,18 @@ bool x86_cpu_get_memory_mapping(CPUState *cs, MemoryMappingList *list,
     }
 
     a20_mask = x86_get_a20_mask(env);
-    if (env->cr[4] & CR4_PAE_MASK) {
+    if (target_ulong_array_val(&env->cr.rec, 4) & CR4_PAE_MASK) {
 #ifdef TARGET_X86_64
         if (env->hflags & HF_LMA_MASK) {
-            if (env->cr[4] & CR4_LA57_MASK) {
+            if (target_ulong_array_val(&env->cr.rec, 4) & CR4_LA57_MASK) {
                 hwaddr pml5e_addr;
 
-                pml5e_addr = (env->cr[3] & PLM4_ADDR_MASK) & a20_mask;
+                pml5e_addr = (target_ulong_array_val(&env->cr.rec, 3) & PLM4_ADDR_MASK) & a20_mask;
                 walk_pml5e(list, cs->as, pml5e_addr, a20_mask);
             } else {
                 hwaddr pml4e_addr;
 
-                pml4e_addr = (env->cr[3] & PLM4_ADDR_MASK) & a20_mask;
+                pml4e_addr = (target_ulong_array_val(&env->cr.rec, 3) & PLM4_ADDR_MASK) & a20_mask;
                 walk_pml4e(list, cs->as, pml4e_addr, a20_mask,
                         0xffffULL << 48);
             }
@@ -300,15 +300,15 @@ bool x86_cpu_get_memory_mapping(CPUState *cs, MemoryMappingList *list,
         {
             hwaddr pdpe_addr;
 
-            pdpe_addr = (env->cr[3] & ~0x1f) & a20_mask;
+            pdpe_addr = (target_ulong_array_val(&env->cr.rec, 3) & ~0x1f) & a20_mask;
             walk_pdpe2(list, cs->as, pdpe_addr, a20_mask);
         }
     } else {
         hwaddr pde_addr;
         bool pse;
 
-        pde_addr = (env->cr[3] & ~0xfff) & a20_mask;
-        pse = !!(env->cr[4] & CR4_PSE_MASK);
+        pde_addr = (target_ulong_array_val(&env->cr.rec, 3) & ~0xfff) & a20_mask;
+        pse = !!(target_ulong_array_val(&env->cr.rec, 4) & CR4_PSE_MASK);
         walk_pde2(list, cs->as, pde_addr, a20_mask, pse);
     }
 

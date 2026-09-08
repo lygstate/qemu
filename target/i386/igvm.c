@@ -95,9 +95,9 @@ static void qigvm_x86_load_context(struct IgvmNativeVpContextX64 *context,
         context->data_base, context->data_limit,
         FLAGS_TO_SEGCACHE(context->data_attributes));
 
-    env->gdt.base = context->gdtr_base;
+    target_ulong_set(&(env->gdt).base,  context->gdtr_base);
     env->gdt.limit = context->gdtr_limit;
-    env->idt.base = context->idtr_base;
+    target_ulong_set(&(env->idt).base,  context->idtr_base);
     env->idt.limit = context->idtr_limit;
 
     target_ulong_array_set(&env->regs.rec, R_EAX, context->rax);

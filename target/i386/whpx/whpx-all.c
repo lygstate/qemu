@@ -304,7 +304,7 @@ static WHV_X64_SEGMENT_REGISTER whpx_seg_q2h(const SegmentCache *qs, int v86,
     WHV_X64_SEGMENT_REGISTER hs;
     unsigned flags = qs->flags;
 
-    hs.Base = qs->base;
+    hs.Base = target_ulong_val(&qs->base);
     hs.Limit = qs->limit;
     hs.Selector = qs->selector;
 
@@ -330,7 +330,7 @@ static SegmentCache whpx_seg_h2q(const WHV_X64_SEGMENT_REGISTER *hs)
 {
     SegmentCache qs;
 
-    qs.base = hs->Base;
+    target_ulong_set(&qs.base, hs->Base);
     qs.limit = hs->Limit;
     qs.selector = hs->Selector;
 
@@ -399,7 +399,7 @@ static int whpx_set_tsc(CPUState *cpu)
 static bool whpx_is_xsave_enabled(CPUState *cpu)
 {
     CPUX86State *env = &X86_CPU(cpu)->env;
-    return env->cr[4] & CR4_OSXSAVE_MASK;
+    return target_ulong_array_val(&env->cr.rec, 4) & CR4_OSXSAVE_MASK;
 }
 
 static size_t whpx_get_xsave_max_len(void)
@@ -539,7 +539,7 @@ void whpx_set_registers(CPUState *cpu, WHPXStateLevel level)
     memset(&vcxt, 0, sizeof(struct whpx_register_set));
 
     v86 = (target_ulong_val(&(env)->eflags) & VM_MASK);
-    r86 = !(env->cr[0] & CR0_PE_MASK);
+    r86 = !(target_ulong_array_val(&env->cr.rec, 0) & CR0_PE_MASK);
 
     vcpu->tpr = cpu_get_apic_tpr(x86_cpu->apic_state);
 
@@ -580,24 +580,24 @@ void whpx_set_registers(CPUState *cpu, WHPXStateLevel level)
         vcxt.values[idx++].Segment = whpx_seg_q2h(&env->tr, 0, 0);
 
         assert(idx == WHvX64RegisterIdtr);
-        vcxt.values[idx].Table.Base = env->idt.base;
+        vcxt.values[idx].Table.Base = target_ulong_val(&(env->idt).base);
         vcxt.values[idx].Table.Limit = env->idt.limit;
         idx += 1;
 
         assert(idx == WHvX64RegisterGdtr);
-        vcxt.values[idx].Table.Base = env->gdt.base;
+        vcxt.values[idx].Table.Base = target_ulong_val(&(env->gdt).base);
         vcxt.values[idx].Table.Limit = env->gdt.limit;
         idx += 1;
 
         /* CR0, 2, 3, 4, 8 */
         assert(whpx_register_names[idx] == WHvX64RegisterCr0);
-        vcxt.values[idx++].Reg64 = env->cr[0];
+        vcxt.values[idx++].Reg64 = target_ulong_array_val(&env->cr.rec, 0);
         assert(whpx_register_names[idx] == WHvX64RegisterCr2);
-        vcxt.values[idx++].Reg64 = env->cr[2];
+        vcxt.values[idx++].Reg64 = target_ulong_array_val(&env->cr.rec, 2);
         assert(whpx_register_names[idx] == WHvX64RegisterCr3);
-        vcxt.values[idx++].Reg64 = env->cr[3];
+        vcxt.values[idx++].Reg64 = target_ulong_array_val(&env->cr.rec, 3);
         assert(whpx_register_names[idx] == WHvX64RegisterCr4);
-        vcxt.values[idx++].Reg64 = env->cr[4];
+        vcxt.values[idx++].Reg64 = target_ulong_array_val(&env->cr.rec, 4);
         /* For kernel-irqchip=on, TPR is managed as part of APIC state */
         if (!whpx_irqchip_in_kernel()) {
             WHV_REGISTER_VALUE cr8 = {.Reg64 = vcpu->tpr};
@@ -629,9 +629,9 @@ void whpx_set_registers(CPUState *cpu, WHPXStateLevel level)
         assert(whpx_register_names[idx] == WHvX64RegisterSysenterCs);
         vcxt.values[idx++].Reg64 = env->sysenter_cs;
         assert(whpx_register_names[idx] == WHvX64RegisterSysenterEip);
-        vcxt.values[idx++].Reg64 = env->sysenter_eip;
+        vcxt.values[idx++].Reg64 = target_ulong_val(&(env)->sysenter_eip);
         assert(whpx_register_names[idx] == WHvX64RegisterSysenterEsp);
-        vcxt.values[idx++].Reg64 = env->sysenter_esp;
+        vcxt.values[idx++].Reg64 = target_ulong_val(&(env)->sysenter_esp);
         assert(whpx_register_names[idx] == WHvX64RegisterStar);
         vcxt.values[idx++].Reg64 = env->star;
 #ifdef TARGET_X86_64
@@ -913,23 +913,23 @@ void whpx_get_registers(CPUState *cpu, WHPXStateLevel level)
     assert(idx == WHvX64RegisterTr);
     env->tr = whpx_seg_h2q(&vcxt.values[idx++].Segment);
     assert(idx == WHvX64RegisterIdtr);
-    env->idt.base = vcxt.values[idx].Table.Base;
+    target_ulong_set(&(env->idt).base,  vcxt.values[idx].Table.Base);
     env->idt.limit = vcxt.values[idx].Table.Limit;
     idx += 1;
     assert(idx == WHvX64RegisterGdtr);
-    env->gdt.base = vcxt.values[idx].Table.Base;
+    target_ulong_set(&(env->gdt).base,  vcxt.values[idx].Table.Base);
     env->gdt.limit = vcxt.values[idx].Table.Limit;
     idx += 1;
 
     /* CR0, 2, 3, 4, 8 */
     assert(whpx_register_names[idx] == WHvX64RegisterCr0);
-    env->cr[0] = vcxt.values[idx++].Reg64;
+    target_ulong_array_set(&env->cr.rec, 0, vcxt.values[idx++].Reg64);
     assert(whpx_register_names[idx] == WHvX64RegisterCr2);
-    env->cr[2] = vcxt.values[idx++].Reg64;
+    target_ulong_array_set(&env->cr.rec, 2, vcxt.values[idx++].Reg64);
     assert(whpx_register_names[idx] == WHvX64RegisterCr3);
-    env->cr[3] = vcxt.values[idx++].Reg64;
+    target_ulong_array_set(&env->cr.rec, 3, vcxt.values[idx++].Reg64);
     assert(whpx_register_names[idx] == WHvX64RegisterCr4);
-    env->cr[4] = vcxt.values[idx++].Reg64;
+    target_ulong_array_set(&env->cr.rec, 4, vcxt.values[idx++].Reg64);
 
     /* For kernel-irqchip=on, TPR is managed as part of APIC state */
     if (!whpx_irqchip_in_kernel()) {
@@ -965,9 +965,9 @@ void whpx_get_registers(CPUState *cpu, WHPXStateLevel level)
     assert(whpx_register_names[idx] == WHvX64RegisterSysenterCs);
     env->sysenter_cs = vcxt.values[idx++].Reg64;
     assert(whpx_register_names[idx] == WHvX64RegisterSysenterEip);
-    env->sysenter_eip = vcxt.values[idx++].Reg64;
+    target_ulong_set(&(env)->sysenter_eip,  vcxt.values[idx++].Reg64);
     assert(whpx_register_names[idx] == WHvX64RegisterSysenterEsp);
-    env->sysenter_esp = vcxt.values[idx++].Reg64;
+    target_ulong_set(&(env)->sysenter_esp,  vcxt.values[idx++].Reg64);
     assert(whpx_register_names[idx] == WHvX64RegisterStar);
     env->star = vcxt.values[idx++].Reg64;
 #ifdef TARGET_X86_64

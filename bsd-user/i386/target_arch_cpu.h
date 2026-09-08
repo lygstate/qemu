@@ -18,33 +18,33 @@ static inline void target_cpu_init(CPUX86State *env,
 {
     uint64_t *gdt_table;
 
-    env->cr[0] = CR0_PG_MASK | CR0_WP_MASK | CR0_PE_MASK;
+    target_ulong_array_set(&env->cr.rec, 0, CR0_PG_MASK | CR0_WP_MASK | CR0_PE_MASK);
     env->hflags |= HF_PE_MASK | HF_CPL_MASK;
     if (env->features[FEAT_1_EDX] & CPUID_SSE) {
-        env->cr[4] |= CR4_OSFXSR_MASK;
+        target_ulong_array_set(&env->cr.rec, 4, target_ulong_array_val(&env->cr.rec, 4) | (CR4_OSFXSR_MASK));
         env->hflags |= HF_OSFXSR_MASK;
     }
 
     /* flags setup : we activate the IRQs by default as in user mode */
-    env->eflags |= IF_MASK;
+    target_ulong_set(&env->eflags, target_ulong_val(&env->eflags) | IF_MASK);
 
     /* register setup */
-    env->regs[R_EAX] = regs->eax;
-    env->regs[R_EBX] = regs->ebx;
-    env->regs[R_ECX] = regs->ecx;
-    env->regs[R_EDX] = regs->edx;
-    env->regs[R_ESI] = regs->esi;
-    env->regs[R_EDI] = regs->edi;
-    env->regs[R_EBP] = regs->ebp;
-    env->regs[R_ESP] = regs->esp;
-    env->eip = regs->eip;
+    target_ulong_array_set(&env->regs.rec, R_EAX, regs->eax);
+    target_ulong_array_set(&env->regs.rec, R_EBX, regs->ebx);
+    target_ulong_array_set(&env->regs.rec, R_ECX, regs->ecx);
+    target_ulong_array_set(&env->regs.rec, R_EDX, regs->edx);
+    target_ulong_array_set(&env->regs.rec, R_ESI, regs->esi);
+    target_ulong_array_set(&env->regs.rec, R_EDI, regs->edi);
+    target_ulong_array_set(&env->regs.rec, R_EBP, regs->ebp);
+    target_ulong_array_set(&env->regs.rec, R_ESP, regs->esp);
+    target_ulong_set(&env->eip, regs->eip);
 
     /* interrupt setup */
     env->idt.limit = 255;
 
-    env->idt.base = target_mmap(0, sizeof(uint64_t) * (env->idt.limit + 1),
-        PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-    bsd_i386_set_idt_base(env->idt.base);
+    target_ulong_set(&env->idt.base, target_mmap(0, sizeof(uint64_t) * (env->idt.limit + 1),
+        PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0));
+    bsd_i386_set_idt_base(target_ulong_val(&env->idt.base));
     bsd_i386_set_idt(0, 0);
     bsd_i386_set_idt(1, 0);
     bsd_i386_set_idt(2, 0);
@@ -68,10 +68,10 @@ static inline void target_cpu_init(CPUX86State *env,
     bsd_i386_set_idt(0x80, 3);
 
     /* segment setup */
-    env->gdt.base = target_mmap(0, sizeof(uint64_t) * TARGET_GDT_ENTRIES,
-            PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    target_ulong_set(&env->gdt.base, target_mmap(0, sizeof(uint64_t) * TARGET_GDT_ENTRIES,
+            PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0));
     env->gdt.limit = sizeof(uint64_t) * TARGET_GDT_ENTRIES - 1;
-    gdt_table = g2h_untagged(env->gdt.base);
+    gdt_table = g2h_untagged(target_ulong_val(&env->gdt.base));
 
     bsd_i386_write_dt(&gdt_table[__USER_CS >> 3], 0, 0xfffff,
             DESC_G_MASK | DESC_B_MASK | DESC_P_MASK | DESC_S_MASK |
@@ -107,9 +107,9 @@ static inline G_NORETURN void target_cpu_loop(CPUX86State *env)
         switch (trapnr) {
         case 0x80: {
             /* syscall from int $0x80 */
-            abi_ulong params = (abi_ulong) env->regs[R_ESP] +
+            abi_ulong params = (abi_ulong) target_ulong_array_val(&env->regs.rec, R_ESP) +
                 sizeof(int32_t);
-            int32_t syscall_nr = env->regs[R_EAX];
+            int32_t syscall_nr = target_ulong_array_val(&env->regs.rec, R_EAX);
             int32_t arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8;
 
             if (syscall_nr == TARGET_FREEBSD_NR_syscall) {
@@ -134,7 +134,7 @@ static inline G_NORETURN void target_cpu_loop(CPUX86State *env)
             get_user_s32(arg7, params);
             params += sizeof(int32_t);
             get_user_s32(arg8, params);
-            env->regs[R_EAX] = do_freebsd_syscall(env,
+            target_ulong_array_set(&env->regs.rec, R_EAX, do_freebsd_syscall(env,
                                                   syscall_nr,
                                                   arg1,
                                                   arg2,
@@ -143,13 +143,13 @@ static inline G_NORETURN void target_cpu_loop(CPUX86State *env)
                                                   arg5,
                                                   arg6,
                                                   arg7,
-                                                  arg8);
+                                                  arg8));
             }
-            if (((abi_ulong)env->regs[R_EAX]) >= (abi_ulong)(-515)) {
-                env->regs[R_EAX] = -env->regs[R_EAX];
-                env->eflags |= CC_C;
+            if (((abi_ulong)target_ulong_array_val(&env->regs.rec, R_EAX)) >= (abi_ulong)(-515)) {
+                target_ulong_array_set(&env->regs.rec, R_EAX, -target_ulong_array_val(&env->regs.rec, R_EAX));
+                target_ulong_set(&env->eflags, target_ulong_val(&env->eflags) | CC_C);
             } else {
-                env->eflags &= ~CC_C;
+                target_ulong_set(&env->eflags, target_ulong_val(&env->eflags) & ~CC_C);
             }
             break;
 
@@ -166,7 +166,7 @@ static inline G_NORETURN void target_cpu_loop(CPUX86State *env)
             break;
 
         default:
-            pc = env->segs[R_CS].base + env->eip;
+            pc = target_ulong_val(&env->segs[R_CS].base) + target_ulong_val(&env->eip);
             fprintf(stderr, "qemu: 0x%08lx: unhandled CPU exception 0x%x - "
                     "aborting\n", (long)pc, trapnr);
             abort();
@@ -178,9 +178,9 @@ static inline G_NORETURN void target_cpu_loop(CPUX86State *env)
 static inline void target_cpu_clone_regs(CPUX86State *env, target_ulong newsp)
 {
     if (newsp) {
-        env->regs[R_ESP] = newsp;
+        target_ulong_array_set(&env->regs.rec, R_ESP, newsp);
     }
-    env->regs[R_EAX] = 0;
+    target_ulong_array_set(&env->regs.rec, R_EAX, 0);
 }
 
 static inline void target_cpu_reset(CPUArchState *env)

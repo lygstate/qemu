@@ -8656,7 +8656,7 @@ void cpu_x86_cpuid(CPUX86State *env, uint32_t index, uint32_t count,
         *ebx = (cpu->apic_id << 24) |
                8 << 8; /* CLFLUSH size in quad words, Linux wants it. */
         *ecx = env->features[FEAT_1_ECX];
-        if ((*ecx & CPUID_EXT_XSAVE) && (env->cr[4] & CR4_OSXSAVE_MASK)) {
+        if ((*ecx & CPUID_EXT_XSAVE) && (target_ulong_array_val(&env->cr.rec, 4) & CR4_OSXSAVE_MASK)) {
             *ecx |= CPUID_EXT_OSXSAVE;
         }
         *edx = env->features[FEAT_1_EDX];
@@ -8792,7 +8792,7 @@ void cpu_x86_cpuid(CPUX86State *env, uint32_t index, uint32_t count,
             *eax = env->cpuid_level_func7;
             *ebx = env->features[FEAT_7_0_EBX]; /* Feature flags */
             *ecx = env->features[FEAT_7_0_ECX]; /* Feature flags */
-            if ((*ecx & CPUID_7_0_ECX_PKU) && env->cr[4] & CR4_PKE_MASK) {
+            if ((*ecx & CPUID_7_0_ECX_PKU) && target_ulong_array_val(&env->cr.rec, 4) & CR4_PKE_MASK) {
                 *ecx |= CPUID_7_0_ECX_OSPKE;
             }
             *edx = env->features[FEAT_7_0_EDX]; /* Feature flags */
@@ -9438,10 +9438,10 @@ static void x86_cpu_reset_hold(Object *obj, ResetType type)
                            DESC_P_MASK | DESC_S_MASK | DESC_W_MASK |
                            DESC_A_MASK);
 
-    target_ulong_set(&env->eip, 0xfff0);
+    target_ulong_set(&(env)->eip,  0xfff0);
     target_ulong_array_set(&env->regs.rec, R_EDX, env->cpuid_version);
 
-    target_ulong_set(&env->eflags, 0x2);
+    target_ulong_set(&(env)->eflags,  0x2);
 
     /* FPU init */
     for (i = 0; i < 8; i++) {
@@ -9472,9 +9472,9 @@ static void x86_cpu_reset_hold(Object *obj, ResetType type)
         env->msr_ia32_misc_enable |= MSR_IA32_MISC_ENABLE_MWAIT;
     }
 
-    memset(env->dr, 0, sizeof(env->dr));
-    env->dr[6] = DR6_FIXED_1;
-    env->dr[7] = DR7_FIXED_1;
+    memset(&env->dr, 0, sizeof(env->dr));
+    target_ulong_array_set(&env->dr.rec, 6, DR6_FIXED_1);
+    target_ulong_array_set(&env->dr.rec, 7, DR7_FIXED_1);
     cpu_breakpoint_remove_all(cs, BP_CPU);
     cpu_watchpoint_remove_all(cs, BP_CPU);
 
@@ -10585,7 +10585,7 @@ static bool x86_cpu_get_paging_enabled(const CPUState *cs)
 {
     X86CPU *cpu = X86_CPU(cs);
 
-    return cpu->env.cr[0] & CR0_PG_MASK;
+    return target_ulong_array_val(&cpu->env.cr.rec, 0) & CR0_PG_MASK;
 }
 #endif /* !CONFIG_USER_ONLY */
 
@@ -10601,7 +10601,7 @@ static vaddr x86_cpu_get_pc(CPUState *cs)
     X86CPU *cpu = X86_CPU(cs);
 
     /* Match cpu_get_tb_cpu_state. */
-    return target_ulong_val(&cpu->env.eip) + cpu->env.segs[R_CS].base;
+    return target_ulong_val(&cpu->env.eip) + target_ulong_val(&cpu->env.segs[R_CS].base);
 }
 
 #if !defined(CONFIG_USER_ONLY)
@@ -10677,13 +10677,12 @@ void x86_update_hflags(CPUX86State *env)
 
     hflags = env->hflags & HFLAG_COPY_MASK;
     hflags |= (env->segs[R_SS].flags >> DESC_DPL_SHIFT) & HF_CPL_MASK;
-    hflags |= (env->cr[0] & CR0_PE_MASK) << (HF_PE_SHIFT - CR0_PE_SHIFT);
-    hflags |= (env->cr[0] << (HF_MP_SHIFT - CR0_MP_SHIFT)) &
+    hflags |= (target_ulong_array_val(&env->cr.rec, 0) & CR0_PE_MASK) << (HF_PE_SHIFT - CR0_PE_SHIFT);
+    hflags |= (target_ulong_array_val(&env->cr.rec, 0) << (HF_MP_SHIFT - CR0_MP_SHIFT)) &
                 (HF_MP_MASK | HF_EM_MASK | HF_TS_MASK);
-    hflags |= (target_ulong_val(&env->eflags) &
-               (HF_TF_MASK | HF_VM_MASK | HF_IOPL_MASK));
+    hflags |= (target_ulong_val(&(env)->eflags) & (HF_TF_MASK | HF_VM_MASK | HF_IOPL_MASK));
 
-    if (env->cr[4] & CR4_OSFXSR_MASK) {
+    if (target_ulong_array_val(&env->cr.rec, 4) & CR4_OSFXSR_MASK) {
         hflags |= HF_OSFXSR_MASK;
     }
 
@@ -10698,13 +10697,12 @@ void x86_update_hflags(CPUX86State *env)
                     (DESC_B_SHIFT - HF_CS32_SHIFT);
         hflags |= (env->segs[R_SS].flags & DESC_B_MASK) >>
                     (DESC_B_SHIFT - HF_SS32_SHIFT);
-        if (!(env->cr[0] & CR0_PE_MASK) ||
-            (target_ulong_val(&env->eflags) & VM_MASK) ||
+        if (!(target_ulong_array_val(&env->cr.rec, 0) & CR0_PE_MASK) || (target_ulong_val(&(env)->eflags) & VM_MASK) ||
             !(hflags & HF_CS32_MASK)) {
             hflags |= HF_ADDSEG_MASK;
         } else {
-            hflags |= ((env->segs[R_DS].base | env->segs[R_ES].base |
-                        env->segs[R_SS].base) != 0) << HF_ADDSEG_SHIFT;
+            hflags |= ((target_ulong_val(&(env->segs[R_DS]).base) | target_ulong_val(&(env->segs[R_ES]).base) |
+                        target_ulong_val(&(env->segs[R_SS]).base)) != 0) << HF_ADDSEG_SHIFT;
         }
     }
     env->hflags = hflags;
@@ -10863,7 +10861,7 @@ static int64_t monitor_get_pc(MonitorHMP *hmp, const struct MonitorDef *md,
                               int offset)
 {
     CPUArchState *env = monitor_hmp_get_cpu_env(hmp);
-    int64_t ret = target_ulong_val(&env->eip) + env->segs[R_CS].base;
+    int64_t ret = target_ulong_val(&(env)->eip) + target_ulong_val(&(env->segs[R_CS]).base);
 
     if (!(env->hflags & HF_CS64_MASK)) {
         ret = (int32_t)ret;

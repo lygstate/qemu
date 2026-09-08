@@ -466,25 +466,25 @@ static int set_standard_regs(const CPUState *cpu)
     for (size_t i = 0; i < ARRAY_SIZE(STANDARD_REGISTER_NAMES); i++) {
         assocs[i].name = STANDARD_REGISTER_NAMES[i];
     }
-    assocs[0].value.reg64 = env->regs[R_EAX];
-    assocs[1].value.reg64 = env->regs[R_EBX];
-    assocs[2].value.reg64 = env->regs[R_ECX];
-    assocs[3].value.reg64 = env->regs[R_EDX];
-    assocs[4].value.reg64 = env->regs[R_ESI];
-    assocs[5].value.reg64 = env->regs[R_EDI];
-    assocs[6].value.reg64 = env->regs[R_ESP];
-    assocs[7].value.reg64 = env->regs[R_EBP];
-    assocs[8].value.reg64 = env->regs[R_R8];
-    assocs[9].value.reg64 = env->regs[R_R9];
-    assocs[10].value.reg64 = env->regs[R_R10];
-    assocs[11].value.reg64 = env->regs[R_R11];
-    assocs[12].value.reg64 = env->regs[R_R12];
-    assocs[13].value.reg64 = env->regs[R_R13];
-    assocs[14].value.reg64 = env->regs[R_R14];
-    assocs[15].value.reg64 = env->regs[R_R15];
-    assocs[16].value.reg64 = env->eip;
+    assocs[0].value.reg64 = target_ulong_array_val(&env->regs.rec, R_EAX);
+    assocs[1].value.reg64 = target_ulong_array_val(&env->regs.rec, R_EBX);
+    assocs[2].value.reg64 = target_ulong_array_val(&env->regs.rec, R_ECX);
+    assocs[3].value.reg64 = target_ulong_array_val(&env->regs.rec, R_EDX);
+    assocs[4].value.reg64 = target_ulong_array_val(&env->regs.rec, R_ESI);
+    assocs[5].value.reg64 = target_ulong_array_val(&env->regs.rec, R_EDI);
+    assocs[6].value.reg64 = target_ulong_array_val(&env->regs.rec, R_ESP);
+    assocs[7].value.reg64 = target_ulong_array_val(&env->regs.rec, R_EBP);
+    assocs[8].value.reg64 = target_ulong_array_val(&env->regs.rec, R_R8);
+    assocs[9].value.reg64 = target_ulong_array_val(&env->regs.rec, R_R9);
+    assocs[10].value.reg64 = target_ulong_array_val(&env->regs.rec, R_R10);
+    assocs[11].value.reg64 = target_ulong_array_val(&env->regs.rec, R_R11);
+    assocs[12].value.reg64 = target_ulong_array_val(&env->regs.rec, R_R12);
+    assocs[13].value.reg64 = target_ulong_array_val(&env->regs.rec, R_R13);
+    assocs[14].value.reg64 = target_ulong_array_val(&env->regs.rec, R_R14);
+    assocs[15].value.reg64 = target_ulong_array_val(&env->regs.rec, R_R15);
+    assocs[16].value.reg64 = target_ulong_val(&(env)->eip);
     lflags_to_rflags(env);
-    assocs[17].value.reg64 = env->eflags;
+    assocs[17].value.reg64 = target_ulong_val(&(env)->eflags);
 
     ret = mshv_set_generic_regs(cpu, assocs, n_regs);
     if (ret < 0) {
@@ -499,25 +499,25 @@ static void mshv_set_standard_regs_vp_page(CPUState *cpu)
     X86CPU *x86cpu = X86_CPU(cpu);
     CPUX86State *env = &x86cpu->env;
 
-    env->regs_page->rax = env->regs[R_EAX];
-    env->regs_page->rbx = env->regs[R_EBX];
-    env->regs_page->rcx = env->regs[R_ECX];
-    env->regs_page->rdx = env->regs[R_EDX];
-    env->regs_page->rsi = env->regs[R_ESI];
-    env->regs_page->rdi = env->regs[R_EDI];
-    env->regs_page->rsp = env->regs[R_ESP];
-    env->regs_page->rbp = env->regs[R_EBP];
-    env->regs_page->r8  = env->regs[R_R8];
-    env->regs_page->r9  = env->regs[R_R9];
-    env->regs_page->r10 = env->regs[R_R10];
-    env->regs_page->r11 = env->regs[R_R11];
-    env->regs_page->r12 = env->regs[R_R12];
-    env->regs_page->r13 = env->regs[R_R13];
-    env->regs_page->r14 = env->regs[R_R14];
-    env->regs_page->r15 = env->regs[R_R15];
-    env->regs_page->rip = env->eip;
+    env->regs_page->rax = target_ulong_array_val(&env->regs.rec, R_EAX);
+    env->regs_page->rbx = target_ulong_array_val(&env->regs.rec, R_EBX);
+    env->regs_page->rcx = target_ulong_array_val(&env->regs.rec, R_ECX);
+    env->regs_page->rdx = target_ulong_array_val(&env->regs.rec, R_EDX);
+    env->regs_page->rsi = target_ulong_array_val(&env->regs.rec, R_ESI);
+    env->regs_page->rdi = target_ulong_array_val(&env->regs.rec, R_EDI);
+    env->regs_page->rsp = target_ulong_array_val(&env->regs.rec, R_ESP);
+    env->regs_page->rbp = target_ulong_array_val(&env->regs.rec, R_EBP);
+    env->regs_page->r8  = target_ulong_array_val(&env->regs.rec, R_R8);
+    env->regs_page->r9  = target_ulong_array_val(&env->regs.rec, R_R9);
+    env->regs_page->r10 = target_ulong_array_val(&env->regs.rec, R_R10);
+    env->regs_page->r11 = target_ulong_array_val(&env->regs.rec, R_R11);
+    env->regs_page->r12 = target_ulong_array_val(&env->regs.rec, R_R12);
+    env->regs_page->r13 = target_ulong_array_val(&env->regs.rec, R_R13);
+    env->regs_page->r14 = target_ulong_array_val(&env->regs.rec, R_R14);
+    env->regs_page->r15 = target_ulong_array_val(&env->regs.rec, R_R15);
+    env->regs_page->rip = target_ulong_val(&(env)->eip);
     lflags_to_rflags(env);
-    env->regs_page->rflags = env->eflags;
+    env->regs_page->rflags = target_ulong_val(&(env)->eflags);
 
     env->regs_page->dirty |= (1u << HV_X64_REGISTER_CLASS_GENERAL)
                                 | (1u << HV_X64_REGISTER_CLASS_IP)
@@ -552,25 +552,25 @@ static int store_regs(CPUState *cpu)
 static void populate_standard_regs(const hv_register_assoc *assocs,
                                    CPUX86State *env)
 {
-    env->regs[R_EAX] = assocs[0].value.reg64;
-    env->regs[R_EBX] = assocs[1].value.reg64;
-    env->regs[R_ECX] = assocs[2].value.reg64;
-    env->regs[R_EDX] = assocs[3].value.reg64;
-    env->regs[R_ESI] = assocs[4].value.reg64;
-    env->regs[R_EDI] = assocs[5].value.reg64;
-    env->regs[R_ESP] = assocs[6].value.reg64;
-    env->regs[R_EBP] = assocs[7].value.reg64;
-    env->regs[R_R8]  = assocs[8].value.reg64;
-    env->regs[R_R9]  = assocs[9].value.reg64;
-    env->regs[R_R10] = assocs[10].value.reg64;
-    env->regs[R_R11] = assocs[11].value.reg64;
-    env->regs[R_R12] = assocs[12].value.reg64;
-    env->regs[R_R13] = assocs[13].value.reg64;
-    env->regs[R_R14] = assocs[14].value.reg64;
-    env->regs[R_R15] = assocs[15].value.reg64;
+    target_ulong_array_set(&env->regs.rec, R_EAX, assocs[0].value.reg64);
+    target_ulong_array_set(&env->regs.rec, R_EBX, assocs[1].value.reg64);
+    target_ulong_array_set(&env->regs.rec, R_ECX, assocs[2].value.reg64);
+    target_ulong_array_set(&env->regs.rec, R_EDX, assocs[3].value.reg64);
+    target_ulong_array_set(&env->regs.rec, R_ESI, assocs[4].value.reg64);
+    target_ulong_array_set(&env->regs.rec, R_EDI, assocs[5].value.reg64);
+    target_ulong_array_set(&env->regs.rec, R_ESP, assocs[6].value.reg64);
+    target_ulong_array_set(&env->regs.rec, R_EBP, assocs[7].value.reg64);
+    target_ulong_array_set(&env->regs.rec, R_R8, assocs[8].value.reg64);
+    target_ulong_array_set(&env->regs.rec, R_R9, assocs[9].value.reg64);
+    target_ulong_array_set(&env->regs.rec, R_R10, assocs[10].value.reg64);
+    target_ulong_array_set(&env->regs.rec, R_R11, assocs[11].value.reg64);
+    target_ulong_array_set(&env->regs.rec, R_R12, assocs[12].value.reg64);
+    target_ulong_array_set(&env->regs.rec, R_R13, assocs[13].value.reg64);
+    target_ulong_array_set(&env->regs.rec, R_R14, assocs[14].value.reg64);
+    target_ulong_array_set(&env->regs.rec, R_R15, assocs[15].value.reg64);
 
-    env->eip = assocs[16].value.reg64;
-    env->eflags = assocs[17].value.reg64;
+    target_ulong_set(&(env)->eip,  assocs[16].value.reg64);
+    target_ulong_set(&(env)->eflags,  assocs[17].value.reg64);
     rflags_to_lflags(env);
 }
 
@@ -600,7 +600,7 @@ static inline void populate_segment_reg(const hv_x64_segment_register *hv_seg,
 {
     memset(seg, 0, sizeof(SegmentCache));
 
-    seg->base = hv_seg->base;
+    target_ulong_set(&seg->base, hv_target_ulong_val(&seg->base));
     seg->limit = hv_seg->limit;
     seg->selector = hv_seg->selector;
 
@@ -620,7 +620,7 @@ static inline void populate_table_reg(const hv_x64_table_register *hv_seg,
 {
     memset(tbl, 0, sizeof(SegmentCache));
 
-    tbl->base = hv_seg->base;
+    target_ulong_set(&tbl->base, hv_target_ulong_val(&seg->base));
     tbl->limit = hv_seg->limit;
 }
 
@@ -642,10 +642,10 @@ static void populate_special_regs(const hv_register_assoc *assocs,
     populate_table_reg(&assocs[8].value.table, &env->gdt);
     populate_table_reg(&assocs[9].value.table, &env->idt);
 
-    env->cr[0] = assocs[10].value.reg64;
-    env->cr[2] = assocs[11].value.reg64;
-    env->cr[3] = assocs[12].value.reg64;
-    env->cr[4] = assocs[13].value.reg64;
+    target_ulong_array_set(&env->cr.rec, 0, assocs[10].value.reg64);
+    target_ulong_array_set(&env->cr.rec, 2, assocs[11].value.reg64);
+    target_ulong_array_set(&env->cr.rec, 3, assocs[12].value.reg64);
+    target_ulong_array_set(&env->cr.rec, 4, assocs[13].value.reg64);
 
     cpu_set_apic_tpr(x86cpu->apic_state, assocs[14].value.reg64);
     env->efer = assocs[15].value.reg64;
@@ -658,25 +658,25 @@ static void mshv_get_standard_regs_vp_page(CPUState *cpu)
     CPUX86State *env = &x86cpu->env;
 
     /* General Purpose Registers  */
-    env->regs[R_EAX] = env->regs_page->rax;
-    env->regs[R_EBX] = env->regs_page->rbx;
-    env->regs[R_ECX] = env->regs_page->rcx;
-    env->regs[R_EDX] = env->regs_page->rdx;
-    env->regs[R_ESI] = env->regs_page->rsi;
-    env->regs[R_EDI] = env->regs_page->rdi;
-    env->regs[R_ESP] = env->regs_page->rsp;
-    env->regs[R_EBP] = env->regs_page->rbp;
-    env->regs[R_R8]  = env->regs_page->r8;
-    env->regs[R_R9]  = env->regs_page->r9;
-    env->regs[R_R10] = env->regs_page->r10;
-    env->regs[R_R11] = env->regs_page->r11;
-    env->regs[R_R12] = env->regs_page->r12;
-    env->regs[R_R13] = env->regs_page->r13;
-    env->regs[R_R14] = env->regs_page->r14;
-    env->regs[R_R15] = env->regs_page->r15;
+    target_ulong_array_set(&env->regs.rec, R_EAX, env->regs_page->rax);
+    target_ulong_array_set(&env->regs.rec, R_EBX, env->regs_page->rbx);
+    target_ulong_array_set(&env->regs.rec, R_ECX, env->regs_page->rcx);
+    target_ulong_array_set(&env->regs.rec, R_EDX, env->regs_page->rdx);
+    target_ulong_array_set(&env->regs.rec, R_ESI, env->regs_page->rsi);
+    target_ulong_array_set(&env->regs.rec, R_EDI, env->regs_page->rdi);
+    target_ulong_array_set(&env->regs.rec, R_ESP, env->regs_page->rsp);
+    target_ulong_array_set(&env->regs.rec, R_EBP, env->regs_page->rbp);
+    target_ulong_array_set(&env->regs.rec, R_R8, env->regs_page->r8);
+    target_ulong_array_set(&env->regs.rec, R_R9, env->regs_page->r9);
+    target_ulong_array_set(&env->regs.rec, R_R10, env->regs_page->r10);
+    target_ulong_array_set(&env->regs.rec, R_R11, env->regs_page->r11);
+    target_ulong_array_set(&env->regs.rec, R_R12, env->regs_page->r12);
+    target_ulong_array_set(&env->regs.rec, R_R13, env->regs_page->r13);
+    target_ulong_array_set(&env->regs.rec, R_R14, env->regs_page->r14);
+    target_ulong_array_set(&env->regs.rec, R_R15, env->regs_page->r15);
 
-    env->eip = env->regs_page->rip;
-    env->eflags = env->regs_page->rflags;
+    target_ulong_set(&(env)->eip,  env->regs_page->rip);
+    target_ulong_set(&(env)->eflags,  env->regs_page->rflags);
     rflags_to_lflags(env);
 }
 
@@ -690,9 +690,9 @@ static int mshv_get_special_regs_vp_page(CPUState *cpu)
     hv_x64_segment_register seg;
 
     /* Populate special registers that are in the VP register page */
-    env->cr[0] = env->regs_page->cr0;
-    env->cr[3] = env->regs_page->cr3;
-    env->cr[4] = env->regs_page->cr4;
+    target_ulong_array_set(&env->cr.rec, 0, env->regs_page->cr0);
+    target_ulong_array_set(&env->cr.rec, 3, env->regs_page->cr3);
+    target_ulong_array_set(&env->cr.rec, 4, env->regs_page->cr4);
     env->efer = env->regs_page->efer;
     cpu_set_apic_tpr(x86cpu->apic_state, env->regs_page->cr8);
 
@@ -727,7 +727,7 @@ static int mshv_get_special_regs_vp_page(CPUState *cpu)
 
     populate_table_reg(&assocs[2].value.table, &env->gdt);
     populate_table_reg(&assocs[3].value.table, &env->idt);
-    env->cr[2] = assocs[4].value.reg64;
+    target_ulong_array_set(&env->cr.rec, 2, assocs[4].value.reg64);
 
     cpu_set_apic_base(x86cpu->apic_state, assocs[5].value.reg64);
 
@@ -1347,7 +1347,7 @@ static inline void populate_hv_segment_reg(SegmentCache *seg,
 {
     uint32_t flags = seg->flags;
 
-    hv_reg->base = seg->base;
+    hv_reg->base = target_ulong_val(&seg->base);
     hv_reg->limit = seg->limit;
     hv_reg->selector = seg->selector;
     hv_reg->segment_type = (flags >> DESC_TYPE_SHIFT) & 0xF;
@@ -1366,7 +1366,7 @@ static inline void populate_hv_table_reg(const struct SegmentCache *seg,
 {
     memset(hv_reg, 0, sizeof(*hv_reg));
 
-    hv_reg->base = seg->base;
+    hv_reg->base = target_ulong_val(&seg->base);
     hv_reg->limit = seg->limit;
 }
 
@@ -1394,10 +1394,10 @@ static int set_special_regs(const CPUState *cpu)
     populate_hv_table_reg(&env->gdt, &assocs[8].value.table);
     populate_hv_table_reg(&env->idt, &assocs[9].value.table);
 
-    assocs[10].value.reg64 = env->cr[0];
-    assocs[11].value.reg64 = env->cr[2];
-    assocs[12].value.reg64 = env->cr[3];
-    assocs[13].value.reg64 = env->cr[4];
+    assocs[10].value.reg64 = target_ulong_array_val(&env->cr.rec, 0);
+    assocs[11].value.reg64 = target_ulong_array_val(&env->cr.rec, 2);
+    assocs[12].value.reg64 = target_ulong_array_val(&env->cr.rec, 3);
+    assocs[13].value.reg64 = target_ulong_array_val(&env->cr.rec, 4);
     assocs[14].value.reg64 = cpu_get_apic_tpr(x86cpu->apic_state);
     assocs[15].value.reg64 = env->efer;
     assocs[16].value.reg64 = cpu_get_apic_base(x86cpu->apic_state);
@@ -1950,7 +1950,7 @@ static int handle_pio_str(CPUState *cpu, hv_x64_io_port_intercept_message *info)
         return -1;
     }
 
-    direction_flag = (env->eflags & DESC_E_MASK) != 0;
+    direction_flag = (target_ulong_val(&(env)->eflags) & DESC_E_MASK) != 0;
 
     if (access_type == HV_X64_INTERCEPT_ACCESS_TYPE_WRITE) {
         ret = handle_pio_str_write(cpu, info, repeat, port, direction_flag);
@@ -2102,7 +2102,7 @@ static void read_segment_descriptor(CPUState *cpu,
     }
 
     x86_set_segment_limit(desc, limit);
-    x86_set_segment_base(desc, seg->base);
+    x86_set_segment_base(desc, target_ulong_val(&seg->base));
 }
 
 static const struct x86_emul_ops mshv_x86_emul_ops = {

@@ -38,7 +38,7 @@
 
 void cpu_sync_avx_hflag(CPUX86State *env)
 {
-    if ((env->cr[4] & CR4_OSXSAVE_MASK)
+    if ((target_ulong_array_val(&env->cr.rec, 4) & CR4_OSXSAVE_MASK)
         && (env->xcr0 & (XSTATE_SSE_MASK | XSTATE_YMM_MASK))
             == (XSTATE_SSE_MASK | XSTATE_YMM_MASK)) {
         env->hflags |= HF_AVX_EN_MASK;
@@ -59,7 +59,7 @@ void cpu_sync_bndcs_hflags(CPUX86State *env)
         bndcsr = env->msr_bndcfgs;
     }
 
-    if ((env->cr[4] & CR4_OSXSAVE_MASK)
+    if ((target_ulong_array_val(&env->cr.rec, 4) & CR4_OSXSAVE_MASK)
         && (env->xcr0 & XSTATE_BNDCSR_MASK)
         && (bndcsr & BNDCFG_ENABLE)) {
         hflags |= HF_MPX_EN_MASK;
@@ -140,20 +140,20 @@ void cpu_x86_update_cr0(CPUX86State *env, uint32_t new_cr0)
 
     qemu_log_mask(CPU_LOG_MMU, "CR0 update: CR0=0x%08x\n", new_cr0);
     if ((new_cr0 & (CR0_PG_MASK | CR0_WP_MASK | CR0_PE_MASK)) !=
-        (env->cr[0] & (CR0_PG_MASK | CR0_WP_MASK | CR0_PE_MASK))) {
+        (target_ulong_array_val(&env->cr.rec, 0) & (CR0_PG_MASK | CR0_WP_MASK | CR0_PE_MASK))) {
         tlb_flush(CPU(cpu));
     }
 
 #ifdef TARGET_X86_64
-    if (!(env->cr[0] & CR0_PG_MASK) && (new_cr0 & CR0_PG_MASK) &&
+    if (!(target_ulong_array_val(&env->cr.rec, 0) & CR0_PG_MASK) && (new_cr0 & CR0_PG_MASK) &&
         (env->efer & MSR_EFER_LME)) {
         /* enter in long mode */
         /* XXX: generate an exception */
-        if (!(env->cr[4] & CR4_PAE_MASK))
+        if (!(target_ulong_array_val(&env->cr.rec, 4) & CR4_PAE_MASK))
             return;
         env->efer |= MSR_EFER_LMA;
         env->hflags |= HF_LMA_MASK;
-    } else if ((env->cr[0] & CR0_PG_MASK) && !(new_cr0 & CR0_PG_MASK) &&
+    } else if ((target_ulong_array_val(&env->cr.rec, 0) & CR0_PG_MASK) && !(new_cr0 & CR0_PG_MASK) &&
                (env->efer & MSR_EFER_LMA)) {
         /* exit long mode */
         env->efer &= ~MSR_EFER_LMA;
@@ -161,10 +161,10 @@ void cpu_x86_update_cr0(CPUX86State *env, uint32_t new_cr0)
         target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) &  0xffffffff);
     }
 #endif
-    env->cr[0] = new_cr0 | CR0_ET_MASK;
+    target_ulong_array_set(&env->cr.rec, 0, new_cr0 | CR0_ET_MASK);
 
     /* update PE flag in hidden flags */
-    pe_state = (env->cr[0] & CR0_PE_MASK);
+    pe_state = (target_ulong_array_val(&env->cr.rec, 0) & CR0_PE_MASK);
     env->hflags = (env->hflags & ~HF_PE_MASK) | (pe_state << HF_PE_SHIFT);
     /* ensure that ADDSEG is always set in real mode */
     env->hflags |= ((pe_state ^ 1) << HF_ADDSEG_SHIFT);
@@ -177,8 +177,8 @@ void cpu_x86_update_cr0(CPUX86State *env, uint32_t new_cr0)
    the PDPT */
 void cpu_x86_update_cr3(CPUX86State *env, target_ulong new_cr3)
 {
-    env->cr[3] = new_cr3;
-    if (env->cr[0] & CR0_PG_MASK) {
+    target_ulong_array_set(&env->cr.rec, 3, new_cr3);
+    if (target_ulong_array_val(&env->cr.rec, 0) & CR0_PG_MASK) {
         qemu_log_mask(CPU_LOG_MMU,
                         "CR3 update: CR3=" TARGET_FMT_lx "\n", new_cr3);
         tlb_flush(env_cpu(env));
@@ -190,9 +190,9 @@ void cpu_x86_update_cr4(CPUX86State *env, uint32_t new_cr4)
     uint32_t hflags;
 
 #if defined(DEBUG_MMU)
-    printf("CR4 update: %08x -> %08x\n", (uint32_t)env->cr[4], new_cr4);
+    printf("CR4 update: %08x -> %08x\n", (uint32_t)target_ulong_array_val(&env->cr.rec, 4), new_cr4);
 #endif
-    if ((new_cr4 ^ env->cr[4]) &
+    if ((new_cr4 ^ target_ulong_array_val(&env->cr.rec, 4)) &
         (CR4_PGE_MASK | CR4_PAE_MASK | CR4_PSE_MASK |
          CR4_SMEP_MASK | CR4_SMAP_MASK | CR4_LA57_MASK)) {
         tlb_flush(env_cpu(env));
@@ -245,7 +245,7 @@ void cpu_x86_update_cr4(CPUX86State *env, uint32_t new_cr4)
         new_cr4 &= ~CR4_CET_MASK;
     }
 
-    env->cr[4] = new_cr4;
+    target_ulong_array_set(&env->cr.rec, 4, new_cr4);
     env->hflags = hflags;
 
     cpu_sync_bndcs_hflags(env);
@@ -265,16 +265,16 @@ bool x86_cpu_translate_for_debug(CPUState *cs, vaddr addr,
     int page_size;
 
     a20_mask = x86_get_a20_mask(env);
-    if (!(env->cr[0] & CR0_PG_MASK)) {
+    if (!(target_ulong_array_val(&env->cr.rec, 0) & CR0_PG_MASK)) {
         pte = addr & a20_mask;
         page_size = 4096;
-    } else if (env->cr[4] & CR4_PAE_MASK) {
+    } else if (target_ulong_array_val(&env->cr.rec, 4) & CR4_PAE_MASK) {
         target_ulong pdpe_addr;
         uint64_t pde, pdpe;
 
 #ifdef TARGET_X86_64
         if (env->hflags & HF_LMA_MASK) {
-            bool la57 = env->cr[4] & CR4_LA57_MASK;
+            bool la57 = target_ulong_array_val(&env->cr.rec, 4) & CR4_LA57_MASK;
             uint64_t pml5e_addr, pml5e;
             uint64_t pml4e_addr, pml4e;
             int32_t sext;
@@ -286,14 +286,14 @@ bool x86_cpu_translate_for_debug(CPUState *cs, vaddr addr,
             }
 
             if (la57) {
-                pml5e_addr = ((env->cr[3] & ~0xfff) +
+                pml5e_addr = ((target_ulong_array_val(&env->cr.rec, 3) & ~0xfff) +
                         (((addr >> 48) & 0x1ff) << 3)) & a20_mask;
                 pml5e = x86_ldq_phys(cs, pml5e_addr);
                 if (!(pml5e & PG_PRESENT_MASK)) {
                     return false;
                 }
             } else {
-                pml5e = env->cr[3];
+                pml5e = target_ulong_array_val(&env->cr.rec, 3);
             }
 
             pml4e_addr = ((pml5e & PG_ADDRESS_MASK) +
@@ -317,7 +317,7 @@ bool x86_cpu_translate_for_debug(CPUState *cs, vaddr addr,
         } else
 #endif
         {
-            pdpe_addr = ((env->cr[3] & ~0x1f) + ((addr >> 27) & 0x18)) &
+            pdpe_addr = ((target_ulong_array_val(&env->cr.rec, 3) & ~0x1f) + ((addr >> 27) & 0x18)) &
                 a20_mask;
             pdpe = x86_ldq_phys(cs, pdpe_addr);
             if (!(pdpe & PG_PRESENT_MASK))
@@ -348,11 +348,11 @@ bool x86_cpu_translate_for_debug(CPUState *cs, vaddr addr,
         uint32_t pde;
 
         /* page directory entry */
-        pde_addr = ((env->cr[3] & ~0xfff) + ((addr >> 20) & 0xffc)) & a20_mask;
+        pde_addr = ((target_ulong_array_val(&env->cr.rec, 3) & ~0xfff) + ((addr >> 20) & 0xffc)) & a20_mask;
         pde = x86_ldl_phys(cs, pde_addr);
         if (!(pde & PG_PRESENT_MASK))
             return false;
-        if ((pde & PG_PSE_MASK) && (env->cr[4] & CR4_PSE_MASK)) {
+        if ((pde & PG_PSE_MASK) && (target_ulong_array_val(&env->cr.rec, 4) & CR4_PSE_MASK)) {
             pte = pde | ((pde & 0x1fe000LL) << (32 - 13));
             page_size = 4096 * 1024;
         } else {
@@ -445,7 +445,7 @@ static void do_inject_x86_mce(CPUState *cs, run_on_cpu_data data)
             return;
         }
 
-        if (!(cenv->cr[4] & CR4_MCE_MASK)) {
+        if (!(target_ulong_array_val(&cenv->cr.rec, 4) & CR4_MCE_MASK)) {
             need_reset = true;
             msg = g_strdup_printf("CPU %d: MCE capability is not enabled, "
                                   "raising triple fault", cs->cpu_index);
@@ -562,7 +562,7 @@ static inline target_ulong get_memio_eip(CPUX86State *env)
     if (tcg_cflags_has(cs, CF_PCREL)) {
         return (target_ulong_val(&(env)->eip) & TARGET_PAGE_MASK) | data[0];
     } else {
-        return data[0] - env->segs[R_CS].base;
+        return data[0] - target_ulong_val(&(env->segs[R_CS]).base);
     }
 #else
     qemu_build_not_reached();
@@ -601,7 +601,7 @@ int cpu_x86_get_descr_debug(CPUX86State *env, unsigned int selector,
     else
         dt = &env->gdt;
     index = selector & ~7;
-    ptr = dt->base + index;
+    ptr = target_ulong_val(&dt->base) + index;
     if ((index + 7) > dt->limit
         || cpu_memory_rw_debug(cs, ptr, (uint8_t *)&e1, sizeof(e1), 0) != 0
         || cpu_memory_rw_debug(cs, ptr+4, (uint8_t *)&e2, sizeof(e2), 0) != 0)

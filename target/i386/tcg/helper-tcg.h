@@ -124,6 +124,6 @@ static inline void do_end_instruction(CPUX86State *env)
 {
     /* needed if sti is just before */
     env->hflags &= ~HF_INHIBIT_IRQ_MASK;
-    target_ulong_set(&env->eflags, target_ulong_val(&env->eflags) & ~HF_RF_MASK);
+    target_ulong_set(&(env)->eflags, target_ulong_val(&(env)->eflags) &  ~HF_RF_MASK);
 }
 #endif /* I386_HELPER_TCG_H */
