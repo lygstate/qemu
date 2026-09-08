@@ -26,20 +26,20 @@
 /* 64 bits arithmetic for 32 bits hosts */
 static inline uint64_t get_HILO(CPUMIPSState *env)
 {
-    return ((uint64_t)(env->active_tc.HI[0]) << 32) |
-           (uint32_t)env->active_tc.LO[0];
+    return ((uint64_t)(target_ulong_array_val(&env->active_tc.HI.rec, 0)) << 32) |
+           (uint32_t)target_ulong_array_val(&env->active_tc.LO.rec, 0);
 }
 
 static inline target_ulong set_HIT0_LO(CPUMIPSState *env, uint64_t HILO)
 {
-    env->active_tc.LO[0] = (int32_t)(HILO & 0xFFFFFFFF);
-    return env->active_tc.HI[0] = (int32_t)(HILO >> 32);
+    target_ulong_array_set(&env->active_tc.LO.rec, 0, (int32_t)(HILO & 0xFFFFFFFF));
+    return target_ulong_array_set(&env->active_tc.HI.rec, 0, (int32_t)(HILO >> 32));
 }
 
 static inline target_ulong set_HI_LOT0(CPUMIPSState *env, uint64_t HILO)
 {
-    target_ulong tmp = env->active_tc.LO[0] = (int32_t)(HILO & 0xFFFFFFFF);
-    env->active_tc.HI[0] = (int32_t)(HILO >> 32);
+    target_ulong tmp = target_ulong_array_set(&env->active_tc.LO.rec, 0, (int32_t)(HILO & 0xFFFFFFFF));
+    target_ulong_array_set(&env->active_tc.HI.rec, 0, (int32_t)(HILO >> 32));
     return tmp;
 }
 

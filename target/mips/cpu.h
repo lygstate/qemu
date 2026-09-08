@@ -5,6 +5,7 @@
 #include "exec/cpu-common.h"
 #include "exec/cpu-interrupt.h"
 #include "exec/target_long.h"
+#include "exec/target-long-types.h"
 #ifndef CONFIG_USER_ONLY
 #include "system/memory.h"
 #endif
@@ -469,7 +470,7 @@ typedef struct TCState TCState;
 #define OCTEON_MULTIPLIER_REGS (2 * OCTEON_MULTIPLIER_LANES)
 
 struct TCState {
-    target_ulong gpr[32];
+    TARGET_ULONG_ARRAY(32) gpr;
 #if defined(TARGET_MIPS64)
     /*
      * For CPUs using 128-bit GPR registers, we put the lower halves in gpr[])
@@ -477,11 +478,11 @@ struct TCState {
      */
     uint64_t gpr_hi[32];
 #endif /* TARGET_MIPS64 */
-    target_ulong PC;
-    target_ulong HI[MIPS_DSP_ACC];
-    target_ulong LO[MIPS_DSP_ACC];
-    target_ulong ACX[MIPS_DSP_ACC];
-    target_ulong DSPControl;
+    target_ulong_t PC;
+    TARGET_ULONG_ARRAY(MIPS_DSP_ACC) HI;
+    TARGET_ULONG_ARRAY(MIPS_DSP_ACC) LO;
+    TARGET_ULONG_ARRAY(MIPS_DSP_ACC) ACX;
+    target_ulong_t DSPControl;
     int32_t CP0_TCStatus;
 #define CP0TCSt_TCU3    31
 #define CP0TCSt_TCU2    30
@@ -500,12 +501,12 @@ struct TCState {
 #define CP0TCBd_CurTC   21
 #define CP0TCBd_TBE     17
 #define CP0TCBd_CurVPE  0
-    target_ulong CP0_TCHalt;
-    target_ulong CP0_TCContext;
-    target_ulong CP0_TCSchedule;
-    target_ulong CP0_TCScheFBack;
+    target_ulong_t CP0_TCHalt;
+    target_ulong_t CP0_TCContext;
+    target_ulong_t CP0_TCSchedule;
+    target_ulong_t CP0_TCScheFBack;
     int32_t CP0_Debug_tcstatus;
-    target_ulong CP0_UserLocal;
+    target_ulong_t CP0_UserLocal;
     struct {
         uint64_t MPL[OCTEON_MULTIPLIER_REGS];
         uint64_t P[OCTEON_MULTIPLIER_REGS];
@@ -527,8 +528,8 @@ struct TCState {
     float_status msa_fp_status;
 
 #define NUMBER_OF_MXU_REGISTERS 16
-    target_ulong mxu_gpr[NUMBER_OF_MXU_REGISTERS - 1];
-    target_ulong mxu_cr;
+    TARGET_ULONG_ARRAY(NUMBER_OF_MXU_REGISTERS - 1) mxu_gpr;
+    target_ulong_t mxu_cr;
 #define MXU_CR_LC       31
 #define MXU_CR_RC       30
 #define MXU_CR_BIAS     2
@@ -619,9 +620,9 @@ typedef struct CPUArchState {
 #define CP0VPEC1_NCX    20
 #define CP0VPEC1_NCP2   10
 #define CP0VPEC1_NCP1   0
-    target_ulong CP0_YQMask;
-    target_ulong CP0_VPESchedule;
-    target_ulong CP0_VPEScheFBack;
+    target_ulong_t CP0_YQMask;
+    target_ulong_t CP0_VPESchedule;
+    target_ulong_t CP0_VPEScheFBack;
     int32_t CP0_VPEOpt;
 #define CP0VPEOpt_IWX7  15
 #define CP0VPEOpt_IWX6  14
@@ -659,7 +660,7 @@ typedef struct CPUArchState {
 /*
  * CP0 Register 4
  */
-    target_ulong CP0_Context;
+    target_ulong_t CP0_Context;
     int32_t CP0_MemoryMapID;
 /*
  * CP0 Register 5
@@ -672,9 +673,9 @@ typedef struct CPUArchState {
 #define CP0PG_XIE 30
 #define CP0PG_ELPA 29
 #define CP0PG_IEC 27
-    target_ulong CP0_SegCtl0;
-    target_ulong CP0_SegCtl1;
-    target_ulong CP0_SegCtl2;
+    target_ulong_t CP0_SegCtl0;
+    target_ulong_t CP0_SegCtl1;
+    target_ulong_t CP0_SegCtl2;
 #define CP0SC_PA        9
 #define CP0SC_PA_MASK   (0x7FULL << CP0SC_PA)
 #define CP0SC_PA_1GMASK (0x7EULL << CP0SC_PA)
@@ -702,8 +703,8 @@ typedef struct CPUArchState {
 #define CP0SC2_XR       56
 #define CP0SC2_XR_MASK  (0xFFULL << CP0SC2_XR)
 #define CP0SC2_MASK     (CP0SC_1GMASK | (CP0SC_1GMASK << 16) | CP0SC2_XR_MASK)
-    target_ulong CP0_PWBase;
-    target_ulong CP0_PWField;
+    target_ulong_t CP0_PWBase;
+    target_ulong_t CP0_PWField;
 #if defined(TARGET_MIPS64)
 #define CP0PF_BDI  32    /* 37..32 */
 #define CP0PF_GDI  24    /* 29..24 */
@@ -718,7 +719,7 @@ typedef struct CPUArchState {
 #define CP0PF_PTW  6     /* 11..6  */
 #define CP0PF_PTEW 0     /*  5..0  */
 #endif
-    target_ulong CP0_PWSize;
+    target_ulong_t CP0_PWSize;
 #if defined(TARGET_MIPS64)
 #define CP0PS_BDW  32    /* 37..32 */
 #endif
@@ -779,7 +780,7 @@ typedef struct CPUArchState {
 /*
  * CP0 Register 8
  */
-    target_ulong CP0_BadVAddr;
+    target_ulong_t CP0_BadVAddr;
     uint32_t CP0_BadInstr;
     uint32_t CP0_BadInstrP;
     uint32_t CP0_BadInstrX;
@@ -794,7 +795,7 @@ typedef struct CPUArchState {
 /*
  * CP0 Register 10
  */
-    target_ulong CP0_EntryHi;
+    target_ulong_t CP0_EntryHi;
 #define CP0EnHi_EHINV 10
     target_ulong CP0_EntryHi_ASID_mask;
 /*
@@ -862,15 +863,15 @@ typedef struct CPUArchState {
 /*
  * CP0 Register 14
  */
-    target_ulong CP0_EPC;
+    target_ulong_t CP0_EPC;
 /*
  * CP0 Register 15
  */
     int32_t CP0_PRid;
-    target_ulong CP0_EBase;
+    target_ulong_t CP0_EBase;
     target_ulong CP0_EBaseWG_rw_bitmask;
 #define CP0EBase_WG 11
-    target_ulong CP0_CMGCRBase;
+    target_ulong_t CP0_CMGCRBase;
 /*
  * CP0 Register 16 (after Release 1)
  */
@@ -1032,7 +1033,7 @@ typedef struct CPUArchState {
 /*
  * CP0 Register 17
  */
-    target_ulong lladdr; /* LL virtual address compared against SC */
+    target_ulong_t lladdr; /* LL virtual address compared against SC */
     target_ulong llval;
     uint64_t llval_wp;
     uint32_t llnewval_wp;
@@ -1041,7 +1042,7 @@ typedef struct CPUArchState {
 /*
  * CP0 Register 18
  */
-    target_ulong CP0_WatchLo[8];
+    TARGET_ULONG_ARRAY(8) CP0_WatchLo;
 /*
  * CP0 Register 19
  */
@@ -1051,7 +1052,7 @@ typedef struct CPUArchState {
 /*
  * CP0 Register 20
  */
-    target_ulong CP0_XContext;
+    target_ulong_t CP0_XContext;
     int32_t CP0_Framemask;
 /*
  * CP0 Register 23
@@ -1078,7 +1079,7 @@ typedef struct CPUArchState {
 /*
  * CP0 Register 24
  */
-    target_ulong CP0_DEPC;
+    target_ulong_t CP0_DEPC;
 /*
  * CP0 Register 25
  */
@@ -1103,12 +1104,12 @@ typedef struct CPUArchState {
 /*
  * CP0 Register 30
  */
-    target_ulong CP0_ErrorEPC;
+    target_ulong_t CP0_ErrorEPC;
 /*
  * CP0 Register 31
  */
     int32_t CP0_DESAVE;
-    target_ulong CP0_KScratch[MIPS_KSCRATCH_NUM];
+    TARGET_ULONG_ARRAY(MIPS_KSCRATCH_NUM) CP0_KScratch;
 /*
  * Loongson CSR CPUCFG registers
  */
@@ -1208,8 +1209,8 @@ typedef struct CPUArchState {
                             MIPS_HFLAG_HWRENA_ULR)
 
 #define TB_FLAG_MIPS_FIXADE  0x40000000
-    target_ulong btarget;        /* Jump / branch target               */
-    target_ulong bcond;          /* Branch condition (if needed)       */
+    target_ulong_t btarget;        /* Jump / branch target               */
+    target_ulong_t bcond;          /* Branch condition (if needed)       */
 
     int SYNCI_Step; /* Address step size for SYNCI */
     int CCRes; /* Cycle count resolution/divisor */

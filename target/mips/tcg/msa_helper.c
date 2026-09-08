@@ -5648,7 +5648,7 @@ void helper_msa_sld_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
     wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
     wr_t *pws = &(env->active_fpu.fpr[ws].wr);
 
-    msa_sld_df(df, pwd, pws, env->active_tc.gpr[rt]);
+    msa_sld_df(df, pwd, pws, target_ulong_array_val(&env->active_tc.gpr.rec, rt));
 }
 
 static inline int64_t msa_madd_q_df(uint32_t df, int64_t dest, int64_t arg1,
@@ -5823,7 +5823,7 @@ void helper_msa_splat_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
     wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
     wr_t *pws = &(env->active_fpu.fpr[ws].wr);
 
-    msa_splat_df(df, pwd, pws, env->active_tc.gpr[rt]);
+    msa_splat_df(df, pwd, pws, target_ulong_array_val(&env->active_tc.gpr.rec, rt));
 }
 
 #define MSA_DO_B MSA_DO(b)
@@ -5935,7 +5935,7 @@ void helper_msa_copy_s_b(CPUMIPSState *env, uint32_t rd,
         n = 24 - n - 1;
     }
 #endif
-    env->active_tc.gpr[rd] = (int8_t)env->active_fpu.fpr[ws].wr.b[n];
+    target_ulong_array_set(&env->active_tc.gpr.rec, rd, (int8_t)env->active_fpu.fpr[ws].wr.b[n]);
 }
 
 void helper_msa_copy_s_h(CPUMIPSState *env, uint32_t rd,
@@ -5949,7 +5949,7 @@ void helper_msa_copy_s_h(CPUMIPSState *env, uint32_t rd,
         n = 12 - n - 1;
     }
 #endif
-    env->active_tc.gpr[rd] = (int16_t)env->active_fpu.fpr[ws].wr.h[n];
+    target_ulong_array_set(&env->active_tc.gpr.rec, rd, (int16_t)env->active_fpu.fpr[ws].wr.h[n]);
 }
 
 void helper_msa_copy_s_w(CPUMIPSState *env, uint32_t rd,
@@ -5963,14 +5963,14 @@ void helper_msa_copy_s_w(CPUMIPSState *env, uint32_t rd,
         n = 6 - n - 1;
     }
 #endif
-    env->active_tc.gpr[rd] = (int32_t)env->active_fpu.fpr[ws].wr.w[n];
+    target_ulong_array_set(&env->active_tc.gpr.rec, rd, (int32_t)env->active_fpu.fpr[ws].wr.w[n]);
 }
 
 void helper_msa_copy_s_d(CPUMIPSState *env, uint32_t rd,
                          uint32_t ws, uint32_t n)
 {
     n %= 2;
-    env->active_tc.gpr[rd] = (int64_t)env->active_fpu.fpr[ws].wr.d[n];
+    target_ulong_array_set(&env->active_tc.gpr.rec, rd, (int64_t)env->active_fpu.fpr[ws].wr.d[n]);
 }
 
 void helper_msa_copy_u_b(CPUMIPSState *env, uint32_t rd,
@@ -5984,7 +5984,7 @@ void helper_msa_copy_u_b(CPUMIPSState *env, uint32_t rd,
         n = 24 - n - 1;
     }
 #endif
-    env->active_tc.gpr[rd] = (uint8_t)env->active_fpu.fpr[ws].wr.b[n];
+    target_ulong_array_set(&env->active_tc.gpr.rec, rd, (uint8_t)env->active_fpu.fpr[ws].wr.b[n]);
 }
 
 void helper_msa_copy_u_h(CPUMIPSState *env, uint32_t rd,
@@ -5998,7 +5998,7 @@ void helper_msa_copy_u_h(CPUMIPSState *env, uint32_t rd,
         n = 12 - n - 1;
     }
 #endif
-    env->active_tc.gpr[rd] = (uint16_t)env->active_fpu.fpr[ws].wr.h[n];
+    target_ulong_array_set(&env->active_tc.gpr.rec, rd, (uint16_t)env->active_fpu.fpr[ws].wr.h[n]);
 }
 
 void helper_msa_copy_u_w(CPUMIPSState *env, uint32_t rd,
@@ -6012,14 +6012,14 @@ void helper_msa_copy_u_w(CPUMIPSState *env, uint32_t rd,
         n = 6 - n - 1;
     }
 #endif
-    env->active_tc.gpr[rd] = (uint32_t)env->active_fpu.fpr[ws].wr.w[n];
+    target_ulong_array_set(&env->active_tc.gpr.rec, rd, (uint32_t)env->active_fpu.fpr[ws].wr.w[n]);
 }
 
 void helper_msa_insert_b(CPUMIPSState *env, uint32_t wd,
                           uint32_t rs_num, uint32_t n)
 {
     wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    target_ulong rs = env->active_tc.gpr[rs_num];
+    target_ulong rs = target_ulong_array_val(&env->active_tc.gpr.rec, rs_num);
     n %= 16;
 #if HOST_BIG_ENDIAN
     if (n < 8) {
@@ -6035,7 +6035,7 @@ void helper_msa_insert_h(CPUMIPSState *env, uint32_t wd,
                           uint32_t rs_num, uint32_t n)
 {
     wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    target_ulong rs = env->active_tc.gpr[rs_num];
+    target_ulong rs = target_ulong_array_val(&env->active_tc.gpr.rec, rs_num);
     n %= 8;
 #if HOST_BIG_ENDIAN
     if (n < 4) {
@@ -6051,7 +6051,7 @@ void helper_msa_insert_w(CPUMIPSState *env, uint32_t wd,
                           uint32_t rs_num, uint32_t n)
 {
     wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    target_ulong rs = env->active_tc.gpr[rs_num];
+    target_ulong rs = target_ulong_array_val(&env->active_tc.gpr.rec, rs_num);
     n %= 4;
 #if HOST_BIG_ENDIAN
     if (n < 2) {
@@ -6067,7 +6067,7 @@ void helper_msa_insert_d(CPUMIPSState *env, uint32_t wd,
                           uint32_t rs_num, uint32_t n)
 {
     wr_t *pwd = &(env->active_fpu.fpr[wd].wr);
-    target_ulong rs = env->active_tc.gpr[rs_num];
+    target_ulong rs = target_ulong_array_val(&env->active_tc.gpr.rec, rs_num);
     n %= 2;
     pwd->d[n] = (int64_t)rs;
 }
@@ -6133,22 +6133,22 @@ void helper_msa_fill_df(CPUMIPSState *env, uint32_t df, uint32_t wd,
     switch (df) {
     case DF_BYTE:
         for (i = 0; i < DF_ELEMENTS(DF_BYTE); i++) {
-            pwd->b[i] = (int8_t)env->active_tc.gpr[rs];
+            pwd->b[i] = (int8_t)target_ulong_array_val(&env->active_tc.gpr.rec, rs);
         }
         break;
     case DF_HALF:
         for (i = 0; i < DF_ELEMENTS(DF_HALF); i++) {
-            pwd->h[i] = (int16_t)env->active_tc.gpr[rs];
+            pwd->h[i] = (int16_t)target_ulong_array_val(&env->active_tc.gpr.rec, rs);
         }
         break;
     case DF_WORD:
         for (i = 0; i < DF_ELEMENTS(DF_WORD); i++) {
-            pwd->w[i] = (int32_t)env->active_tc.gpr[rs];
+            pwd->w[i] = (int32_t)target_ulong_array_val(&env->active_tc.gpr.rec, rs);
         }
         break;
     case DF_DOUBLE:
         for (i = 0; i < DF_ELEMENTS(DF_DOUBLE); i++) {
-            pwd->d[i] = (int64_t)env->active_tc.gpr[rs];
+            pwd->d[i] = (int64_t)target_ulong_array_val(&env->active_tc.gpr.rec, rs);
         }
        break;
     default:

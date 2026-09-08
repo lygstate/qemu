@@ -40,7 +40,7 @@ void sync_c0_status(CPUMIPSState *env, CPUMIPSState *cpu, int tc)
     cu = (v >> CP0St_CU0) & 0xf;
     mx = (v >> CP0St_MX) & 0x1;
     ksu = (v >> CP0St_KSU) & 0x3;
-    asid = env->CP0_EntryHi & env->CP0_EntryHi_ASID_mask;
+    asid = target_ulong_val(&env->CP0_EntryHi) & env->CP0_EntryHi_ASID_mask;
 
     tcstatus = cu << CP0TCSt_TCU0;
     tcstatus |= mx << CP0TCSt_TMX;

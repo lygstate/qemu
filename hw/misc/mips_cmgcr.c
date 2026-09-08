@@ -39,7 +39,7 @@ static inline void update_gcr_base(MIPSGCRState *gcr, uint64_t val)
 
     CPU_FOREACH(cpu) {
         mips_cpu = MIPS_CPU(cpu);
-        mips_cpu->env.CP0_CMGCRBase = gcr->gcr_base >> 4;
+        target_ulong_set(&mips_cpu->env.CP0_CMGCRBase, gcr->gcr_base >> 4);
     }
 }
 

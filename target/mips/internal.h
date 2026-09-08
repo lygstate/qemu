@@ -220,7 +220,7 @@ void cpu_mips_stop_count(CPUMIPSState *env);
 
 static inline void mips_env_set_pc(CPUMIPSState *env, target_ulong value)
 {
-    env->active_tc.PC = value & ~(target_ulong)1;
+    target_ulong_set(&env->active_tc.PC, value & ~(target_ulong)1);
     if (value & 1) {
         env->hflags |= MIPS_HFLAG_M16;
     } else {
@@ -273,7 +273,7 @@ static inline int mips_vpe_active(const CPUMIPSState *env)
         /* TC is not activated.  */
         active = 0;
     }
-    if (env->active_tc.CP0_TCHalt & 1) {
+    if (target_ulong_val(&env->active_tc.CP0_TCHalt) & 1) {
         /* TC is in halt state.  */
         active = 0;
     }
