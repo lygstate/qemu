@@ -136,12 +136,12 @@ static void save_pt_regs(struct target_pt_regs *regs, CPUSPARCState *env)
     __put_user(cpu_get_psr(env), &regs->psr);
 #endif
 
-    __put_user(env->pc, &regs->pc);
-    __put_user(env->npc, &regs->npc);
-    __put_user(env->y, &regs->y);
+    __put_user(target_ulong_val(&env->pc), &regs->pc);
+    __put_user(target_ulong_val(&env->npc), &regs->npc);
+    __put_user(target_ulong_val(&env->y), &regs->y);
 
     for (i = 0; i < 8; i++) {
-        __put_user(env->gregs[i], &regs->u_regs[i]);
+        __put_user(target_ulong_array_val(&env->gregs.rec, i), &regs->u_regs[i]);
     }
     for (i = 0; i < 8; i++) {
         __put_user(env->regwptr[WREG_O0 + i], &regs->u_regs[i + 8]);
@@ -150,6 +150,7 @@ static void save_pt_regs(struct target_pt_regs *regs, CPUSPARCState *env)
 
 static void restore_pt_regs(struct target_pt_regs *regs, CPUSPARCState *env)
 {
+    target_ulong y;
     int i;
 
 #if defined(TARGET_SPARC64) && !defined(TARGET_ABI32)
@@ -171,10 +172,11 @@ static void restore_pt_regs(struct target_pt_regs *regs, CPUSPARCState *env)
 
     /* Note that pc and npc are handled in the caller. */
 
-    __get_user(env->y, &regs->y);
+    __get_user(y, &regs->y);
+    target_ulong_set(&env->y, y);
 
     for (i = 0; i < 8; i++) {
-        __get_user(env->gregs[i], &regs->u_regs[i]);
+        __get_user(*(target_ulong *)target_ulong_array_elem(&env->gregs.rec, i), &regs->u_regs[i]);
     }
     for (i = 0; i < 8; i++) {
         __get_user(env->regwptr[WREG_O0 + i], &regs->u_regs[i + 8]);
@@ -294,8 +296,8 @@ void setup_frame(int sig, struct target_sigaction *ka,
             offsetof(struct target_signal_frame, regs);
 
     /* 4. signal handler */
-    env->pc = ka->_sa_handler;
-    env->npc = env->pc + 4;
+    target_ulong_set(&env->pc, ka->_sa_handler);
+    target_ulong_set(&env->npc, target_ulong_val(&env->pc) + 4);
 
     /* 5. return to kernel instructions */
     if (ka->ka_restorer) {
@@ -356,8 +358,8 @@ void setup_rt_frame(int sig, struct target_sigaction *ka,
 #endif
 
     /* 4. signal handler */
-    env->pc = ka->_sa_handler;
-    env->npc = env->pc + 4;
+    target_ulong_set(&env->pc, ka->_sa_handler);
+    target_ulong_set(&env->npc, target_ulong_val(&env->pc) + 4);
 
     /* 5. return to kernel instructions */
 #ifdef TARGET_ABI32
@@ -408,8 +410,8 @@ long do_sigreturn(CPUSPARCState *env)
 
     /* 2. Restore the state */
     restore_pt_regs(&sf->regs, env);
-    env->pc = pc;
-    env->npc = npc;
+    target_ulong_set(&env->pc, pc);
+    target_ulong_set(&env->npc, npc);
 
     __get_user(ptr, &sf->fpu_save);
     if (ptr) {
@@ -495,8 +497,8 @@ long do_rt_sigreturn(CPUSPARCState *env)
     target_to_host_sigset(&set, &sf->mask);
     set_sigmask(&set);
 
-    env->pc = tpc;
-    env->npc = tnpc;
+    target_ulong_set(&env->pc, tpc);
+    target_ulong_set(&env->npc, tnpc);
 
     unlock_user_struct(sf, sf_addr, 0);
     return -QEMU_ESIGRETURN;
@@ -590,7 +592,7 @@ void sparc64_set_context(CPUSPARCState *env)
     struct target_ucontext *ucp;
     target_mc_gregset_t *grp;
     target_mc_fpu_t *fpup;
-    target_ulong pc, npc, tstate;
+    target_ulong pc, npc, tstate, y;
     unsigned int i;
     unsigned char fenab;
 
@@ -642,19 +644,20 @@ void sparc64_set_context(CPUSPARCState *env)
         target_to_host_sigset_internal(&set, &target_set);
         set_sigmask(&set);
     }
-    env->pc = pc;
-    env->npc = npc;
-    __get_user(env->y, &((*grp)[SPARC_MC_Y]));
+    target_ulong_set(&env->pc, pc);
+    target_ulong_set(&env->npc, npc);
+    __get_user(y, &((*grp)[SPARC_MC_Y]));
+    target_ulong_set(&env->y, y);
     __get_user(tstate, &((*grp)[SPARC_MC_TSTATE]));
     /* Honour TSTATE_ASI, TSTATE_ICC and TSTATE_XCC only */
     env->asi = (tstate >> 24) & 0xff;
     cpu_put_ccr(env, (tstate >> 32) & 0xff);
-    __get_user(env->gregs[1], (&(*grp)[SPARC_MC_G1]));
-    __get_user(env->gregs[2], (&(*grp)[SPARC_MC_G2]));
-    __get_user(env->gregs[3], (&(*grp)[SPARC_MC_G3]));
-    __get_user(env->gregs[4], (&(*grp)[SPARC_MC_G4]));
-    __get_user(env->gregs[5], (&(*grp)[SPARC_MC_G5]));
-    __get_user(env->gregs[6], (&(*grp)[SPARC_MC_G6]));
+    __get_user(*(target_ulong *)target_ulong_array_elem(&env->gregs.rec, 1), (&(*grp)[SPARC_MC_G1]));
+    __get_user(*(target_ulong *)target_ulong_array_elem(&env->gregs.rec, 2), (&(*grp)[SPARC_MC_G2]));
+    __get_user(*(target_ulong *)target_ulong_array_elem(&env->gregs.rec, 3), (&(*grp)[SPARC_MC_G3]));
+    __get_user(*(target_ulong *)target_ulong_array_elem(&env->gregs.rec, 4), (&(*grp)[SPARC_MC_G4]));
+    __get_user(*(target_ulong *)target_ulong_array_elem(&env->gregs.rec, 5), (&(*grp)[SPARC_MC_G5]));
+    __get_user(*(target_ulong *)target_ulong_array_elem(&env->gregs.rec, 6), (&(*grp)[SPARC_MC_G6]));
     /* Skip g7 as that's the thread register in userspace */
 
     /*
@@ -762,8 +765,8 @@ void sparc64_get_context(CPUSPARCState *env)
     grp = &mcp->mc_gregs;
 
     /* Skip over the trap instruction, first. */
-    env->pc = env->npc;
-    env->npc += 4;
+    target_ulong_set(&env->pc, target_ulong_val(&env->npc));
+    target_ulong_set(&env->npc, target_ulong_val(&env->npc) + (4));
 
     /* If we're only reading the signal mask then do_sigprocmask()
      * is guaranteed not to fail, which is important because we don't
@@ -786,16 +789,16 @@ void sparc64_get_context(CPUSPARCState *env)
     }
 
     __put_user(sparc64_tstate(env), &((*grp)[SPARC_MC_TSTATE]));
-    __put_user(env->pc, &((*grp)[SPARC_MC_PC]));
-    __put_user(env->npc, &((*grp)[SPARC_MC_NPC]));
-    __put_user(env->y, &((*grp)[SPARC_MC_Y]));
-    __put_user(env->gregs[1], &((*grp)[SPARC_MC_G1]));
-    __put_user(env->gregs[2], &((*grp)[SPARC_MC_G2]));
-    __put_user(env->gregs[3], &((*grp)[SPARC_MC_G3]));
-    __put_user(env->gregs[4], &((*grp)[SPARC_MC_G4]));
-    __put_user(env->gregs[5], &((*grp)[SPARC_MC_G5]));
-    __put_user(env->gregs[6], &((*grp)[SPARC_MC_G6]));
-    __put_user(env->gregs[7], &((*grp)[SPARC_MC_G7]));
+    __put_user(target_ulong_val(&env->pc), &((*grp)[SPARC_MC_PC]));
+    __put_user(target_ulong_val(&env->npc), &((*grp)[SPARC_MC_NPC]));
+    __put_user(target_ulong_val(&env->y), &((*grp)[SPARC_MC_Y]));
+    __put_user(target_ulong_array_val(&env->gregs.rec, 1), &((*grp)[SPARC_MC_G1]));
+    __put_user(target_ulong_array_val(&env->gregs.rec, 2), &((*grp)[SPARC_MC_G2]));
+    __put_user(target_ulong_array_val(&env->gregs.rec, 3), &((*grp)[SPARC_MC_G3]));
+    __put_user(target_ulong_array_val(&env->gregs.rec, 4), &((*grp)[SPARC_MC_G4]));
+    __put_user(target_ulong_array_val(&env->gregs.rec, 5), &((*grp)[SPARC_MC_G5]));
+    __put_user(target_ulong_array_val(&env->gregs.rec, 6), &((*grp)[SPARC_MC_G6]));
+    __put_user(target_ulong_array_val(&env->gregs.rec, 7), &((*grp)[SPARC_MC_G7]));
 
     /*
      * Note that unlike the kernel, we didn't need to mess with the

@@ -5912,7 +5912,7 @@ void sparc_tcg_init(void)
     cpu_regs[0] = NULL;
     for (i = 1; i < 8; ++i) {
         cpu_regs[i] = tcg_global_mem_new(tcg_env,
-                                         offsetof(CPUSPARCState, gregs[i]),
+                                         offsetof(CPUSPARCState, gregs) + (i) * TARGET_LONG_SIZE,
                                          gregnames[i]);
     }
 

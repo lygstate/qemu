@@ -27,17 +27,19 @@ void cpu_set_cwp(CPUSPARCState *env, int new_cwp)
 {
     /* put the modified wrap registers at their proper location */
     if (env->cwp == env->nwindows - 1) {
-        memcpy(env->regbase, env->regbase + env->nwindows * 16,
-               sizeof(env->gregs));
+        memcpy(target_ulong_array_elem(&env->regbase.rec, 0),
+               target_ulong_array_elem(&env->regbase.rec, env->nwindows * 16),
+               8 * TARGET_LONG_SIZE);
     }
     env->cwp = new_cwp;
 
     /* put the wrap registers at their temporary location */
     if (new_cwp == env->nwindows - 1) {
-        memcpy(env->regbase + env->nwindows * 16, env->regbase,
-               sizeof(env->gregs));
+        memcpy(target_ulong_array_elem(&env->regbase.rec, env->nwindows * 16),
+               target_ulong_array_elem(&env->regbase.rec, 0),
+               8 * TARGET_LONG_SIZE);
     }
-    env->regwptr = env->regbase + (new_cwp * 16);
+    env->regwptr = target_ulong_array_elem(&env->regbase.rec, (new_cwp * 16));
 }
 
 target_ulong cpu_get_psr(CPUSPARCState *env)
@@ -350,8 +352,10 @@ void cpu_gl_switch_gregs(CPUSPARCState *env, uint32_t new_gl)
     dst = get_gl_gregset(env, env->gl);
 
     if (src != dst) {
-        memcpy(dst, env->gregs, sizeof(env->gregs));
-        memcpy(env->gregs, src, sizeof(env->gregs));
+        memcpy(dst, target_ulong_array_elem(&env->gregs.rec, 0),
+               8 * TARGET_LONG_SIZE);
+        memcpy(target_ulong_array_elem(&env->gregs.rec, 0), src,
+               8 * TARGET_LONG_SIZE);
     }
 }
 
@@ -382,8 +386,10 @@ void cpu_change_pstate(CPUSPARCState *env, uint32_t new_pstate)
         /* Switch global register bank */
         src = get_gregset(env, new_pstate_regs);
         dst = get_gregset(env, pstate_regs);
-        memcpy(dst, env->gregs, sizeof(env->gregs));
-        memcpy(env->gregs, src, sizeof(env->gregs));
+        memcpy(dst, target_ulong_array_elem(&env->gregs.rec, 0),
+               8 * TARGET_LONG_SIZE);
+        memcpy(target_ulong_array_elem(&env->gregs.rec, 0), src,
+               8 * TARGET_LONG_SIZE);
     } else {
         trace_win_helper_no_switch_pstate(new_pstate_regs);
     }
@@ -422,8 +428,8 @@ void helper_done(CPUSPARCState *env)
 {
     trap_state *tsptr = cpu_tsptr(env);
 
-    env->pc = tsptr->tnpc;
-    env->npc = tsptr->tnpc + 4;
+    target_ulong_set(&env->pc, tsptr->tnpc);
+    target_ulong_set(&env->npc, tsptr->tnpc + 4);
     cpu_put_ccr(env, tsptr->tstate >> 32);
     env->asi = (tsptr->tstate >> 24) & 0xff;
     cpu_change_pstate(env, (tsptr->tstate >> 8) & 0xf3f);
@@ -451,8 +457,8 @@ void helper_retry(CPUSPARCState *env)
 {
     trap_state *tsptr = cpu_tsptr(env);
 
-    env->pc = tsptr->tpc;
-    env->npc = tsptr->tnpc;
+    target_ulong_set(&env->pc, tsptr->tpc);
+    target_ulong_set(&env->npc, tsptr->tnpc);
     cpu_put_ccr(env, tsptr->tstate >> 32);
     env->asi = (tsptr->tstate >> 24) & 0xff;
     cpu_change_pstate(env, (tsptr->tstate >> 8) & 0xf3f);

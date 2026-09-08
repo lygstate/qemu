@@ -152,23 +152,23 @@ void sparc_cpu_do_interrupt(CPUState *cs)
             MemOpIdx oi = make_memop_idx(MO_BEUL, cpu_mmu_index(cs, true));
 
             env->fsr_qne = FSR_QNE;
-            env->fq.s.addr = env->pc;
-            env->fq.s.insn = cpu_ldl_code_mmu(env, env->pc, oi, 0);
+            env->fq.s.addr = target_ulong_val(&env->pc);
+            env->fq.s.insn = cpu_ldl_code_mmu(env, target_ulong_val(&env->pc), oi, 0);
         }
-        env->pc = env->npc;
-        env->npc = env->npc + 4;
+        target_ulong_set(&env->pc, target_ulong_val(&env->npc));
+        target_ulong_set(&env->npc, target_ulong_val(&env->npc) + 4);
     }
 #endif
     env->psret = 0;
     cwp = cpu_cwp_dec(env, env->cwp - 1);
     cpu_set_cwp(env, cwp);
-    env->regwptr[9] = env->pc;
-    env->regwptr[10] = env->npc;
+    env->regwptr[9] = target_ulong_val(&env->pc);
+    env->regwptr[10] = target_ulong_val(&env->npc);
     env->psrps = env->psrs;
     env->psrs = 1;
-    env->tbr = (env->tbr & TBR_BASE_MASK) | (intno << 4);
-    env->pc = env->tbr;
-    env->npc = env->pc + 4;
+    target_ulong_set(&env->tbr, (target_ulong_val(&env->tbr) & TBR_BASE_MASK) | (intno << 4));
+    target_ulong_set(&env->pc, target_ulong_val(&env->tbr));
+    target_ulong_set(&env->npc, target_ulong_val(&env->pc) + 4);
     cs->exception_index = -1;
 
 #if !defined(CONFIG_USER_ONLY)
