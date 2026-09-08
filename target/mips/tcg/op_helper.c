@@ -205,7 +205,7 @@ target_ulong helper_yield(CPUMIPSState *env, target_ulong arg)
         env->CP0_VPEControl |= 2 << CP0VPECo_EXCPT;
         do_raise_exception(env, EXCP_THREAD, GETPC());
     }
-    return env->CP0_YQMask;
+    return target_ulong_val(&env->CP0_YQMask);
 }
 
 static inline void check_hwrena(CPUMIPSState *env, int reg, uintptr_t pc)
@@ -219,7 +219,7 @@ static inline void check_hwrena(CPUMIPSState *env, int reg, uintptr_t pc)
 target_ulong helper_rdhwr_cpunum(CPUMIPSState *env)
 {
     check_hwrena(env, 0, GETPC());
-    return env->CP0_EBase & 0x3ff;
+    return target_ulong_val(&env->CP0_EBase) & 0x3ff;
 }
 
 target_ulong helper_rdhwr_synci_step(CPUMIPSState *env)
@@ -277,22 +277,22 @@ void helper_pmon(CPUMIPSState *env, int function)
     function /= 2;
     switch (function) {
     case 2: /* TODO: char inbyte(int waitflag); */
-        if (env->active_tc.gpr[4] == 0) {
-            env->active_tc.gpr[2] = -1;
+        if (target_ulong_array_val(&env->active_tc.gpr.rec, 4) == 0) {
+            target_ulong_array_set(&env->active_tc.gpr.rec, 2, -1);
         }
         /* Fall through */
     case 11: /* TODO: char inbyte (void); */
-        env->active_tc.gpr[2] = -1;
+        target_ulong_array_set(&env->active_tc.gpr.rec, 2, -1);
         break;
     case 3:
     case 12:
-        printf("%c", (char)(env->active_tc.gpr[4] & 0xFF));
+        printf("%c", (char)(target_ulong_array_val(&env->active_tc.gpr.rec, 4) & 0xFF));
         break;
     case 17:
         break;
     case 158:
         {
-            unsigned char *fmt = (void *)(uintptr_t)env->active_tc.gpr[4];
+            unsigned char *fmt = (void *)(uintptr_t)target_ulong_array_val(&env->active_tc.gpr.rec, 4);
             printf("%s", fmt);
         }
         break;
@@ -326,7 +326,7 @@ void mips_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
     int excp;
 
     if (!(env->hflags & MIPS_HFLAG_DM)) {
-        env->CP0_BadVAddr = addr;
+        target_ulong_set(&env->CP0_BadVAddr, addr);
     }
 
     if (access_type == MMU_DATA_STORE) {

@@ -29,7 +29,7 @@ int mips_cpu_gdb_read_register(CPUState *cs, GByteArray *mem_buf, int n)
     CPUMIPSState *env = cpu_env(cs);
 
     if (n < 32) {
-        return gdb_get_regl(mem_buf, env->active_tc.gpr[n]);
+        return gdb_get_regl(mem_buf, target_ulong_array_val(&env->active_tc.gpr.rec, n));
     }
     if (env->CP0_Config1 & (1 << CP0C1_FP) && n >= 38 && n < 72) {
         switch (n) {
@@ -51,15 +51,15 @@ int mips_cpu_gdb_read_register(CPUState *cs, GByteArray *mem_buf, int n)
     case 32:
         return gdb_get_regl(mem_buf, (int32_t)env->CP0_Status);
     case 33:
-        return gdb_get_regl(mem_buf, env->active_tc.LO[0]);
+        return gdb_get_regl(mem_buf, target_ulong_array_val(&env->active_tc.LO.rec, 0));
     case 34:
-        return gdb_get_regl(mem_buf, env->active_tc.HI[0]);
+        return gdb_get_regl(mem_buf, target_ulong_array_val(&env->active_tc.HI.rec, 0));
     case 35:
-        return gdb_get_regl(mem_buf, env->CP0_BadVAddr);
+        return gdb_get_regl(mem_buf, target_ulong_val(&env->CP0_BadVAddr));
     case 36:
         return gdb_get_regl(mem_buf, (int32_t)env->CP0_Cause);
     case 37:
-        return gdb_get_regl(mem_buf, env->active_tc.PC |
+        return gdb_get_regl(mem_buf, target_ulong_val(&env->active_tc.PC) |
                                      !!(env->hflags & MIPS_HFLAG_M16));
     case 72:
         return gdb_get_regl(mem_buf, 0); /* fp */
@@ -85,7 +85,7 @@ int mips_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
     tmp = ldn_p(mem_buf, regsz);
 
     if (n < 32) {
-        env->active_tc.gpr[n] = tmp;
+        target_ulong_array_set(&env->active_tc.gpr.rec, n, tmp);
         return regsz;
     }
     if (env->CP0_Config1 & (1 << CP0C1_FP) && n >= 38 && n < 72) {
@@ -115,13 +115,13 @@ int mips_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
 #endif
         break;
     case 33:
-        env->active_tc.LO[0] = tmp;
+        target_ulong_array_set(&env->active_tc.LO.rec, 0, tmp);
         break;
     case 34:
-        env->active_tc.HI[0] = tmp;
+        target_ulong_array_set(&env->active_tc.HI.rec, 0, tmp);
         break;
     case 35:
-        env->CP0_BadVAddr = tmp;
+        target_ulong_set(&env->CP0_BadVAddr, tmp);
         break;
     case 36:
 #ifndef CONFIG_USER_ONLY
@@ -129,7 +129,7 @@ int mips_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
 #endif
         break;
     case 37:
-        env->active_tc.PC = deposit64(tmp, 63, 1, 0);
+        target_ulong_set(&env->active_tc.PC, deposit64(tmp, 63, 1, 0));
         if (tmp & 1) {
             env->hflags |= MIPS_HFLAG_M16;
         } else {

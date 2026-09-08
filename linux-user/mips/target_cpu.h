@@ -23,10 +23,10 @@ static inline void cpu_clone_regs_child(CPUMIPSState *env, target_ulong newsp,
                                         unsigned flags)
 {
     if (newsp) {
-        env->active_tc.gpr[29] = newsp;
+        target_ulong_array_set(&env->active_tc.gpr.rec, 29, newsp);
     }
-    env->active_tc.gpr[7] = 0;
-    env->active_tc.gpr[2] = 0;
+    target_ulong_array_set(&env->active_tc.gpr.rec, 7, 0);
+    target_ulong_array_set(&env->active_tc.gpr.rec, 2, 0);
 }
 
 static inline void cpu_clone_regs_parent(CPUMIPSState *env, unsigned flags)
@@ -37,14 +37,14 @@ static inline void cpu_set_tls(CPUMIPSState *env, target_ulong newtls)
 {
     TaskState *ts = get_task_state(env_cpu(env));
 
-    env->active_tc.CP0_UserLocal = newtls;
+    target_ulong_set(&env->active_tc.CP0_UserLocal, newtls);
     if (ts->info->use_k0_tls) {
-        env->active_tc.gpr[26] = newtls;
+        target_ulong_array_set(&env->active_tc.gpr.rec, 26, newtls);
     }
 }
 
 static inline abi_ulong get_sp_from_cpustate(CPUMIPSState *state)
 {
-    return state->active_tc.gpr[29];
+    return target_ulong_array_val(&state->active_tc.gpr.rec, 29);
 }
 #endif

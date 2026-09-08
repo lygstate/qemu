@@ -133,9 +133,9 @@ int get_physical_address(CPUMIPSState *env, hwaddr *physical,
         uint16_t segctl;
 
         if (address >= 0x40000000UL) {
-            segctl = env->CP0_SegCtl2;
+            segctl = target_ulong_val(&env->CP0_SegCtl2);
         } else {
-            segctl = env->CP0_SegCtl2 >> 16;
+            segctl = target_ulong_val(&env->CP0_SegCtl2) >> 16;
         }
         ret = get_segctl_physical_address(env, physical, prot,
                                           real_address, access_type,
@@ -173,10 +173,10 @@ int get_physical_address(CPUMIPSState *env, hwaddr *physical,
                 [CP0SC_AM_UUSK]  = (1u << CP0St_UX),
             };
             unsigned int am = CP0SC_AM_UK;
-            unsigned int xr = (env->CP0_SegCtl2 & CP0SC2_XR_MASK) >> CP0SC2_XR;
+            unsigned int xr = (target_ulong_val(&env->CP0_SegCtl2) & CP0SC2_XR_MASK) >> CP0SC2_XR;
 
             if (xr & (1 << ((address >> 59) & 0x7))) {
-                am = (env->CP0_SegCtl1 & CP0SC1_XAM_MASK) >> CP0SC1_XAM;
+                am = (target_ulong_val(&env->CP0_SegCtl1) & CP0SC1_XAM_MASK) >> CP0SC1_XAM;
             }
             /* Does CP0_Status.KX/SX/UX permit the access mode (am) */
             if (env->CP0_Status & am_ksux[am]) {
@@ -204,17 +204,17 @@ int get_physical_address(CPUMIPSState *env, hwaddr *physical,
         /* kseg0 */
         ret = get_segctl_physical_address(env, physical, prot, real_address,
                                           access_type, mmu_idx,
-                                          env->CP0_SegCtl1 >> 16, 0x1FFFFFFF);
+                                          target_ulong_val(&env->CP0_SegCtl1) >> 16, 0x1FFFFFFF);
     } else if (address < KSEG2_BASE) {
         /* kseg1 */
         ret = get_segctl_physical_address(env, physical, prot, real_address,
                                           access_type, mmu_idx,
-                                          env->CP0_SegCtl1, 0x1FFFFFFF);
+                                          target_ulong_val(&env->CP0_SegCtl1), 0x1FFFFFFF);
     } else if (address < KSEG3_BASE) {
         /* sseg (kseg2) */
         ret = get_segctl_physical_address(env, physical, prot, real_address,
                                           access_type, mmu_idx,
-                                          env->CP0_SegCtl0 >> 16, 0x1FFFFFFF);
+                                          target_ulong_val(&env->CP0_SegCtl0) >> 16, 0x1FFFFFFF);
     } else {
         /*
          * kseg3
@@ -222,7 +222,7 @@ int get_physical_address(CPUMIPSState *env, hwaddr *physical,
          */
         ret = get_segctl_physical_address(env, physical, prot, real_address,
                                           access_type, mmu_idx,
-                                          env->CP0_SegCtl0, 0x1FFFFFFF);
+                                          target_ulong_val(&env->CP0_SegCtl0), 0x1FFFFFFF);
     }
     return ret;
 }

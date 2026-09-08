@@ -110,20 +110,20 @@ static inline void setup_sigcontext(CPUMIPSState *regs,
 
     __put_user(0, &sc->sc_regs[0]);
     for (i = 1; i < 32; ++i) {
-        __put_user(regs->active_tc.gpr[i], &sc->sc_regs[i]);
+        __put_user(target_ulong_array_val(&regs->active_tc.gpr.rec, i), &sc->sc_regs[i]);
     }
 
-    __put_user(regs->active_tc.HI[0], &sc->sc_mdhi);
-    __put_user(regs->active_tc.LO[0], &sc->sc_mdlo);
+    __put_user(target_ulong_array_val(&regs->active_tc.HI.rec, 0), &sc->sc_mdhi);
+    __put_user(target_ulong_array_val(&regs->active_tc.LO.rec, 0), &sc->sc_mdlo);
 
     /* Rather than checking for dsp existence, always copy.  The storage
        would just be garbage otherwise.  */
-    __put_user(regs->active_tc.HI[1], &sc->sc_hi1);
-    __put_user(regs->active_tc.HI[2], &sc->sc_hi2);
-    __put_user(regs->active_tc.HI[3], &sc->sc_hi3);
-    __put_user(regs->active_tc.LO[1], &sc->sc_lo1);
-    __put_user(regs->active_tc.LO[2], &sc->sc_lo2);
-    __put_user(regs->active_tc.LO[3], &sc->sc_lo3);
+    __put_user(target_ulong_array_val(&regs->active_tc.HI.rec, 1), &sc->sc_hi1);
+    __put_user(target_ulong_array_val(&regs->active_tc.HI.rec, 2), &sc->sc_hi2);
+    __put_user(target_ulong_array_val(&regs->active_tc.HI.rec, 3), &sc->sc_hi3);
+    __put_user(target_ulong_array_val(&regs->active_tc.LO.rec, 1), &sc->sc_lo1);
+    __put_user(target_ulong_array_val(&regs->active_tc.LO.rec, 2), &sc->sc_lo2);
+    __put_user(target_ulong_array_val(&regs->active_tc.LO.rec, 3), &sc->sc_lo3);
     {
         uint32_t dsp = cpu_rddsp(0x3ff, regs);
         __put_user(dsp, &sc->sc_dsp);
@@ -140,23 +140,25 @@ static inline void setup_sigcontext(CPUMIPSState *regs,
 static inline void
 restore_sigcontext(CPUMIPSState *regs, struct target_sigcontext *sc)
 {
+    target_ulong epc;
     int i;
 
-    __get_user(regs->CP0_EPC, &sc->sc_pc);
+    __get_user(epc, &sc->sc_pc);
+    target_ulong_set(&regs->CP0_EPC, epc);
 
-    __get_user(regs->active_tc.HI[0], &sc->sc_mdhi);
-    __get_user(regs->active_tc.LO[0], &sc->sc_mdlo);
+    __get_user(*(target_ulong *)target_ulong_array_elem(&regs->active_tc.HI.rec, 0), &sc->sc_mdhi);
+    __get_user(*(target_ulong *)target_ulong_array_elem(&regs->active_tc.LO.rec, 0), &sc->sc_mdlo);
 
     for (i = 1; i < 32; ++i) {
-        __get_user(regs->active_tc.gpr[i], &sc->sc_regs[i]);
+        __get_user(*(target_ulong *)target_ulong_array_elem(&regs->active_tc.gpr.rec, i), &sc->sc_regs[i]);
     }
 
-    __get_user(regs->active_tc.HI[1], &sc->sc_hi1);
-    __get_user(regs->active_tc.HI[2], &sc->sc_hi2);
-    __get_user(regs->active_tc.HI[3], &sc->sc_hi3);
-    __get_user(regs->active_tc.LO[1], &sc->sc_lo1);
-    __get_user(regs->active_tc.LO[2], &sc->sc_lo2);
-    __get_user(regs->active_tc.LO[3], &sc->sc_lo3);
+    __get_user(*(target_ulong *)target_ulong_array_elem(&regs->active_tc.HI.rec, 1), &sc->sc_hi1);
+    __get_user(*(target_ulong *)target_ulong_array_elem(&regs->active_tc.HI.rec, 2), &sc->sc_hi2);
+    __get_user(*(target_ulong *)target_ulong_array_elem(&regs->active_tc.HI.rec, 3), &sc->sc_hi3);
+    __get_user(*(target_ulong *)target_ulong_array_elem(&regs->active_tc.LO.rec, 1), &sc->sc_lo1);
+    __get_user(*(target_ulong *)target_ulong_array_elem(&regs->active_tc.LO.rec, 2), &sc->sc_lo2);
+    __get_user(*(target_ulong *)target_ulong_array_elem(&regs->active_tc.LO.rec, 3), &sc->sc_lo3);
     {
         uint32_t dsp;
         __get_user(dsp, &sc->sc_dsp);
@@ -196,8 +198,8 @@ static void mips_set_hflags_isa_mode_from_pc(CPUMIPSState *env)
 {
     if (env->insn_flags & (ASE_MIPS16 | ASE_MICROMIPS)) {
         env->hflags &= ~MIPS_HFLAG_M16;
-        env->hflags |= (env->active_tc.PC & 1) << MIPS_HFLAG_M16_SHIFT;
-        env->active_tc.PC &= ~(target_ulong) 1;
+        env->hflags |= (target_ulong_val(&env->active_tc.PC) & 1) << MIPS_HFLAG_M16_SHIFT;
+        target_ulong_set(&env->active_tc.PC, target_ulong_val(&env->active_tc.PC) & (~(target_ulong) 1));
     }
 }
 
@@ -232,15 +234,16 @@ void setup_frame(int sig, struct target_sigaction * ka,
     * $25 and PC point to the signal handler, $29 points to the
     * struct sigframe.
     */
-    regs->active_tc.gpr[ 4] = sig;
-    regs->active_tc.gpr[ 5] = 0;
-    regs->active_tc.gpr[ 6] = frame_addr + offsetof(struct sigframe, sf_sc);
-    regs->active_tc.gpr[29] = frame_addr;
-    regs->active_tc.gpr[31] = default_sigreturn;
+    target_ulong_array_set(&regs->active_tc.gpr.rec, 4, sig);
+    target_ulong_array_set(&regs->active_tc.gpr.rec, 5, 0);
+    target_ulong_array_set(&regs->active_tc.gpr.rec, 6, frame_addr + offsetof(struct sigframe, sf_sc));
+    target_ulong_array_set(&regs->active_tc.gpr.rec, 29, frame_addr);
+    target_ulong_array_set(&regs->active_tc.gpr.rec, 31, default_sigreturn);
     /* The original kernel code sets CP0_EPC to the handler
     * since it returns to userland using eret
     * we cannot do this here, and we must set PC directly */
-    regs->active_tc.PC = regs->active_tc.gpr[25] = ka->_sa_handler;
+    target_ulong_array_set(&regs->active_tc.gpr.rec, 25, ka->_sa_handler);
+    target_ulong_set(&regs->active_tc.PC, ka->_sa_handler);
     mips_set_hflags_isa_mode_from_pc(regs);
     unlock_user_struct(frame, frame_addr, 1);
     return;
@@ -257,7 +260,7 @@ long do_sigreturn(CPUMIPSState *regs)
     target_sigset_t target_set;
     int i;
 
-    frame_addr = regs->active_tc.gpr[29];
+    frame_addr = target_ulong_array_val(&regs->active_tc.gpr.rec, 29);
     trace_user_do_sigreturn(regs, frame_addr);
     if (!lock_user_struct(VERIFY_READ, frame, frame_addr, 1))
         goto badframe;
@@ -283,11 +286,11 @@ long do_sigreturn(CPUMIPSState *regs)
     /* Unreached */
 #endif
 
-    regs->active_tc.PC = regs->CP0_EPC;
+    target_ulong_set(&regs->active_tc.PC, target_ulong_val(&regs->CP0_EPC));
     mips_set_hflags_isa_mode_from_pc(regs);
     /* I am not sure this is right, but it seems to work
     * maybe a problem with nested signals ? */
-    regs->CP0_EPC = 0;
+    target_ulong_set(&regs->CP0_EPC, 0);
     return -QEMU_ESIGRETURN;
 
 badframe:
@@ -332,20 +335,21 @@ void setup_rt_frame(int sig, struct target_sigaction *ka,
     * $25 and PC point to the signal handler, $29 points to the
     * struct sigframe.
     */
-    env->active_tc.gpr[ 4] = sig;
-    env->active_tc.gpr[ 5] = frame_addr
-                             + offsetof(struct target_rt_sigframe, rs_info);
-    env->active_tc.gpr[ 6] = frame_addr
-                             + offsetof(struct target_rt_sigframe, rs_uc);
-    env->active_tc.gpr[29] = frame_addr;
-    env->active_tc.gpr[31] = default_rt_sigreturn;
+    target_ulong_array_set(&env->active_tc.gpr.rec, 4, sig);
+    target_ulong_array_set(&env->active_tc.gpr.rec, 5, frame_addr
+                             + offsetof(struct target_rt_sigframe, rs_info));
+    target_ulong_array_set(&env->active_tc.gpr.rec, 6, frame_addr
+                             + offsetof(struct target_rt_sigframe, rs_uc));
+    target_ulong_array_set(&env->active_tc.gpr.rec, 29, frame_addr);
+    target_ulong_array_set(&env->active_tc.gpr.rec, 31, default_rt_sigreturn);
 
     /*
      * The original kernel code sets CP0_EPC to the handler
      * since it returns to userland using eret
      * we cannot do this here, and we must set PC directly
      */
-    env->active_tc.PC = env->active_tc.gpr[25] = ka->_sa_handler;
+    target_ulong_array_set(&env->active_tc.gpr.rec, 25, ka->_sa_handler);
+    target_ulong_set(&env->active_tc.PC, ka->_sa_handler);
     mips_set_hflags_isa_mode_from_pc(env);
     unlock_user_struct(frame, frame_addr, 1);
     return;
@@ -361,7 +365,7 @@ long do_rt_sigreturn(CPUMIPSState *env)
     abi_ulong frame_addr;
     sigset_t blocked;
 
-    frame_addr = env->active_tc.gpr[29];
+    frame_addr = target_ulong_array_val(&env->active_tc.gpr.rec, 29);
     trace_user_do_rt_sigreturn(env, frame_addr);
     if (!lock_user_struct(VERIFY_READ, frame, frame_addr, 1)) {
         goto badframe;
@@ -373,11 +377,11 @@ long do_rt_sigreturn(CPUMIPSState *env)
     restore_sigcontext(env, &frame->rs_uc.tuc_mcontext);
     target_restore_altstack(&frame->rs_uc.tuc_stack, env);
 
-    env->active_tc.PC = env->CP0_EPC;
+    target_ulong_set(&env->active_tc.PC, target_ulong_val(&env->CP0_EPC));
     mips_set_hflags_isa_mode_from_pc(env);
     /* I am not sure this is right, but it seems to work
     * maybe a problem with nested signals ? */
-    env->CP0_EPC = 0;
+    target_ulong_set(&env->CP0_EPC, 0);
     return -QEMU_ESIGRETURN;
 
 badframe:
