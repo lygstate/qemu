@@ -1564,10 +1564,46 @@ static gint machine_class_cmp(gconstpointer a, gconstpointer b, gpointer d)
                   object_class_get_name(OBJECT_CLASS(mc1)));
 }
 
+static void machine_help_print_target(GSList *machines, const TargetInfo *ti,
+                                      bool print_header)
+{
+    bool printed = false;
+    GSList *el;
+
+    for (el = machines; el; el = el->next) {
+        MachineClass *mc = el->data;
+        if (print_header) {
+            TypeIsAvailable *is_available =
+                object_class_get_is_available(OBJECT_CLASS(mc));
+
+            if (is_available) {
+                if (!is_available(ti)) {
+                    continue;
+                }
+            } else if (ti->target_arch != SYS_EMU_TARGET_NONE) {
+                continue;
+            }
+            if (!printed) {
+                printf("%s:\n", ti->target_name);
+                printed = true;
+            }
+        }
+        if (mc->alias) {
+            printf("%-20s %s (alias of %s)\n", mc->alias, mc->desc, mc->name);
+        }
+        printf("%-20s %s%s%s\n", mc->name, mc->desc,
+               mc->is_default ? " (default)" : "",
+               mc->deprecation_reason ? " (deprecated)" : "");
+    }
+
+    if (print_header) {
+        printf("\n");
+    }
+}
+
 static void machine_help_func(const QDict *qdict)
 {
     g_autoptr(GSList) machines = NULL;
-    GSList *el;
     const char *type = qdict_get_try_str(qdict, "type");
 
     machines = object_class_get_list(TYPE_MACHINE, false);
@@ -1581,14 +1617,16 @@ static void machine_help_func(const QDict *qdict)
 
     printf("Supported machines are:\n");
     machines = g_slist_sort_with_data(machines, machine_class_cmp, NULL);
-    for (el = machines; el; el = el->next) {
-        MachineClass *mc = el->data;
-        if (mc->alias) {
-            printf("%-20s %s (alias of %s)\n", mc->alias, mc->desc, mc->name);
+    if (target_info()->target_arch == SYS_EMU_TARGET_NONE) {
+        g_autoptr(GSList) targets =
+            object_class_get_list_sorted(TYPE_TARGET_INFO, false);
+        machine_help_print_target(machines, target_info(), true);
+        for (GSList *elem = targets; elem; elem = elem->next) {
+            const TargetInfo *ti = TARGET_INFO_CLASS(elem->data)->target_info;
+            machine_help_print_target(machines, ti, true);
         }
-        printf("%-20s %s%s%s\n", mc->name, mc->desc,
-               mc->is_default ? " (default)" : "",
-               mc->deprecation_reason ? " (deprecated)" : "");
+    } else {
+        machine_help_print_target(machines, target_info(), false);
     }
 }
 
