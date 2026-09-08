@@ -1651,7 +1651,7 @@ static inline MemOp cc_op_size(CCOp op)
 
 typedef struct SegmentCache {
     uint32_t selector;
-    target_ulong base;
+    target_ulong_t base;
     uint32_t limit;
     uint32_t flags;
 } SegmentCache;
@@ -2034,7 +2034,7 @@ typedef struct CPUArchState {
     SegmentCache gdt; /* only base and limit are used */
     SegmentCache idt; /* only base and limit are used */
 
-    target_ulong cr[5]; /* NOTE: cr1 is unused */
+    TARGET_ULONG_ARRAY(5) cr; /* NOTE: cr1 is unused */
 
     bool pdptrs_valid;
     uint64_t pdptrs[4];
@@ -2080,8 +2080,8 @@ typedef struct CPUArchState {
 
     /* sysenter registers */
     uint32_t sysenter_cs;
-    target_ulong sysenter_esp;
-    target_ulong sysenter_eip;
+    target_ulong_t sysenter_esp;
+    target_ulong_t sysenter_eip;
     uint64_t star;
 
     uint64_t vm_hsave;
@@ -2206,7 +2206,7 @@ typedef struct CPUArchState {
     int error_code;
     int exception_is_int;
     target_ulong exception_next_eip;
-    target_ulong dr[8]; /* debug registers; note dr4 and dr5 are unused */
+    TARGET_ULONG_ARRAY(8) dr; /* debug registers; note dr4 and dr5 are unused */
     union {
         struct CPUBreakpoint *cpu_breakpoint[4];
         struct CPUWatchpoint *cpu_watchpoint[4];
@@ -2648,7 +2648,7 @@ static inline void cpu_x86_load_seg_cache(CPUX86State *env,
     }
 
     sc->selector = selector;
-    sc->base = base;
+    target_ulong_set(&sc->base, base);
     sc->limit = limit;
     sc->flags = flags;
 
@@ -2683,8 +2683,8 @@ static inline void cpu_x86_load_seg_cache(CPUX86State *env,
             >> (DESC_B_SHIFT - HF_SS32_SHIFT);
         if (env->hflags & HF_CS64_MASK) {
             /* zero base assumed for DS, ES and SS in long mode */
-        } else if (!(env->cr[0] & CR0_PE_MASK) ||
-                   (target_ulong_val(&env->eflags) & VM_MASK) ||
+        } else if (!(target_ulong_array_val(&env->cr.rec, 0) & CR0_PE_MASK) ||
+                   (target_ulong_val(&(env)->eflags) & VM_MASK) ||
                    !(env->hflags & HF_CS32_MASK)) {
             /* XXX: try to avoid this test. The problem comes from the
                fact that is real mode or vm86 mode we only modify the
@@ -2693,9 +2693,9 @@ static inline void cpu_x86_load_seg_cache(CPUX86State *env,
                translate-i386.c. */
             new_hflags |= HF_ADDSEG_MASK;
         } else {
-            new_hflags |= ((env->segs[R_DS].base |
-                            env->segs[R_ES].base |
-                            env->segs[R_SS].base) != 0) <<
+            new_hflags |= ((target_ulong_val(&(env->segs[R_DS]).base) |
+                            target_ulong_val(&(env->segs[R_ES]).base) |
+                            target_ulong_val(&(env->segs[R_SS]).base)) != 0) <<
                 HF_ADDSEG_SHIFT;
         }
         env->hflags = (env->hflags &
@@ -2709,7 +2709,7 @@ static inline void cpu_x86_load_seg_cache_sipi(X86CPU *cpu,
     CPUState *cs = CPU(cpu);
     CPUX86State *env = &cpu->env;
 
-    target_ulong_set(&env->eip, 0);
+    target_ulong_set(&(env)->eip,  0);
     cpu_x86_load_seg_cache(env, R_CS, sipi_vector << 8,
                            sipi_vector << 12,
                            env->segs[R_CS].limit,
@@ -2883,7 +2883,7 @@ uint32_t cpu_cc_compute_all(CPUX86State *env1);
 
 static inline uint32_t cpu_compute_eflags(CPUX86State *env)
 {
-    uint32_t eflags = target_ulong_val(&env->eflags);
+    uint32_t eflags = target_ulong_val(&(env)->eflags);
     if (tcg_enabled()) {
         eflags |= cpu_cc_compute_all(env) | (env->df & DF_MASK);
     }
@@ -2963,7 +2963,7 @@ static inline bool cpu_has_svm(CPUX86State *env)
 static inline bool cpu_vmx_maybe_enabled(CPUX86State *env)
 {
     return cpu_has_vmx(env) &&
-           ((env->cr[4] & CR4_VMXE_MASK) || (env->hflags & HF_SMM_MASK));
+           ((target_ulong_array_val(&env->cr.rec, 4) & CR4_VMXE_MASK) || (env->hflags & HF_SMM_MASK));
 }
 
 /* excp_helper.c */
@@ -3122,7 +3122,7 @@ static inline bool ctl_has_irq(CPUX86State *env)
 
 static inline bool x86_cpu_interrupts_enabled(const CPUX86State *env)
 {
-    return ((target_ulong_val(&env->eflags) & IF_MASK) &&
+    return ((target_ulong_val(&(env)->eflags) & IF_MASK) &&
             !(env->hflags & HF_INHIBIT_IRQ_MASK)) ||
            (env->hflags2 & HF2_HYPERV_HLT_MASK);
 }

@@ -436,7 +436,7 @@ target_ulong helper_pext(target_ulong src, target_ulong mask)
    mapped into HFLAGS.  */
 void helper_cr4_testbit(CPUX86State *env, uint32_t bit)
 {
-    if (unlikely((env->cr[4] & bit) == 0)) {
+    if (unlikely((target_ulong_array_val(&env->cr.rec, 4) & bit) == 0)) {
         raise_exception_ra(env, EXCP06_ILLOP, GETPC());
     }
 }

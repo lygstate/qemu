@@ -330,7 +330,7 @@ static MMUTranslateResult x86_read_mem_ex(CPUState *cpu, void *data, target_ulon
         translate_res = mmu_gva_to_gpa(cpu, gva, &gpa, translate_flags);
         if (translate_res) {
             int error_code = translate_res_to_error_code(translate_res, false, is_user(cpu));
-            env->cr[2] = gva;
+            target_ulong_array_set(&env->cr.rec, 2, gva);
             x86_emul_raise_exception(env, EXCP0E_PAGE, error_code);
             return translate_res;
         }

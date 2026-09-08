@@ -843,10 +843,10 @@ static void kvm_queue_exception(CPUX86State *env,
 
         if (exception_nr == EXCP01_DB) {
             assert(exception_has_payload);
-            env->dr[6] = exception_payload;
+            target_ulong_array_set(&env->dr.rec, 6, exception_payload);
         } else if (exception_nr == EXCP0E_PAGE) {
             assert(exception_has_payload);
-            env->cr[2] = exception_payload;
+            target_ulong_array_set(&env->cr.rec, 2, exception_payload);
         } else {
             assert(!exception_has_payload);
         }
@@ -3617,7 +3617,7 @@ int kvm_arch_init(MachineState *ms, KVMState *s)
 static void set_v8086_seg(struct kvm_segment *lhs, const SegmentCache *rhs)
 {
     lhs->selector = rhs->selector;
-    lhs->base = rhs->base;
+    lhs->base = target_ulong_val(&rhs->base);
     lhs->limit = rhs->limit;
     lhs->type = 3;
     lhs->present = 1;
@@ -3634,7 +3634,7 @@ static void set_seg(struct kvm_segment *lhs, const SegmentCache *rhs)
 {
     unsigned flags = rhs->flags;
     lhs->selector = rhs->selector;
-    lhs->base = rhs->base;
+    lhs->base = target_ulong_val(&rhs->base);
     lhs->limit = rhs->limit;
     lhs->type = (flags >> DESC_TYPE_SHIFT) & 15;
     lhs->present = (flags & DESC_P_MASK) != 0;
@@ -3651,7 +3651,7 @@ static void set_seg(struct kvm_segment *lhs, const SegmentCache *rhs)
 static void get_seg(SegmentCache *lhs, const struct kvm_segment *rhs)
 {
     lhs->selector = rhs->selector;
-    lhs->base = rhs->base;
+    target_ulong_set(&lhs->base, rhs->base);
     lhs->limit = rhs->limit;
     lhs->flags = (rhs->type << DESC_TYPE_SHIFT) |
                  ((rhs->present && !rhs->unusable) * DESC_P_MASK) |
@@ -3685,27 +3685,35 @@ static int kvm_getput_regs(X86CPU *cpu, int set)
         }
     }
 
-    kvm_getput_reg(&regs.rax, &env->regs[R_EAX], set);
-    kvm_getput_reg(&regs.rbx, &env->regs[R_EBX], set);
-    kvm_getput_reg(&regs.rcx, &env->regs[R_ECX], set);
-    kvm_getput_reg(&regs.rdx, &env->regs[R_EDX], set);
-    kvm_getput_reg(&regs.rsi, &env->regs[R_ESI], set);
-    kvm_getput_reg(&regs.rdi, &env->regs[R_EDI], set);
-    kvm_getput_reg(&regs.rsp, &env->regs[R_ESP], set);
-    kvm_getput_reg(&regs.rbp, &env->regs[R_EBP], set);
+    kvm_getput_reg(&regs.rax, target_ulong_array_elem(&(env)->regs.rec, R_EAX), set);
+    kvm_getput_reg(&regs.rbx, target_ulong_array_elem(&(env)->regs.rec, R_EBX), set);
+    kvm_getput_reg(&regs.rcx, target_ulong_array_elem(&(env)->regs.rec, R_ECX), set);
+    kvm_getput_reg(&regs.rdx, target_ulong_array_elem(&(env)->regs.rec, R_EDX), set);
+    kvm_getput_reg(&regs.rsi, target_ulong_array_elem(&(env)->regs.rec, R_ESI), set);
+    kvm_getput_reg(&regs.rdi, target_ulong_array_elem(&(env)->regs.rec, R_EDI), set);
+    kvm_getput_reg(&regs.rsp, target_ulong_array_elem(&(env)->regs.rec, R_ESP), set);
+    kvm_getput_reg(&regs.rbp, target_ulong_array_elem(&(env)->regs.rec, R_EBP), set);
 #ifdef TARGET_X86_64
-    kvm_getput_reg(&regs.r8, &env->regs[8], set);
-    kvm_getput_reg(&regs.r9, &env->regs[9], set);
-    kvm_getput_reg(&regs.r10, &env->regs[10], set);
-    kvm_getput_reg(&regs.r11, &env->regs[11], set);
-    kvm_getput_reg(&regs.r12, &env->regs[12], set);
-    kvm_getput_reg(&regs.r13, &env->regs[13], set);
-    kvm_getput_reg(&regs.r14, &env->regs[14], set);
-    kvm_getput_reg(&regs.r15, &env->regs[15], set);
+    kvm_getput_reg(&regs.r8, target_ulong_array_elem(&(env)->regs.rec, 8), set);
+    kvm_getput_reg(&regs.r9, target_ulong_array_elem(&(env)->regs.rec, 9), set);
+    kvm_getput_reg(&regs.r10, target_ulong_array_elem(&(env)->regs.rec, 10), set);
+    kvm_getput_reg(&regs.r11, target_ulong_array_elem(&(env)->regs.rec, 11), set);
+    kvm_getput_reg(&regs.r12, target_ulong_array_elem(&(env)->regs.rec, 12), set);
+    kvm_getput_reg(&regs.r13, target_ulong_array_elem(&(env)->regs.rec, 13), set);
+    kvm_getput_reg(&regs.r14, target_ulong_array_elem(&(env)->regs.rec, 14), set);
+    kvm_getput_reg(&regs.r15, target_ulong_array_elem(&(env)->regs.rec, 15), set);
 #endif
 
-    kvm_getput_reg(&regs.rflags, &env->eflags, set);
-    kvm_getput_reg(&regs.rip, &env->eip, set);
+    {
+        target_ulong tmp_eflags = target_ulong_val(&env->eflags);
+        target_ulong tmp_eip = target_ulong_val(&env->eip);
+        kvm_getput_reg(&regs.rflags, &tmp_eflags, set);
+        kvm_getput_reg(&regs.rip, &tmp_eip, set);
+        if (!set) {
+            target_ulong_set(&env->eflags, tmp_eflags);
+            target_ulong_set(&env->eip, tmp_eip);
+        }
+    }
 
     if (set) {
         ret = kvm_vcpu_ioctl(CPU(cpu), KVM_SET_REGS, &regs);
@@ -3751,7 +3759,7 @@ static int kvm_put_sregs(X86CPU *cpu)
      */
     memset(sregs.interrupt_bitmap, 0, sizeof(sregs.interrupt_bitmap));
 
-    if ((env->eflags & VM_MASK)) {
+    if ((target_ulong_val(&(env)->eflags) & VM_MASK)) {
         set_v8086_seg(&sregs.cs, &env->segs[R_CS]);
         set_v8086_seg(&sregs.ds, &env->segs[R_DS]);
         set_v8086_seg(&sregs.es, &env->segs[R_ES]);
@@ -3771,16 +3779,16 @@ static int kvm_put_sregs(X86CPU *cpu)
     set_seg(&sregs.ldt, &env->ldt);
 
     sregs.idt.limit = env->idt.limit;
-    sregs.idt.base = env->idt.base;
+    sregs.idt.base = target_ulong_val(&(env->idt).base);
     memset(sregs.idt.padding, 0, sizeof sregs.idt.padding);
     sregs.gdt.limit = env->gdt.limit;
-    sregs.gdt.base = env->gdt.base;
+    sregs.gdt.base = target_ulong_val(&(env->gdt).base);
     memset(sregs.gdt.padding, 0, sizeof sregs.gdt.padding);
 
-    sregs.cr0 = env->cr[0];
-    sregs.cr2 = env->cr[2];
-    sregs.cr3 = env->cr[3];
-    sregs.cr4 = env->cr[4];
+    sregs.cr0 = target_ulong_array_val(&env->cr.rec, 0);
+    sregs.cr2 = target_ulong_array_val(&env->cr.rec, 2);
+    sregs.cr3 = target_ulong_array_val(&env->cr.rec, 3);
+    sregs.cr4 = target_ulong_array_val(&env->cr.rec, 4);
 
     sregs.cr8 = cpu_get_apic_tpr(cpu->apic_state);
     sregs.apic_base = cpu_get_apic_base(cpu->apic_state);
@@ -3798,7 +3806,7 @@ static int kvm_put_sregs2(X86CPU *cpu)
 
     sregs.flags = 0;
 
-    if ((env->eflags & VM_MASK)) {
+    if ((target_ulong_val(&(env)->eflags) & VM_MASK)) {
         set_v8086_seg(&sregs.cs, &env->segs[R_CS]);
         set_v8086_seg(&sregs.ds, &env->segs[R_DS]);
         set_v8086_seg(&sregs.es, &env->segs[R_ES]);
@@ -3818,16 +3826,16 @@ static int kvm_put_sregs2(X86CPU *cpu)
     set_seg(&sregs.ldt, &env->ldt);
 
     sregs.idt.limit = env->idt.limit;
-    sregs.idt.base = env->idt.base;
+    sregs.idt.base = target_ulong_val(&(env->idt).base);
     memset(sregs.idt.padding, 0, sizeof sregs.idt.padding);
     sregs.gdt.limit = env->gdt.limit;
-    sregs.gdt.base = env->gdt.base;
+    sregs.gdt.base = target_ulong_val(&(env->gdt).base);
     memset(sregs.gdt.padding, 0, sizeof sregs.gdt.padding);
 
-    sregs.cr0 = env->cr[0];
-    sregs.cr2 = env->cr[2];
-    sregs.cr3 = env->cr[3];
-    sregs.cr4 = env->cr[4];
+    sregs.cr0 = target_ulong_array_val(&env->cr.rec, 0);
+    sregs.cr2 = target_ulong_array_val(&env->cr.rec, 2);
+    sregs.cr3 = target_ulong_array_val(&env->cr.rec, 3);
+    sregs.cr4 = target_ulong_array_val(&env->cr.rec, 4);
 
     sregs.cr8 = cpu_get_apic_tpr(cpu->apic_state);
     sregs.apic_base = cpu_get_apic_base(cpu->apic_state);
@@ -4159,8 +4167,8 @@ static int kvm_put_msrs(X86CPU *cpu, KvmPutState level)
     kvm_msr_buf_reset(cpu);
 
     kvm_msr_entry_add(cpu, MSR_IA32_SYSENTER_CS, env->sysenter_cs);
-    kvm_msr_entry_add(cpu, MSR_IA32_SYSENTER_ESP, env->sysenter_esp);
-    kvm_msr_entry_add(cpu, MSR_IA32_SYSENTER_EIP, env->sysenter_eip);
+    kvm_msr_entry_add(cpu, MSR_IA32_SYSENTER_ESP, target_ulong_val(&(env)->sysenter_esp));
+    kvm_msr_entry_add(cpu, MSR_IA32_SYSENTER_EIP, target_ulong_val(&(env)->sysenter_eip));
     kvm_msr_entry_add(cpu, MSR_PAT, env->pat);
     if (has_msr_star) {
         kvm_msr_entry_add(cpu, MSR_STAR, env->star);
@@ -4654,18 +4662,18 @@ static int kvm_get_sregs(X86CPU *cpu)
     get_seg(&env->ldt, &sregs.ldt);
 
     env->idt.limit = sregs.idt.limit;
-    env->idt.base = sregs.idt.base;
+    target_ulong_set(&(env->idt).base,  sregs.idt.base);
     env->gdt.limit = sregs.gdt.limit;
-    env->gdt.base = sregs.gdt.base;
+    target_ulong_set(&(env->gdt).base,  sregs.gdt.base);
 
-    env->cr[0] = sregs.cr0;
-    env->cr[2] = sregs.cr2;
-    env->cr[3] = sregs.cr3;
-    env->cr[4] = sregs.cr4;
+    target_ulong_array_set(&env->cr.rec, 0, sregs.cr0);
+    target_ulong_array_set(&env->cr.rec, 2, sregs.cr2);
+    target_ulong_array_set(&env->cr.rec, 3, sregs.cr3);
+    target_ulong_array_set(&env->cr.rec, 4, sregs.cr4);
 
     env->efer = sregs.efer;
     if (sev_es_enabled() && env->efer & MSR_EFER_LME &&
-        env->cr[0] & CR0_PG_MASK) {
+        target_ulong_array_val(&env->cr.rec, 0) & CR0_PG_MASK) {
         env->efer |= MSR_EFER_LMA;
     }
 
@@ -4697,18 +4705,18 @@ static int kvm_get_sregs2(X86CPU *cpu)
     get_seg(&env->ldt, &sregs.ldt);
 
     env->idt.limit = sregs.idt.limit;
-    env->idt.base = sregs.idt.base;
+    target_ulong_set(&(env->idt).base,  sregs.idt.base);
     env->gdt.limit = sregs.gdt.limit;
-    env->gdt.base = sregs.gdt.base;
+    target_ulong_set(&(env->gdt).base,  sregs.gdt.base);
 
-    env->cr[0] = sregs.cr0;
-    env->cr[2] = sregs.cr2;
-    env->cr[3] = sregs.cr3;
-    env->cr[4] = sregs.cr4;
+    target_ulong_array_set(&env->cr.rec, 0, sregs.cr0);
+    target_ulong_array_set(&env->cr.rec, 2, sregs.cr2);
+    target_ulong_array_set(&env->cr.rec, 3, sregs.cr3);
+    target_ulong_array_set(&env->cr.rec, 4, sregs.cr4);
 
     env->efer = sregs.efer;
     if (sev_es_enabled() && env->efer & MSR_EFER_LME &&
-        env->cr[0] & CR0_PG_MASK) {
+        target_ulong_array_val(&env->cr.rec, 0) & CR0_PG_MASK) {
         env->efer |= MSR_EFER_LMA;
     }
 
@@ -5078,10 +5086,10 @@ static int kvm_get_msrs(X86CPU *cpu)
             env->sysenter_cs = msrs[i].data;
             break;
         case MSR_IA32_SYSENTER_ESP:
-            env->sysenter_esp = msrs[i].data;
+            target_ulong_set(&(env)->sysenter_esp,  msrs[i].data);
             break;
         case MSR_IA32_SYSENTER_EIP:
-            env->sysenter_eip = msrs[i].data;
+            target_ulong_set(&(env)->sysenter_eip,  msrs[i].data);
             break;
         case MSR_PAT:
             env->pat = msrs[i].data;
@@ -5611,10 +5619,10 @@ static int kvm_put_debugregs(X86CPU *cpu)
 
     memset(&dbgregs, 0, sizeof(dbgregs));
     for (i = 0; i < 4; i++) {
-        dbgregs.db[i] = env->dr[i];
+        dbgregs.db[i] = target_ulong_array_val(&env->dr.rec, i);
     }
-    dbgregs.dr6 = env->dr[6];
-    dbgregs.dr7 = env->dr[7];
+    dbgregs.dr6 = target_ulong_array_val(&env->dr.rec, 6);
+    dbgregs.dr7 = target_ulong_array_val(&env->dr.rec, 7);
     dbgregs.flags = 0;
 
     return kvm_vcpu_ioctl(CPU(cpu), KVM_SET_DEBUGREGS, &dbgregs);
@@ -5631,10 +5639,10 @@ static int kvm_get_debugregs(X86CPU *cpu)
         return ret;
     }
     for (i = 0; i < 4; i++) {
-        env->dr[i] = dbgregs.db[i];
+        target_ulong_array_set(&env->dr.rec, i, dbgregs.db[i]);
     }
-    env->dr[4] = env->dr[6] = dbgregs.dr6;
-    env->dr[5] = env->dr[7] = dbgregs.dr7;
+    target_ulong_array_set(&env->dr.rec, 4, target_ulong_array_set(&env->dr.rec, 6, dbgregs.dr6));
+    target_ulong_array_set(&env->dr.rec, 5, target_ulong_array_set(&env->dr.rec, 7, dbgregs.dr7));
 
     return 0;
 }
@@ -5950,7 +5958,7 @@ void kvm_arch_pre_run(CPUState *cpu, struct kvm_run *run)
         /* Try to inject an interrupt if the guest can accept it */
         if (run->ready_for_interrupt_injection &&
             cpu_test_interrupt(cpu, CPU_INTERRUPT_HARD) &&
-            (env->eflags & IF_MASK)) {
+            (target_ulong_val(&(env)->eflags) & IF_MASK)) {
             int irq;
 
             bql_lock();
@@ -6007,9 +6015,9 @@ MemTxAttrs kvm_arch_post_run(CPUState *cpu, struct kvm_run *run)
         env->hflags &= ~HF_SMM_MASK;
     }
     if (run->if_flag) {
-        env->eflags |= IF_MASK;
+        target_ulong_set(&(env)->eflags, target_ulong_val(&(env)->eflags) |  IF_MASK);
     } else {
-        env->eflags &= ~IF_MASK;
+        target_ulong_set(&(env)->eflags, target_ulong_val(&(env)->eflags) &  ~IF_MASK);
     }
     if (run->flags & KVM_RUN_X86_BUS_LOCK) {
         kvm_rate_limit_on_bus_lock();
@@ -6084,7 +6092,7 @@ int kvm_arch_process_async_events(CPUState *cs)
         apic_poll_irq(cpu->apic_state);
     }
     if ((cpu_test_interrupt(cs, CPU_INTERRUPT_HARD) &&
-         (env->eflags & IF_MASK)) ||
+         (target_ulong_val(&(env)->eflags) & IF_MASK)) ||
         cpu_test_interrupt(cs, CPU_INTERRUPT_NMI)) {
         cs->halted = 0;
     }
@@ -6096,7 +6104,7 @@ int kvm_arch_process_async_events(CPUState *cs)
     if (cpu_test_interrupt(cs, CPU_INTERRUPT_TPR)) {
         cpu_reset_interrupt(cs, CPU_INTERRUPT_TPR);
         kvm_cpu_synchronize_state(cs);
-        apic_handle_tpr_access_report(cpu->apic_state, env->eip,
+        apic_handle_tpr_access_report(cpu->apic_state, target_ulong_val(&(env)->eip),
                                       env->tpr_access_type);
     }
 
@@ -6109,7 +6117,7 @@ static int kvm_handle_halt(X86CPU *cpu)
     CPUX86State *env = &cpu->env;
 
     if (!(cpu_test_interrupt(cs, CPU_INTERRUPT_HARD) &&
-          (env->eflags & IF_MASK)) &&
+          (target_ulong_val(&(env)->eflags) & IF_MASK)) &&
         !cpu_test_interrupt(cs, CPU_INTERRUPT_NMI)) {
         cs->halted = 1;
         return EXCP_HLT;
@@ -6667,7 +6675,7 @@ bool kvm_arch_stop_on_emulation_error(CPUState *cs)
     CPUX86State *env = &cpu->env;
 
     kvm_cpu_synchronize_state(cs);
-    return !(env->cr[0] & CR0_PE_MASK) ||
+    return !(target_ulong_array_val(&env->cr.rec, 0) & CR0_PE_MASK) ||
            ((env->segs[R_CS].selector  & 3) != 3);
 }
 

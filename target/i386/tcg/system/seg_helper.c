@@ -146,7 +146,7 @@ bool x86_cpu_exec_halt(CPUState *cpu)
 
     /* Complete HLT instruction.  */
     if (target_ulong_val(&(env)->eflags) & TF_MASK) {
-        env->dr[6] = env->dr[6] | (DR6_BS);
+        target_ulong_array_set(&env->dr.rec, 6, target_ulong_array_val(&env->dr.rec, 6) | (DR6_BS));
         do_interrupt_all(x86_cpu, EXCP01_DB, 0, 0, target_ulong_val(&(env)->eip), 0);
     }
     return true;
@@ -236,13 +236,13 @@ void helper_check_io(CPUX86State *env, uint32_t addr, uint32_t size)
         env->tr.limit < 103) {
         goto fail;
     }
-    io_offset = cpu_lduw_kernel_ra(env, env->tr.base + 0x66, retaddr);
+    io_offset = cpu_lduw_kernel_ra(env, target_ulong_val(&(env->tr).base) + 0x66, retaddr);
     io_offset += (addr >> 3);
     /* Note: the check needs two bytes */
     if ((io_offset + 1) > env->tr.limit) {
         goto fail;
     }
-    val = cpu_lduw_kernel_ra(env, env->tr.base + io_offset, retaddr);
+    val = cpu_lduw_kernel_ra(env, target_ulong_val(&(env->tr).base) + io_offset, retaddr);
     val >>= (addr & 7);
     mask = (1 << size) - 1;
     /* all bits must be zero to allow the I/O */

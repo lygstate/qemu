@@ -95,7 +95,7 @@ void raise_interrupt2(CPUX86State *env, int intno,
                       uintptr_t retaddr)
 {
     CPUState *cs = env_cpu(env);
-    uint64_t last_pc = target_ulong_val(&(env)->eip) + env->segs[R_CS].base;
+    uint64_t last_pc = target_ulong_val(&(env)->eip) + target_ulong_val(&(env->segs[R_CS]).base);
 
     if (!is_int) {
         cpu_svm_check_intercept_param(env, SVM_EXIT_EXCP_BASE + intno,

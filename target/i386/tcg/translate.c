@@ -3050,7 +3050,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
                 break;
             }
             gen_svm_check_intercept(s, SVM_EXIT_READ_CR0);
-            tcg_gen_ld_tl(s->T0, tcg_env, offsetof(CPUX86State, cr[0]));
+            tcg_gen_ld_tl(s->T0, tcg_env, offsetof(CPUX86State, cr));
             /*
              * In 32-bit mode, the higher 16 bits of the destination
              * register are undefined.  In practice CR0[31:0] is stored
@@ -3092,7 +3092,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
              * Only the 4 lower bits of CR0 are modified.
              * PE cannot be set to zero if already set to one.
              */
-            tcg_gen_ld_tl(s->T1, tcg_env, offsetof(CPUX86State, cr[0]));
+            tcg_gen_ld_tl(s->T1, tcg_env, offsetof(CPUX86State, cr));
             tcg_gen_andi_tl(s->T0, s->T0, 0xf);
             tcg_gen_andi_tl(s->T1, s->T1, ~0xe);
             tcg_gen_or_tl(s->T0, s->T0, s->T1);

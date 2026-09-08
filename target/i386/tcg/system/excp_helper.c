@@ -579,8 +579,8 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
             addr = (uint32_t)addr;
         }
 
-        if (likely(env->cr[0] & CR0_PG_MASK || use_stage2)) {
-            in.cr3 = env->cr[3];
+        if (likely(target_ulong_array_val(&env->cr.rec, 0) & CR0_PG_MASK || use_stage2)) {
+            in.cr3 = target_ulong_array_val(&env->cr.rec, 3);
             in.mmu_idx = mmu_idx;
             in.ptw_idx = use_stage2 ? MMU_NESTED_IDX : MMU_PHYS_IDX;
             in.pg_mode = get_pg_mode(env);
@@ -593,7 +593,7 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
                     *err = (TranslateFault){
                         .exception_index = EXCP0D_GPF,
                         /* non-canonical #GP doesn't change CR2 */
-                        .cr2 = env->cr[2],
+                        .cr2 = target_ulong_array_val(&env->cr.rec, 2),
                     };
                     return false;
                 }
@@ -648,7 +648,7 @@ bool x86_cpu_tlb_fill(CPUState *cs, vaddr addr, int size,
                      offsetof(struct vmcb, control.exit_info_2),
                      err.cr2);
     } else {
-        env->cr[2] = err.cr2;
+        target_ulong_array_set(&env->cr.rec, 2, err.cr2);
     }
     raise_exception_err_ra(env, err.exception_index, err.error_code, retaddr);
 }

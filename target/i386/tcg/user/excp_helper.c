@@ -36,7 +36,7 @@ void x86_cpu_record_sigsegv(CPUState *cs, vaddr addr,
      * place to store the trapno, we cannot let our caller raise the
      * signal and set exception_index to EXCP_INTERRUPT.
      */
-    env->cr[2] = addr;
+    target_ulong_array_set(&env->cr.rec, 2, addr);
     env->error_code = (maperr ? 0 : PG_ERROR_P_MASK)
                     | ((access_type == MMU_DATA_STORE) << PG_ERROR_W_BIT)
                     | PG_ERROR_U_MASK

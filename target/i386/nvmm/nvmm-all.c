@@ -71,7 +71,7 @@ nvmm_set_segment(struct nvmm_x64_state_seg *nseg, const SegmentCache *qseg)
 
     nseg->selector = qseg->selector;
     nseg->limit = qseg->limit;
-    nseg->base = qseg->base;
+    nseg->base = target_ulong_val(&qseg->base);
     nseg->attrib.type = __SHIFTOUT(attrib, DESC_TYPE_MASK);
     nseg->attrib.s = __SHIFTOUT(attrib, DESC_S_MASK);
     nseg->attrib.dpl = __SHIFTOUT(attrib, DESC_DPL_MASK);
@@ -97,28 +97,28 @@ nvmm_set_registers(CPUState *cpu)
     assert(cpu_is_stopped(cpu) || qemu_cpu_is_self(cpu));
 
     /* GPRs. */
-    state->gprs[NVMM_X64_GPR_RAX] = env->regs[R_EAX];
-    state->gprs[NVMM_X64_GPR_RCX] = env->regs[R_ECX];
-    state->gprs[NVMM_X64_GPR_RDX] = env->regs[R_EDX];
-    state->gprs[NVMM_X64_GPR_RBX] = env->regs[R_EBX];
-    state->gprs[NVMM_X64_GPR_RSP] = env->regs[R_ESP];
-    state->gprs[NVMM_X64_GPR_RBP] = env->regs[R_EBP];
-    state->gprs[NVMM_X64_GPR_RSI] = env->regs[R_ESI];
-    state->gprs[NVMM_X64_GPR_RDI] = env->regs[R_EDI];
+    state->gprs[NVMM_X64_GPR_RAX] = target_ulong_array_val(&env->regs.rec, R_EAX);
+    state->gprs[NVMM_X64_GPR_RCX] = target_ulong_array_val(&env->regs.rec, R_ECX);
+    state->gprs[NVMM_X64_GPR_RDX] = target_ulong_array_val(&env->regs.rec, R_EDX);
+    state->gprs[NVMM_X64_GPR_RBX] = target_ulong_array_val(&env->regs.rec, R_EBX);
+    state->gprs[NVMM_X64_GPR_RSP] = target_ulong_array_val(&env->regs.rec, R_ESP);
+    state->gprs[NVMM_X64_GPR_RBP] = target_ulong_array_val(&env->regs.rec, R_EBP);
+    state->gprs[NVMM_X64_GPR_RSI] = target_ulong_array_val(&env->regs.rec, R_ESI);
+    state->gprs[NVMM_X64_GPR_RDI] = target_ulong_array_val(&env->regs.rec, R_EDI);
 #ifdef TARGET_X86_64
-    state->gprs[NVMM_X64_GPR_R8]  = env->regs[R_R8];
-    state->gprs[NVMM_X64_GPR_R9]  = env->regs[R_R9];
-    state->gprs[NVMM_X64_GPR_R10] = env->regs[R_R10];
-    state->gprs[NVMM_X64_GPR_R11] = env->regs[R_R11];
-    state->gprs[NVMM_X64_GPR_R12] = env->regs[R_R12];
-    state->gprs[NVMM_X64_GPR_R13] = env->regs[R_R13];
-    state->gprs[NVMM_X64_GPR_R14] = env->regs[R_R14];
-    state->gprs[NVMM_X64_GPR_R15] = env->regs[R_R15];
+    state->gprs[NVMM_X64_GPR_R8]  = target_ulong_array_val(&env->regs.rec, R_R8);
+    state->gprs[NVMM_X64_GPR_R9]  = target_ulong_array_val(&env->regs.rec, R_R9);
+    state->gprs[NVMM_X64_GPR_R10] = target_ulong_array_val(&env->regs.rec, R_R10);
+    state->gprs[NVMM_X64_GPR_R11] = target_ulong_array_val(&env->regs.rec, R_R11);
+    state->gprs[NVMM_X64_GPR_R12] = target_ulong_array_val(&env->regs.rec, R_R12);
+    state->gprs[NVMM_X64_GPR_R13] = target_ulong_array_val(&env->regs.rec, R_R13);
+    state->gprs[NVMM_X64_GPR_R14] = target_ulong_array_val(&env->regs.rec, R_R14);
+    state->gprs[NVMM_X64_GPR_R15] = target_ulong_array_val(&env->regs.rec, R_R15);
 #endif
 
     /* RIP and RFLAGS. */
-    state->gprs[NVMM_X64_GPR_RIP] = env->eip;
-    state->gprs[NVMM_X64_GPR_RFLAGS] = env->eflags;
+    state->gprs[NVMM_X64_GPR_RIP] = target_ulong_val(&(env)->eip);
+    state->gprs[NVMM_X64_GPR_RFLAGS] = target_ulong_val(&(env)->eflags);
 
     /* Segments. */
     nvmm_set_segment(&state->segs[NVMM_X64_SEG_CS], &env->segs[R_CS]);
@@ -135,20 +135,20 @@ nvmm_set_registers(CPUState *cpu)
     nvmm_set_segment(&state->segs[NVMM_X64_SEG_IDT], &env->idt);
 
     /* Control registers. */
-    state->crs[NVMM_X64_CR_CR0] = env->cr[0];
-    state->crs[NVMM_X64_CR_CR2] = env->cr[2];
-    state->crs[NVMM_X64_CR_CR3] = env->cr[3];
-    state->crs[NVMM_X64_CR_CR4] = env->cr[4];
+    state->crs[NVMM_X64_CR_CR0] = target_ulong_array_val(&env->cr.rec, 0);
+    state->crs[NVMM_X64_CR_CR2] = target_ulong_array_val(&env->cr.rec, 2);
+    state->crs[NVMM_X64_CR_CR3] = target_ulong_array_val(&env->cr.rec, 3);
+    state->crs[NVMM_X64_CR_CR4] = target_ulong_array_val(&env->cr.rec, 4);
     state->crs[NVMM_X64_CR_CR8] = qcpu->tpr;
     state->crs[NVMM_X64_CR_XCR0] = env->xcr0;
 
     /* Debug registers. */
-    state->drs[NVMM_X64_DR_DR0] = env->dr[0];
-    state->drs[NVMM_X64_DR_DR1] = env->dr[1];
-    state->drs[NVMM_X64_DR_DR2] = env->dr[2];
-    state->drs[NVMM_X64_DR_DR3] = env->dr[3];
-    state->drs[NVMM_X64_DR_DR6] = env->dr[6];
-    state->drs[NVMM_X64_DR_DR7] = env->dr[7];
+    state->drs[NVMM_X64_DR_DR0] = target_ulong_array_val(&env->dr.rec, 0);
+    state->drs[NVMM_X64_DR_DR1] = target_ulong_array_val(&env->dr.rec, 1);
+    state->drs[NVMM_X64_DR_DR2] = target_ulong_array_val(&env->dr.rec, 2);
+    state->drs[NVMM_X64_DR_DR3] = target_ulong_array_val(&env->dr.rec, 3);
+    state->drs[NVMM_X64_DR_DR6] = target_ulong_array_val(&env->dr.rec, 6);
+    state->drs[NVMM_X64_DR_DR7] = target_ulong_array_val(&env->dr.rec, 7);
 
     /* FPU. */
     state->fpu.fx_cw = env->fpuc;
@@ -181,8 +181,8 @@ nvmm_set_registers(CPUState *cpu)
     state->msrs[NVMM_X64_MSR_KERNELGSBASE] = env->kernelgsbase;
 #endif
     state->msrs[NVMM_X64_MSR_SYSENTER_CS]  = env->sysenter_cs;
-    state->msrs[NVMM_X64_MSR_SYSENTER_ESP] = env->sysenter_esp;
-    state->msrs[NVMM_X64_MSR_SYSENTER_EIP] = env->sysenter_eip;
+    state->msrs[NVMM_X64_MSR_SYSENTER_ESP] = target_ulong_val(&(env)->sysenter_esp);
+    state->msrs[NVMM_X64_MSR_SYSENTER_EIP] = target_ulong_val(&(env)->sysenter_eip);
     state->msrs[NVMM_X64_MSR_PAT] = env->pat;
     state->msrs[NVMM_X64_MSR_TSC] = env->tsc;
 
@@ -206,7 +206,7 @@ nvmm_get_segment(SegmentCache *qseg, const struct nvmm_x64_state_seg *nseg)
 {
     qseg->selector = nseg->selector;
     qseg->limit = nseg->limit;
-    qseg->base = nseg->base;
+    target_ulong_set(&qseg->base, nseg->base);
 
     qseg->flags =
         __SHIFTIN((uint32_t)nseg->attrib.type, DESC_TYPE_MASK) |
@@ -249,28 +249,28 @@ nvmm_get_registers(CPUState *cpu)
     }
 
     /* GPRs. */
-    env->regs[R_EAX] = state->gprs[NVMM_X64_GPR_RAX];
-    env->regs[R_ECX] = state->gprs[NVMM_X64_GPR_RCX];
-    env->regs[R_EDX] = state->gprs[NVMM_X64_GPR_RDX];
-    env->regs[R_EBX] = state->gprs[NVMM_X64_GPR_RBX];
-    env->regs[R_ESP] = state->gprs[NVMM_X64_GPR_RSP];
-    env->regs[R_EBP] = state->gprs[NVMM_X64_GPR_RBP];
-    env->regs[R_ESI] = state->gprs[NVMM_X64_GPR_RSI];
-    env->regs[R_EDI] = state->gprs[NVMM_X64_GPR_RDI];
+    target_ulong_array_set(&env->regs.rec, R_EAX, state->gprs[NVMM_X64_GPR_RAX]);
+    target_ulong_array_set(&env->regs.rec, R_ECX, state->gprs[NVMM_X64_GPR_RCX]);
+    target_ulong_array_set(&env->regs.rec, R_EDX, state->gprs[NVMM_X64_GPR_RDX]);
+    target_ulong_array_set(&env->regs.rec, R_EBX, state->gprs[NVMM_X64_GPR_RBX]);
+    target_ulong_array_set(&env->regs.rec, R_ESP, state->gprs[NVMM_X64_GPR_RSP]);
+    target_ulong_array_set(&env->regs.rec, R_EBP, state->gprs[NVMM_X64_GPR_RBP]);
+    target_ulong_array_set(&env->regs.rec, R_ESI, state->gprs[NVMM_X64_GPR_RSI]);
+    target_ulong_array_set(&env->regs.rec, R_EDI, state->gprs[NVMM_X64_GPR_RDI]);
 #ifdef TARGET_X86_64
-    env->regs[R_R8]  = state->gprs[NVMM_X64_GPR_R8];
-    env->regs[R_R9]  = state->gprs[NVMM_X64_GPR_R9];
-    env->regs[R_R10] = state->gprs[NVMM_X64_GPR_R10];
-    env->regs[R_R11] = state->gprs[NVMM_X64_GPR_R11];
-    env->regs[R_R12] = state->gprs[NVMM_X64_GPR_R12];
-    env->regs[R_R13] = state->gprs[NVMM_X64_GPR_R13];
-    env->regs[R_R14] = state->gprs[NVMM_X64_GPR_R14];
-    env->regs[R_R15] = state->gprs[NVMM_X64_GPR_R15];
+    target_ulong_array_set(&env->regs.rec, R_R8, state->gprs[NVMM_X64_GPR_R8]);
+    target_ulong_array_set(&env->regs.rec, R_R9, state->gprs[NVMM_X64_GPR_R9]);
+    target_ulong_array_set(&env->regs.rec, R_R10, state->gprs[NVMM_X64_GPR_R10]);
+    target_ulong_array_set(&env->regs.rec, R_R11, state->gprs[NVMM_X64_GPR_R11]);
+    target_ulong_array_set(&env->regs.rec, R_R12, state->gprs[NVMM_X64_GPR_R12]);
+    target_ulong_array_set(&env->regs.rec, R_R13, state->gprs[NVMM_X64_GPR_R13]);
+    target_ulong_array_set(&env->regs.rec, R_R14, state->gprs[NVMM_X64_GPR_R14]);
+    target_ulong_array_set(&env->regs.rec, R_R15, state->gprs[NVMM_X64_GPR_R15]);
 #endif
 
     /* RIP and RFLAGS. */
-    env->eip = state->gprs[NVMM_X64_GPR_RIP];
-    env->eflags = state->gprs[NVMM_X64_GPR_RFLAGS];
+    target_ulong_set(&(env)->eip,  state->gprs[NVMM_X64_GPR_RIP]);
+    target_ulong_set(&(env)->eflags,  state->gprs[NVMM_X64_GPR_RFLAGS]);
 
     /* Segments. */
     nvmm_get_segment(&env->segs[R_ES], &state->segs[NVMM_X64_SEG_ES]);
@@ -287,10 +287,10 @@ nvmm_get_registers(CPUState *cpu)
     nvmm_get_segment(&env->idt, &state->segs[NVMM_X64_SEG_IDT]);
 
     /* Control registers. */
-    env->cr[0] = state->crs[NVMM_X64_CR_CR0];
-    env->cr[2] = state->crs[NVMM_X64_CR_CR2];
-    env->cr[3] = state->crs[NVMM_X64_CR_CR3];
-    env->cr[4] = state->crs[NVMM_X64_CR_CR4];
+    target_ulong_array_set(&env->cr.rec, 0, state->crs[NVMM_X64_CR_CR0]);
+    target_ulong_array_set(&env->cr.rec, 2, state->crs[NVMM_X64_CR_CR2]);
+    target_ulong_array_set(&env->cr.rec, 3, state->crs[NVMM_X64_CR_CR3]);
+    target_ulong_array_set(&env->cr.rec, 4, state->crs[NVMM_X64_CR_CR4]);
     tpr = state->crs[NVMM_X64_CR_CR8];
     if (tpr != qcpu->tpr) {
         qcpu->tpr = tpr;
@@ -299,12 +299,12 @@ nvmm_get_registers(CPUState *cpu)
     env->xcr0 = state->crs[NVMM_X64_CR_XCR0];
 
     /* Debug registers. */
-    env->dr[0] = state->drs[NVMM_X64_DR_DR0];
-    env->dr[1] = state->drs[NVMM_X64_DR_DR1];
-    env->dr[2] = state->drs[NVMM_X64_DR_DR2];
-    env->dr[3] = state->drs[NVMM_X64_DR_DR3];
-    env->dr[6] = state->drs[NVMM_X64_DR_DR6];
-    env->dr[7] = state->drs[NVMM_X64_DR_DR7];
+    target_ulong_array_set(&env->dr.rec, 0, state->drs[NVMM_X64_DR_DR0]);
+    target_ulong_array_set(&env->dr.rec, 1, state->drs[NVMM_X64_DR_DR1]);
+    target_ulong_array_set(&env->dr.rec, 2, state->drs[NVMM_X64_DR_DR2]);
+    target_ulong_array_set(&env->dr.rec, 3, state->drs[NVMM_X64_DR_DR3]);
+    target_ulong_array_set(&env->dr.rec, 6, state->drs[NVMM_X64_DR_DR6]);
+    target_ulong_array_set(&env->dr.rec, 7, state->drs[NVMM_X64_DR_DR7]);
 
     /* FPU. */
     env->fpuc = state->fpu.fx_cw;
@@ -336,8 +336,8 @@ nvmm_get_registers(CPUState *cpu)
     env->kernelgsbase = state->msrs[NVMM_X64_MSR_KERNELGSBASE];
 #endif
     env->sysenter_cs  = state->msrs[NVMM_X64_MSR_SYSENTER_CS];
-    env->sysenter_esp = state->msrs[NVMM_X64_MSR_SYSENTER_ESP];
-    env->sysenter_eip = state->msrs[NVMM_X64_MSR_SYSENTER_EIP];
+    target_ulong_set(&(env)->sysenter_esp,  state->msrs[NVMM_X64_MSR_SYSENTER_ESP]);
+    target_ulong_set(&(env)->sysenter_eip,  state->msrs[NVMM_X64_MSR_SYSENTER_EIP]);
     env->pat = state->msrs[NVMM_X64_MSR_PAT];
     env->tsc = state->msrs[NVMM_X64_MSR_TSC];
 
@@ -355,7 +355,7 @@ nvmm_can_take_int(CPUState *cpu)
         return false;
     }
 
-    if (qcpu->int_shadow || !(cpu_env(cpu)->eflags & IF_MASK)) {
+    if (qcpu->int_shadow || !(target_ulong_val(&cpu_env(cpu)->eflags) & IF_MASK)) {
         struct nvmm_x64_state *state = vcpu->state;
 
         /* Exit on interrupt window. */
@@ -483,7 +483,7 @@ nvmm_vcpu_post_run(CPUState *cpu, struct nvmm_vcpu_exit *exit)
     CPUX86State *env = &x86_cpu->env;
     uint64_t tpr;
 
-    env->eflags = exit->exitstate.rflags;
+    target_ulong_set(&(env)->eflags,  exit->exitstate.rflags);
     qcpu->int_shadow = exit->exitstate.int_shadow;
     qcpu->int_window_exit = exit->exitstate.int_window_exiting;
     qcpu->nmi_window_exit = exit->exitstate.nmi_window_exiting;
@@ -658,7 +658,7 @@ nvmm_handle_halted(struct nvmm_machine *mach, CPUState *cpu,
     bql_lock();
 
     if (!(cpu_test_interrupt(cpu, CPU_INTERRUPT_HARD) &&
-          (cpu_env(cpu)->eflags & IF_MASK)) &&
+          (target_ulong_val(&cpu_env(cpu)->eflags) & IF_MASK)) &&
         !cpu_test_interrupt(cpu, CPU_INTERRUPT_NMI)) {
         cpu->exception_index = EXCP_HLT;
         cpu->halted = true;
@@ -707,7 +707,7 @@ nvmm_vcpu_loop(CPUState *cpu)
         apic_poll_irq(x86_cpu->apic_state);
     }
     if ((cpu_test_interrupt(cpu, CPU_INTERRUPT_HARD) &&
-         (env->eflags & IF_MASK)) ||
+         (target_ulong_val(&(env)->eflags) & IF_MASK)) ||
         cpu_test_interrupt(cpu, CPU_INTERRUPT_NMI)) {
         cpu->halted = false;
     }
@@ -719,7 +719,7 @@ nvmm_vcpu_loop(CPUState *cpu)
     if (cpu_test_interrupt(cpu, CPU_INTERRUPT_TPR)) {
         cpu_reset_interrupt(cpu, CPU_INTERRUPT_TPR);
         nvmm_cpu_synchronize_state(cpu);
-        apic_handle_tpr_access_report(x86_cpu->apic_state, env->eip,
+        apic_handle_tpr_access_report(x86_cpu->apic_state, target_ulong_val(&(env)->eip),
             env->tpr_access_type);
     }
 

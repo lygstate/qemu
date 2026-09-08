@@ -364,9 +364,9 @@ static int get_kpcr_number(X86CPU *cpu)
         uint8_t  number;
     } QEMU_PACKED kpcr;
 
-    if (cpu_memory_rw_debug(CPU(cpu), env->segs[R_FS].base,
+    if (cpu_memory_rw_debug(CPU(cpu), target_ulong_val(&(env->segs[R_FS]).base),
                             (void *)&kpcr, sizeof(kpcr), 0) < 0 ||
-        kpcr.self != env->segs[R_FS].base) {
+        kpcr.self != target_ulong_val(&(env->segs[R_FS]).base)) {
         return -1;
     }
     return kpcr.number;
@@ -687,7 +687,7 @@ static void vapic_write(void *opaque, hwaddr addr, uint64_t data,
     switch (size) {
     case 2:
         if (s->state == VAPIC_INACTIVE) {
-            rom_paddr = (env->segs[R_CS].base + target_ulong_val(&(env)->eip)) & ROM_BLOCK_MASK;
+            rom_paddr = (target_ulong_val(&(env->segs[R_CS]).base) + target_ulong_val(&(env)->eip)) & ROM_BLOCK_MASK;
             s->rom_state_paddr = rom_paddr + data;
 
             s->state = VAPIC_STANDBY;

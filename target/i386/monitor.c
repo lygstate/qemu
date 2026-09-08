@@ -37,7 +37,7 @@
 static hwaddr addr_canonical(CPUArchState *env, hwaddr addr)
 {
 #ifdef TARGET_X86_64
-    if (env->cr[4] & CR4_LA57_MASK) {
+    if (target_ulong_array_val(&env->cr.rec, 4) & CR4_LA57_MASK) {
         if (addr & (1ULL << 56)) {
             addr |= (hwaddr)-(1LL << 57);
         }
@@ -76,11 +76,11 @@ static void tlb_info_32(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
     unsigned int l1, l2;
     uint32_t pgd, pde, pte;
 
-    pgd = env->cr[3] & ~0xfff;
+    pgd = target_ulong_array_val(&env->cr.rec, 3) & ~0xfff;
     for(l1 = 0; l1 < 1024; l1++) {
         pde = address_space_ldl_le(as, pgd + l1 * 4, attrs, NULL);
         if (pde & PG_PRESENT_MASK) {
-            if ((pde & PG_PSE_MASK) && (env->cr[4] & CR4_PSE_MASK)) {
+            if ((pde & PG_PSE_MASK) && (target_ulong_array_val(&env->cr.rec, 4) & CR4_PSE_MASK)) {
                 /* 4M pages */
                 print_pte(hmp, env, (l1 << 22), pde, ~((1 << 21) - 1));
             } else {
@@ -105,7 +105,7 @@ static void tlb_info_pae32(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
     uint64_t pdpe, pde, pte;
     uint64_t pdp_addr, pd_addr, pt_addr;
 
-    pdp_addr = env->cr[3] & ~0x1f;
+    pdp_addr = target_ulong_array_val(&env->cr.rec, 3) & ~0x1f;
     for (l1 = 0; l1 < 4; l1++) {
         pdpe = address_space_ldq_le(as, pdp_addr + l1 * 8, attrs, NULL);
         if (pdpe & PG_PRESENT_MASK) {
@@ -201,7 +201,7 @@ static void tlb_info_la57(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
     uint64_t pml5e;
     uint64_t pml5_addr;
 
-    pml5_addr = env->cr[3] & 0x3fffffffff000ULL;
+    pml5_addr = target_ulong_array_val(&env->cr.rec, 3) & 0x3fffffffff000ULL;
     for (l0 = 0; l0 < 512; l0++) {
         pml5e = address_space_ldq_le(as, pml5_addr + l0 * 8, attrs, NULL);
         if (pml5e & PG_PRESENT_MASK) {
@@ -222,18 +222,18 @@ void hmp_info_tlb(MonitorHMP *hmp, const QDict *qdict)
         return;
     }
 
-    if (!(env->cr[0] & CR0_PG_MASK)) {
+    if (!(target_ulong_array_val(&env->cr.rec, 0) & CR0_PG_MASK)) {
         monitor_hmp_printf(hmp, "PG disabled\n");
         return;
     }
     as = cpu_get_address_space(env_cpu(env), X86ASIdx_MEM);
-    if (env->cr[4] & CR4_PAE_MASK) {
+    if (target_ulong_array_val(&env->cr.rec, 4) & CR4_PAE_MASK) {
 #ifdef TARGET_X86_64
         if (env->hflags & HF_LMA_MASK) {
-            if (env->cr[4] & CR4_LA57_MASK) {
+            if (target_ulong_array_val(&env->cr.rec, 4) & CR4_LA57_MASK) {
                 tlb_info_la57(hmp, env, as);
             } else {
-                tlb_info_la48(hmp, env, as, 0, env->cr[3] & 0x3fffffffff000ULL);
+                tlb_info_la48(hmp, env, as, 0, target_ulong_array_val(&env->cr.rec, 3) & 0x3fffffffff000ULL);
             }
         } else
 #endif
@@ -278,14 +278,14 @@ static void mem_info_32(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
     uint32_t pgd, pde, pte;
     hwaddr start, end;
 
-    pgd = env->cr[3] & ~0xfff;
+    pgd = target_ulong_array_val(&env->cr.rec, 3) & ~0xfff;
     last_prot = 0;
     start = -1;
     for(l1 = 0; l1 < 1024; l1++) {
         pde = address_space_ldl_le(as, pgd + l1 * 4, attrs, NULL);
         end = l1 << 22;
         if (pde & PG_PRESENT_MASK) {
-            if ((pde & PG_PSE_MASK) && (env->cr[4] & CR4_PSE_MASK)) {
+            if ((pde & PG_PSE_MASK) && (target_ulong_array_val(&env->cr.rec, 4) & CR4_PSE_MASK)) {
                 prot = pde & (PG_USER_MASK | PG_RW_MASK | PG_PRESENT_MASK);
                 mem_print(hmp, env, &start, &last_prot, end, prot);
             } else {
@@ -320,7 +320,7 @@ static void mem_info_pae32(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
     uint64_t pdp_addr, pd_addr, pt_addr;
     hwaddr start, end;
 
-    pdp_addr = env->cr[3] & ~0x1f;
+    pdp_addr = target_ulong_array_val(&env->cr.rec, 3) & ~0x1f;
     last_prot = 0;
     start = -1;
     for (l1 = 0; l1 < 4; l1++) {
@@ -375,7 +375,7 @@ static void mem_info_la48(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
     uint64_t pml4e, pdpe, pde, pte;
     uint64_t pml4_addr, pdp_addr, pd_addr, pt_addr, start, end;
 
-    pml4_addr = env->cr[3] & 0x3fffffffff000ULL;
+    pml4_addr = target_ulong_array_val(&env->cr.rec, 3) & 0x3fffffffff000ULL;
     last_prot = 0;
     start = -1;
     for (l1 = 0; l1 < 512; l1++) {
@@ -454,7 +454,7 @@ static void mem_info_la57(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
     uint64_t pml5e, pml4e, pdpe, pde, pte;
     uint64_t pml5_addr, pml4_addr, pdp_addr, pd_addr, pt_addr, start, end;
 
-    pml5_addr = env->cr[3] & 0x3fffffffff000ULL;
+    pml5_addr = target_ulong_array_val(&env->cr.rec, 3) & 0x3fffffffff000ULL;
     last_prot = 0;
     start = -1;
     for (l0 = 0; l0 < 512; l0++) {
@@ -548,15 +548,15 @@ void hmp_info_mem(MonitorHMP *hmp, const QDict *qdict)
         return;
     }
 
-    if (!(env->cr[0] & CR0_PG_MASK)) {
+    if (!(target_ulong_array_val(&env->cr.rec, 0) & CR0_PG_MASK)) {
         monitor_hmp_printf(hmp, "PG disabled\n");
         return;
     }
     as = cpu_get_address_space(env_cpu(env), X86ASIdx_MEM);
-    if (env->cr[4] & CR4_PAE_MASK) {
+    if (target_ulong_array_val(&env->cr.rec, 4) & CR4_PAE_MASK) {
 #ifdef TARGET_X86_64
         if (env->hflags & HF_LMA_MASK) {
-            if (env->cr[4] & CR4_LA57_MASK) {
+            if (target_ulong_array_val(&env->cr.rec, 4) & CR4_LA57_MASK) {
                 mem_info_la57(hmp, env, as);
             } else {
                 mem_info_la48(hmp, env, as);

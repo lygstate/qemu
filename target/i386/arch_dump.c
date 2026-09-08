@@ -74,8 +74,8 @@ static int x86_64_write_elf64_note(WriteCoreDumpFunction f,
     regs.orig_rax = 0; /* FIXME */
     regs.cs = env->segs[R_CS].selector;
     regs.ss = env->segs[R_SS].selector;
-    regs.fs_base = env->segs[R_FS].base;
-    regs.gs_base = env->segs[R_GS].base;
+    regs.fs_base = target_ulong_val(&(env->segs[R_FS]).base);
+    regs.gs_base = target_ulong_val(&(env->segs[R_GS]).base);
     regs.ds = env->segs[R_DS].selector;
     regs.es = env->segs[R_ES].selector;
     regs.fs = env->segs[R_FS].selector;
@@ -275,7 +275,7 @@ static void copy_segment(QEMUCPUSegment *d, SegmentCache *s)
     d->selector = s->selector;
     d->limit = s->limit;
     d->flags = s->flags;
-    d->base = s->base;
+    d->base = target_ulong_val(&s->base);
 }
 
 static void qemu_get_cpustate(QEMUCPUState *s, CPUX86State *env)
@@ -317,11 +317,11 @@ static void qemu_get_cpustate(QEMUCPUState *s, CPUX86State *env)
     copy_segment(&s->gdt, &env->gdt);
     copy_segment(&s->idt, &env->idt);
 
-    s->cr[0] = env->cr[0];
-    s->cr[1] = env->cr[1];
-    s->cr[2] = env->cr[2];
-    s->cr[3] = env->cr[3];
-    s->cr[4] = env->cr[4];
+    s->cr[0] = target_ulong_array_val(&env->cr.rec, 0);
+    s->cr[1] = target_ulong_array_val(&env->cr.rec, 1);
+    s->cr[2] = target_ulong_array_val(&env->cr.rec, 2);
+    s->cr[3] = target_ulong_array_val(&env->cr.rec, 3);
+    s->cr[4] = target_ulong_array_val(&env->cr.rec, 4);
 
 #ifdef TARGET_X86_64
     s->kernel_gs_base = env->kernelgsbase;

@@ -130,7 +130,7 @@ bool x86_is_v8086(CPUState *cpu)
 {
     X86CPU *x86_cpu = X86_CPU(cpu);
     CPUX86State *env = &x86_cpu->env;
-    return x86_is_protected(cpu) && (env->eflags & VM_MASK);
+    return x86_is_protected(cpu) && (target_ulong_val(&(env)->eflags) & VM_MASK);
 }
 
 bool x86_is_long_mode(CPUState *cpu)
@@ -151,7 +151,7 @@ target_ulong x86_read_cr(CPUState *cpu, int cr)
     if (emul_ops->read_cr) {
         return emul_ops->read_cr(cpu, cr);
     }
-    return env->cr[cr];
+    return target_ulong_array_val(&env->cr.rec, cr);
 }
 
 bool x86_is_long64_mode(CPUState *cpu)

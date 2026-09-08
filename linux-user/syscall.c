@@ -1655,7 +1655,7 @@ static abi_long do_pipe(CPUArchState *cpu_env, abi_ulong pipedes,
         cpu_env->ir[IR_A4] = host_pipe[1];
         return host_pipe[0];
 #elif defined(TARGET_MIPS)
-        cpu_env->active_tc.gpr[3] = host_pipe[1];
+        target_ulong_array_set(&cpu_env->active_tc.gpr.rec, 3, host_pipe[1]);
         return host_pipe[0];
 #elif defined(TARGET_SH4)
         cpu_env->gregs[1] = host_pipe[1];
@@ -6258,16 +6258,16 @@ static abi_long write_ldt(CPUX86State *env,
     }
     /* allocate the LDT */
     if (!ldt_table) {
-        env->ldt.base = target_mmap(0,
+        target_ulong_set(&env->ldt.base, target_mmap(0,
                                     TARGET_LDT_ENTRIES * TARGET_LDT_ENTRY_SIZE,
                                     PROT_READ|PROT_WRITE,
-                                    MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
-        if (env->ldt.base == -1)
+                                    MAP_ANONYMOUS|MAP_PRIVATE, -1, 0));
+        if (target_ulong_val(&env->ldt.base) == -1)
             return -TARGET_ENOMEM;
-        memset(g2h_untagged(env->ldt.base), 0,
+        memset(g2h_untagged(target_ulong_val(&env->ldt.base)), 0,
                TARGET_LDT_ENTRIES * TARGET_LDT_ENTRY_SIZE);
         env->ldt.limit = 0xffff;
-        ldt_table = g2h_untagged(env->ldt.base);
+        ldt_table = g2h_untagged(target_ulong_val(&env->ldt.base));
     }
 
     /* NOTE: same code as Linux kernel */
@@ -6335,7 +6335,7 @@ static abi_long do_modify_ldt(CPUX86State *env, int func, abi_ulong ptr,
 #if defined(TARGET_ABI32)
 abi_long do_set_thread_area(CPUX86State *env, abi_ulong ptr)
 {
-    uint64_t *gdt_table = g2h_untagged(env->gdt.base);
+    uint64_t *gdt_table = g2h_untagged(target_ulong_val(&env->gdt.base));
     struct target_modify_ldt_ldt_s ldt_info;
     struct target_modify_ldt_ldt_s *target_ldt_info;
     int seg_32bit, contents, read_exec_only, limit_in_pages;
@@ -6421,7 +6421,7 @@ install:
 static abi_long do_get_thread_area(CPUX86State *env, abi_ulong ptr)
 {
     struct target_modify_ldt_ldt_s *target_ldt_info;
-    uint64_t *gdt_table = g2h_untagged(env->gdt.base);
+    uint64_t *gdt_table = g2h_untagged(target_ulong_val(&env->gdt.base));
     uint32_t base_addr, limit, flags;
     int seg_32bit, contents, read_exec_only, limit_in_pages, idx;
     int seg_not_present, useable, lm;
@@ -6484,7 +6484,7 @@ abi_long do_arch_prctl(CPUX86State *env, int code, abi_ulong addr)
         else
             idx = R_FS;
         cpu_x86_load_seg(env, idx, 0);
-        env->segs[idx].base = addr;
+        target_ulong_set(&env->segs[idx].base, addr);
         break;
     case TARGET_ARCH_GET_GS:
     case TARGET_ARCH_GET_FS:
@@ -6492,7 +6492,7 @@ abi_long do_arch_prctl(CPUX86State *env, int code, abi_ulong addr)
             idx = R_GS;
         else
             idx = R_FS;
-        val = env->segs[idx].base;
+        val = target_ulong_val(&env->segs[idx].base);
         if (put_user(val, addr, abi_ulong))
             ret = -TARGET_EFAULT;
         break;
@@ -6676,8 +6676,8 @@ static abi_long do_sysmips_atomic_set(CPUArchState *env, abi_ulong addr,
      * results can overlap the target errno range, so write the result
      * registers here and ask the CPU loop to leave them alone.
      */
-    env->active_tc.gpr[2] = old;
-    env->active_tc.gpr[7] = 0;
+    target_ulong_array_set(&env->active_tc.gpr.rec, 2, old);
+    target_ulong_array_set(&env->active_tc.gpr.rec, 7, 0);
     return -QEMU_ESIGRETURN;
 }
 

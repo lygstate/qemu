@@ -18,10 +18,10 @@ static inline void target_cpu_init(CPUX86State *env,
 {
     uint64_t *gdt_table;
 
-    env->cr[0] = CR0_PG_MASK | CR0_WP_MASK | CR0_PE_MASK;
+    target_ulong_array_set(&env->cr.rec, 0, CR0_PG_MASK | CR0_WP_MASK | CR0_PE_MASK);
     env->hflags |= HF_PE_MASK | HF_CPL_MASK;
     if (env->features[FEAT_1_EDX] & CPUID_SSE) {
-        env->cr[4] |= CR4_OSFXSR_MASK;
+        target_ulong_array_set(&env->cr.rec, 4, target_ulong_array_val(&env->cr.rec, 4) | (CR4_OSFXSR_MASK));
         env->hflags |= HF_OSFXSR_MASK;
     }
 
@@ -30,30 +30,30 @@ static inline void target_cpu_init(CPUX86State *env,
         fprintf(stderr, "The selected x86 CPU does not support 64 bit mode\n");
         exit(1);
     }
-    env->cr[4] |= CR4_PAE_MASK;
+    target_ulong_array_set(&env->cr.rec, 4, target_ulong_array_val(&env->cr.rec, 4) | (CR4_PAE_MASK));
     env->efer |= MSR_EFER_LMA | MSR_EFER_LME;
     env->hflags |= HF_LMA_MASK;
 
     /* flags setup : we activate the IRQs by default as in user mode */
-    env->eflags |= IF_MASK;
+    target_ulong_set(&env->eflags, target_ulong_val(&env->eflags) | IF_MASK);
 
     /* register setup */
-    env->regs[R_EAX] = regs->rax;
-    env->regs[R_EBX] = regs->rbx;
-    env->regs[R_ECX] = regs->rcx;
-    env->regs[R_EDX] = regs->rdx;
-    env->regs[R_ESI] = regs->rsi;
-    env->regs[R_EDI] = regs->rdi;
-    env->regs[R_EBP] = regs->rbp;
-    env->regs[R_ESP] = regs->rsp;
-    env->eip = regs->rip;
+    target_ulong_array_set(&env->regs.rec, R_EAX, regs->rax);
+    target_ulong_array_set(&env->regs.rec, R_EBX, regs->rbx);
+    target_ulong_array_set(&env->regs.rec, R_ECX, regs->rcx);
+    target_ulong_array_set(&env->regs.rec, R_EDX, regs->rdx);
+    target_ulong_array_set(&env->regs.rec, R_ESI, regs->rsi);
+    target_ulong_array_set(&env->regs.rec, R_EDI, regs->rdi);
+    target_ulong_array_set(&env->regs.rec, R_EBP, regs->rbp);
+    target_ulong_array_set(&env->regs.rec, R_ESP, regs->rsp);
+    target_ulong_set(&env->eip, regs->rip);
 
     /* interrupt setup */
     env->idt.limit = 511;
 
-    env->idt.base = target_mmap(0, sizeof(uint64_t) * (env->idt.limit + 1),
-        PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-    bsd_x86_64_set_idt_base(env->idt.base);
+    target_ulong_set(&env->idt.base, target_mmap(0, sizeof(uint64_t) * (env->idt.limit + 1),
+        PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0));
+    bsd_x86_64_set_idt_base(target_ulong_val(&env->idt.base));
     bsd_x86_64_set_idt(0, 0);
     bsd_x86_64_set_idt(1, 0);
     bsd_x86_64_set_idt(2, 0);
@@ -77,10 +77,10 @@ static inline void target_cpu_init(CPUX86State *env,
     bsd_x86_64_set_idt(0x80, 3);
 
     /* segment setup */
-    env->gdt.base = target_mmap(0, sizeof(uint64_t) * TARGET_GDT_ENTRIES,
-            PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    target_ulong_set(&env->gdt.base, target_mmap(0, sizeof(uint64_t) * TARGET_GDT_ENTRIES,
+            PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0));
     env->gdt.limit = sizeof(uint64_t) * TARGET_GDT_ENTRIES - 1;
-    gdt_table = g2h_untagged(env->gdt.base);
+    gdt_table = g2h_untagged(target_ulong_val(&env->gdt.base));
 
     /* 64 bit code segment */
     bsd_x86_64_write_dt(&gdt_table[__USER_CS >> 3], 0, 0xfffff,
@@ -115,20 +115,20 @@ static inline G_NORETURN void target_cpu_loop(CPUX86State *env)
         switch (trapnr) {
         case EXCP_SYSCALL:
             /* syscall from syscall instruction */
-            env->regs[R_EAX] = do_freebsd_syscall(env,
-                                                  env->regs[R_EAX],
-                                                  env->regs[R_EDI],
-                                                  env->regs[R_ESI],
-                                                  env->regs[R_EDX],
-                                                  env->regs[R_ECX],
-                                                  env->regs[8],
-                                                  env->regs[9], 0, 0);
-            env->eip = env->exception_next_eip;
-            if (((abi_ulong)env->regs[R_EAX]) >= (abi_ulong)(-515)) {
-                env->regs[R_EAX] = -env->regs[R_EAX];
-                env->eflags |= CC_C;
+            target_ulong_array_set(&env->regs.rec, R_EAX, do_freebsd_syscall(env,
+                                                  target_ulong_array_val(&env->regs.rec, R_EAX),
+                                                  target_ulong_array_val(&env->regs.rec, R_EDI),
+                                                  target_ulong_array_val(&env->regs.rec, R_ESI),
+                                                  target_ulong_array_val(&env->regs.rec, R_EDX),
+                                                  target_ulong_array_val(&env->regs.rec, R_ECX),
+                                                  target_ulong_array_val(&env->regs.rec, 8),
+                                                  target_ulong_array_val(&env->regs.rec, 9), 0, 0));
+            target_ulong_set(&env->eip, env->exception_next_eip);
+            if (((abi_ulong)target_ulong_array_val(&env->regs.rec, R_EAX)) >= (abi_ulong)(-515)) {
+                target_ulong_array_set(&env->regs.rec, R_EAX, -target_ulong_array_val(&env->regs.rec, R_EAX));
+                target_ulong_set(&env->eflags, target_ulong_val(&env->eflags) | CC_C);
             } else {
-                env->eflags &= ~CC_C;
+                target_ulong_set(&env->eflags, target_ulong_val(&env->eflags) & ~CC_C);
             }
             break;
 
@@ -141,7 +141,7 @@ static inline G_NORETURN void target_cpu_loop(CPUX86State *env)
             break;
 
         default:
-            pc = env->segs[R_CS].base + env->eip;
+            pc = target_ulong_val(&env->segs[R_CS].base) + target_ulong_val(&env->eip);
             fprintf(stderr, "qemu: 0x%08lx: unhandled CPU exception 0x%x - "
                     "aborting\n", (long)pc, trapnr);
             abort();
@@ -153,9 +153,9 @@ static inline G_NORETURN void target_cpu_loop(CPUX86State *env)
 static inline void target_cpu_clone_regs(CPUX86State *env, target_ulong newsp)
 {
     if (newsp) {
-        env->regs[R_ESP] = newsp;
+        target_ulong_array_set(&env->regs.rec, R_ESP, newsp);
     }
-    env->regs[R_EAX] = 0;
+    target_ulong_array_set(&env->regs.rec, R_EAX, 0);
 }
 
 static inline void target_cpu_reset(CPUArchState *env)
