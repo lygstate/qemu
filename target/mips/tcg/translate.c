@@ -1308,7 +1308,7 @@ static inline void restore_cpu_state(CPUMIPSState *env, DisasContext *ctx)
     case MIPS_HFLAG_BC:
     case MIPS_HFLAG_BL:
     case MIPS_HFLAG_B:
-        ctx->btarget = env->btarget;
+        ctx->btarget = target_ulong_val(&env->btarget);
         break;
     }
 }
@@ -5855,7 +5855,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case CP0_REG31__KSCRATCH6:
             CP0_CHECK(ctx->kscrexist & (1 << sel));
             tcg_gen_ld_tl(arg, tcg_env,
-                          offsetof(CPUMIPSState, CP0_KScratch[sel - 2]));
+                          offsetof(CPUMIPSState, CP0_KScratch) + (sel - 2) * TARGET_LONG_SIZE);
             tcg_gen_ext32s_tl(arg, arg);
             register_name = "KScratch";
             break;
@@ -6599,7 +6599,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case CP0_REG31__KSCRATCH6:
             CP0_CHECK(ctx->kscrexist & (1 << sel));
             tcg_gen_st_tl(arg, tcg_env,
-                          offsetof(CPUMIPSState, CP0_KScratch[sel - 2]));
+                          offsetof(CPUMIPSState, CP0_KScratch) + (sel - 2) * TARGET_LONG_SIZE);
             register_name = "KScratch";
             break;
         default:
@@ -7323,7 +7323,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case CP0_REG31__KSCRATCH6:
             CP0_CHECK(ctx->kscrexist & (1 << sel));
             tcg_gen_ld_tl(arg, tcg_env,
-                          offsetof(CPUMIPSState, CP0_KScratch[sel - 2]));
+                          offsetof(CPUMIPSState, CP0_KScratch) + (sel - 2) * TARGET_LONG_SIZE);
             register_name = "KScratch";
             break;
         default:
@@ -8056,7 +8056,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case CP0_REG31__KSCRATCH6:
             CP0_CHECK(ctx->kscrexist & (1 << sel));
             tcg_gen_st_tl(arg, tcg_env,
-                          offsetof(CPUMIPSState, CP0_KScratch[sel - 2]));
+                          offsetof(CPUMIPSState, CP0_KScratch) + (sel - 2) * TARGET_LONG_SIZE);
             register_name = "KScratch";
             break;
         default:
@@ -15034,7 +15034,7 @@ static void decode_opc(CPUMIPSState *env, DisasContext *ctx)
 {
     /* make sure instructions are on a word boundary */
     if (ctx->base.pc_next & 0x3) {
-        env->CP0_BadVAddr = ctx->base.pc_next;
+        target_ulong_set(&env->CP0_BadVAddr, ctx->base.pc_next);
         generate_exception_err(ctx, EXCP_AdEL, EXCP_INST_NOTAVAIL);
         return;
     }
@@ -15283,8 +15283,7 @@ void mips_tcg_init(void)
     cpu_gpr[0] = NULL;
     for (unsigned i = 1; i < 32; i++)
         cpu_gpr[i] = tcg_global_mem_new(tcg_env,
-                                        offsetof(CPUMIPSState,
-                                                 active_tc.gpr[i]),
+                                        offsetof(CPUMIPSState, active_tc.gpr) + (i) * TARGET_LONG_SIZE,
                                         regnames[i]);
 #if defined(TARGET_MIPS64)
     cpu_gpr_hi[0] = NULL;
@@ -15324,10 +15323,10 @@ void mips_tcg_init(void)
                                 offsetof(CPUMIPSState, active_tc.PC), "PC");
     for (unsigned i = 0; i < MIPS_DSP_ACC; i++) {
         cpu_HI[i] = tcg_global_mem_new(tcg_env,
-                                       offsetof(CPUMIPSState, active_tc.HI[i]),
+                                       offsetof(CPUMIPSState, active_tc.HI) + (i) * TARGET_LONG_SIZE,
                                        regnames_HI[i]);
         cpu_LO[i] = tcg_global_mem_new(tcg_env,
-                                       offsetof(CPUMIPSState, active_tc.LO[i]),
+                                       offsetof(CPUMIPSState, active_tc.LO) + (i) * TARGET_LONG_SIZE,
                                        regnames_LO[i]);
     }
     cpu_dspctrl = tcg_global_mem_new(tcg_env,
@@ -15363,7 +15362,7 @@ void mips_restore_state_to_opc(CPUState *cs,
 {
     CPUMIPSState *env = cpu_env(cs);
 
-    env->active_tc.PC = data[0];
+    target_ulong_set(&env->active_tc.PC, data[0]);
     env->hflags &= ~MIPS_HFLAG_BMASK;
     env->hflags |= data[1];
     switch (env->hflags & MIPS_HFLAG_BMASK_BASE) {
@@ -15372,7 +15371,7 @@ void mips_restore_state_to_opc(CPUState *cs,
     case MIPS_HFLAG_BC:
     case MIPS_HFLAG_BL:
     case MIPS_HFLAG_B:
-        env->btarget = data[2];
+        target_ulong_set(&env->btarget, data[2]);
         break;
     }
 }

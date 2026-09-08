@@ -618,7 +618,7 @@ void mxu_translate_init(void)
 {
     for (unsigned i = 0; i < NUMBER_OF_MXU_REGISTERS - 1; i++) {
         mxu_gpr[i] = tcg_global_mem_new(tcg_env,
-                                        offsetof(CPUMIPSState, active_tc.mxu_gpr[i]),
+                                        offsetof(CPUMIPSState, active_tc.mxu_gpr) + (i) * TARGET_LONG_SIZE,
                                         mxuregnames[i]);
     }
 

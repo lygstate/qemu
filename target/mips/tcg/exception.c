@@ -32,7 +32,7 @@ target_ulong exception_resume_pc(CPUMIPSState *env)
     target_ulong isa_mode;
 
     isa_mode = !!(env->hflags & MIPS_HFLAG_M16);
-    bad_pc = env->active_tc.PC | isa_mode;
+    bad_pc = target_ulong_val(&env->active_tc.PC) | isa_mode;
     if (env->hflags & MIPS_HFLAG_BMASK) {
         /*
          * If the exception was raised from a delay slot, come back to
@@ -83,7 +83,7 @@ void mips_cpu_synchronize_from_tb(CPUState *cs, const TranslationBlock *tb)
     CPUMIPSState *env = cpu_env(cs);
 
     tcg_debug_assert(!tcg_cflags_has(cs, CF_PCREL));
-    env->active_tc.PC = tb->pc;
+    target_ulong_set(&env->active_tc.PC, tb->pc);
     env->hflags &= ~MIPS_HFLAG_BMASK;
     env->hflags |= tb->flags & MIPS_HFLAG_BMASK;
 }

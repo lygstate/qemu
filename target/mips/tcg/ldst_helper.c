@@ -48,7 +48,7 @@ target_ulong helper_##name(CPUMIPSState *env, target_ulong arg,               \
                               true, &host_unused, &full, ra);                 \
     assert(!(flags & TLB_INVALID_MASK));                                      \
     env->CP0_LLAddr = full->phys_addr;                                        \
-    env->lladdr = arg;                                                        \
+    target_ulong_set(&env->lladdr, arg);                                                        \
     return env->llval;                                                        \
 }
 HELPER_LD_ATOMIC(ll, ldl, 0x3, (target_long)(int32_t))
@@ -224,7 +224,7 @@ void helper_lwm(CPUMIPSState *env, target_ulong addr, target_ulong reglist,
     MemOpIdx oi = memop_idx;
     unsigned base_reglist = reglist & 0xf;
     bool do_r31 = reglist & 0x10;
-    target_ulong *gpr = env->active_tc.gpr;
+    target_ulong *gpr = target_ulong_array_elem(&env->active_tc.gpr.rec, 0);
     uintptr_t ra = GETPC();
 
     if (base_reglist > 0 && base_reglist <= ARRAY_SIZE(multiple_regs)) {
@@ -245,7 +245,7 @@ void helper_swm(CPUMIPSState *env, target_ulong addr, target_ulong reglist,
     MemOpIdx oi = memop_idx;
     unsigned base_reglist = reglist & 0xf;
     bool do_r31 = reglist & 0x10;
-    target_ulong *gpr = env->active_tc.gpr;
+    target_ulong *gpr = target_ulong_array_elem(&env->active_tc.gpr.rec, 0);
     uintptr_t ra = GETPC();
 
     if (base_reglist > 0 && base_reglist <= ARRAY_SIZE(multiple_regs)) {
@@ -267,7 +267,7 @@ void helper_ldm(CPUMIPSState *env, target_ulong addr, target_ulong reglist,
     MemOpIdx oi = memop_idx;
     unsigned base_reglist = reglist & 0xf;
     bool do_r31 = reglist & 0x10;
-    target_ulong *gpr = env->active_tc.gpr;
+    target_ulong *gpr = target_ulong_array_elem(&env->active_tc.gpr.rec, 0);
     uintptr_t ra = GETPC();
 
     if (base_reglist > 0 && base_reglist <= ARRAY_SIZE(multiple_regs)) {
@@ -288,7 +288,7 @@ void helper_sdm(CPUMIPSState *env, target_ulong addr, target_ulong reglist,
     MemOpIdx oi = memop_idx;
     unsigned base_reglist = reglist & 0xf;
     bool do_r31 = reglist & 0x10;
-    target_ulong *gpr = env->active_tc.gpr;
+    target_ulong *gpr = target_ulong_array_elem(&env->active_tc.gpr.rec, 0);
     uintptr_t ra = GETPC();
 
     if (base_reglist > 0 && base_reglist <= ARRAY_SIZE(multiple_regs)) {

@@ -41,7 +41,7 @@ enum {
 
 static void do_tr_or_bp(CPUMIPSState *env, unsigned int code, bool trap)
 {
-    target_ulong pc = env->active_tc.PC;
+    target_ulong pc = target_ulong_val(&env->active_tc.PC);
 
     switch (code) {
     case BRK_OVERFLOW:
@@ -78,9 +78,9 @@ void cpu_loop(CPUMIPSState *env)
 
         switch(trapnr) {
         case EXCP_SYSCALL:
-            env->active_tc.PC += 4;
+            target_ulong_set(&env->active_tc.PC, target_ulong_val(&env->active_tc.PC) + (4));
 # ifdef TARGET_ABI_MIPSO32
-            syscall_num = env->active_tc.gpr[2] - 4000;
+            syscall_num = target_ulong_array_val(&env->active_tc.gpr.rec, 2) - 4000;
             if (syscall_num >= sizeof(mips_syscall_args)) {
                 /* syscall_num is larger that any defined for MIPS O32 */
                 ret = -TARGET_ENOSYS;
@@ -95,7 +95,7 @@ void cpu_loop(CPUMIPSState *env)
                 abi_ulong arg5 = 0, arg6 = 0, arg7 = 0, arg8 = 0;
 
                 nb_args = mips_syscall_args[syscall_num];
-                sp_reg = env->active_tc.gpr[29];
+                sp_reg = target_ulong_array_val(&env->active_tc.gpr.rec, 29);
                 switch (nb_args) {
                 /* these arguments are taken from the stack */
                 case 8:
@@ -121,23 +121,23 @@ void cpu_loop(CPUMIPSState *env)
                 default:
                     break;
                 }
-                ret = do_syscall(env, env->active_tc.gpr[2],
-                                 env->active_tc.gpr[4],
-                                 env->active_tc.gpr[5],
-                                 env->active_tc.gpr[6],
-                                 env->active_tc.gpr[7],
+                ret = do_syscall(env, target_ulong_array_val(&env->active_tc.gpr.rec, 2),
+                                 target_ulong_array_val(&env->active_tc.gpr.rec, 4),
+                                 target_ulong_array_val(&env->active_tc.gpr.rec, 5),
+                                 target_ulong_array_val(&env->active_tc.gpr.rec, 6),
+                                 target_ulong_array_val(&env->active_tc.gpr.rec, 7),
                                  arg5, arg6, arg7, arg8);
             }
 done_syscall:
 # else
-            ret = do_syscall(env, env->active_tc.gpr[2],
-                             env->active_tc.gpr[4], env->active_tc.gpr[5],
-                             env->active_tc.gpr[6], env->active_tc.gpr[7],
-                             env->active_tc.gpr[8], env->active_tc.gpr[9],
-                             env->active_tc.gpr[10], env->active_tc.gpr[11]);
+            ret = do_syscall(env, target_ulong_array_val(&env->active_tc.gpr.rec, 2),
+                             target_ulong_array_val(&env->active_tc.gpr.rec, 4), target_ulong_array_val(&env->active_tc.gpr.rec, 5),
+                             target_ulong_array_val(&env->active_tc.gpr.rec, 6), target_ulong_array_val(&env->active_tc.gpr.rec, 7),
+                             target_ulong_array_val(&env->active_tc.gpr.rec, 8), target_ulong_array_val(&env->active_tc.gpr.rec, 9),
+                             target_ulong_array_val(&env->active_tc.gpr.rec, 10), target_ulong_array_val(&env->active_tc.gpr.rec, 11));
 # endif /* O32 */
             if (ret == -QEMU_ERESTARTSYS) {
-                env->active_tc.PC -= 4;
+                target_ulong_set(&env->active_tc.PC, target_ulong_val(&env->active_tc.PC) - (4));
                 break;
             }
             if (ret == -QEMU_ESIGRETURN || ret == -QEMU_ESETPC) {
@@ -149,12 +149,12 @@ done_syscall:
                 break;
             }
             if ((abi_ulong)ret >= (abi_ulong)-1133) {
-                env->active_tc.gpr[7] = 1; /* error flag */
+                target_ulong_array_set(&env->active_tc.gpr.rec, 7, 1); /* error flag */
                 ret = -ret;
             } else {
-                env->active_tc.gpr[7] = 0; /* error flag */
+                target_ulong_array_set(&env->active_tc.gpr.rec, 7, 0); /* error flag */
             }
-            env->active_tc.gpr[2] = ret;
+            target_ulong_array_set(&env->active_tc.gpr.rec, 2, ret);
             break;
         case EXCP_CpU:
         case EXCP_RI:
@@ -164,14 +164,14 @@ done_syscall:
         case EXCP_AdEL:
         case EXCP_AdES:
             force_sig_fault(TARGET_SIGBUS, TARGET_BUS_ADRALN,
-                            env->CP0_BadVAddr);
+                            target_ulong_val(&env->CP0_BadVAddr));
             break;
         case EXCP_INTERRUPT:
             /* just indicate that signals should be handled asap */
             break;
         case EXCP_DEBUG:
             force_sig_fault(TARGET_SIGTRAP, TARGET_TRAP_BRKPT,
-                            env->active_tc.PC);
+                            target_ulong_val(&env->active_tc.PC));
             break;
         case EXCP_FPE:
             si_code = TARGET_FPE_FLTUNK;
@@ -186,10 +186,10 @@ done_syscall:
             } else if (GET_FP_CAUSE(env->active_fpu.fcr31) & FP_INEXACT) {
                 si_code = TARGET_FPE_FLTRES;
             }
-            force_sig_fault(TARGET_SIGFPE, si_code, env->active_tc.PC);
+            force_sig_fault(TARGET_SIGFPE, si_code, target_ulong_val(&env->active_tc.PC));
             break;
 	case EXCP_OVERFLOW:
-            force_sig_fault(TARGET_SIGFPE, TARGET_FPE_INTOVF, env->active_tc.PC);
+            force_sig_fault(TARGET_SIGFPE, TARGET_FPE_INTOVF, target_ulong_val(&env->active_tc.PC));
             break;
         /* The code below was inspired by the MIPS Linux kernel trap
          * handling code in arch/mips/kernel/traps.c.
@@ -252,8 +252,8 @@ void init_main_thread(CPUState *cs, struct image_info *info)
     struct mode_req interp_req;
     target_ulong entry = info->entry;
 
-    env->active_tc.gpr[29] = info->start_stack;
-    env->active_tc.PC = entry & ~(target_ulong)1;
+    target_ulong_array_set(&env->active_tc.gpr.rec, 29, info->start_stack);
+    target_ulong_set(&env->active_tc.PC, entry & ~(target_ulong)1);
     if (entry & 1) {
         env->hflags |= MIPS_HFLAG_M16;
     }

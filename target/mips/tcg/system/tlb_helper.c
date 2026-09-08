@@ -56,16 +56,16 @@ static void r4k_fill_tlb(CPUMIPSState *env, int idx)
 
     /* XXX: detect conflicting TLBs and raise a MCHECK exception when needed */
     tlb = &env->tlb->mmu.r4k.tlb[idx];
-    if (env->CP0_EntryHi & (1 << CP0EnHi_EHINV)) {
+    if (target_ulong_val(&env->CP0_EntryHi) & (1 << CP0EnHi_EHINV)) {
         tlb->EHINV = 1;
         return;
     }
     tlb->EHINV = 0;
-    tlb->VPN = env->CP0_EntryHi & (TARGET_PAGE_MASK << 1);
+    tlb->VPN = target_ulong_val(&env->CP0_EntryHi) & (TARGET_PAGE_MASK << 1);
 #if defined(TARGET_MIPS64)
     tlb->VPN &= env->SEGMask;
 #endif
-    tlb->ASID = env->CP0_EntryHi & env->CP0_EntryHi_ASID_mask;
+    tlb->ASID = target_ulong_val(&env->CP0_EntryHi) & env->CP0_EntryHi_ASID_mask;
     tlb->MMID = env->CP0_MemoryMapID;
     tlb->PageMask = env->CP0_PageMask;
     tlb->G = env->CP0_EntryLo0 & env->CP0_EntryLo1 & 1;
@@ -86,7 +86,7 @@ static void r4k_fill_tlb(CPUMIPSState *env, int idx)
 static void r4k_helper_tlbinv(CPUMIPSState *env)
 {
     bool mi = !!((env->CP0_Config5 >> CP0C5_MI) & 1);
-    uint16_t ASID = env->CP0_EntryHi & env->CP0_EntryHi_ASID_mask;
+    uint16_t ASID = target_ulong_val(&env->CP0_EntryHi) & env->CP0_EntryHi_ASID_mask;
     uint32_t MMID = env->CP0_MemoryMapID;
     uint32_t tlb_mmid;
     r4k_tlb_t *tlb;
@@ -117,7 +117,7 @@ static void r4k_helper_tlbwi(CPUMIPSState *env)
 {
     bool mi = !!((env->CP0_Config5 >> CP0C5_MI) & 1);
     target_ulong VPN;
-    uint16_t ASID = env->CP0_EntryHi & env->CP0_EntryHi_ASID_mask;
+    uint16_t ASID = target_ulong_val(&env->CP0_EntryHi) & env->CP0_EntryHi_ASID_mask;
     uint32_t MMID = env->CP0_MemoryMapID;
     uint32_t tlb_mmid;
     bool EHINV, G, V0, D0, V1, D1, XI0, XI1, RI0, RI1;
@@ -128,11 +128,11 @@ static void r4k_helper_tlbwi(CPUMIPSState *env)
 
     idx = (env->CP0_Index & ~0x80000000) % env->tlb->nb_tlb;
     tlb = &env->tlb->mmu.r4k.tlb[idx];
-    VPN = env->CP0_EntryHi & (TARGET_PAGE_MASK << 1);
+    VPN = target_ulong_val(&env->CP0_EntryHi) & (TARGET_PAGE_MASK << 1);
 #if defined(TARGET_MIPS64)
     VPN &= env->SEGMask;
 #endif
-    EHINV = (env->CP0_EntryHi & (1 << CP0EnHi_EHINV)) != 0;
+    EHINV = (target_ulong_val(&env->CP0_EntryHi) & (1 << CP0EnHi_EHINV)) != 0;
     G = env->CP0_EntryLo0 & env->CP0_EntryLo1 & 1;
     V0 = (env->CP0_EntryLo0 & 2) != 0;
     D0 = (env->CP0_EntryLo0 & 4) != 0;
@@ -176,7 +176,7 @@ static void r4k_helper_tlbp(CPUMIPSState *env)
     target_ulong mask;
     target_ulong tag;
     target_ulong VPN;
-    uint16_t ASID = env->CP0_EntryHi & env->CP0_EntryHi_ASID_mask;
+    uint16_t ASID = target_ulong_val(&env->CP0_EntryHi) & env->CP0_EntryHi_ASID_mask;
     uint32_t MMID = env->CP0_MemoryMapID;
     uint32_t tlb_mmid;
     int i;
@@ -186,7 +186,7 @@ static void r4k_helper_tlbp(CPUMIPSState *env)
         tlb = &env->tlb->mmu.r4k.tlb[i];
         /* 1k pages are not supported. */
         mask = tlb->PageMask | ~(TARGET_PAGE_MASK << 1);
-        tag = env->CP0_EntryHi & ~mask;
+        tag = target_ulong_val(&env->CP0_EntryHi) & ~mask;
         VPN = tlb->VPN & ~mask;
 #if defined(TARGET_MIPS64)
         tag &= env->SEGMask;
@@ -205,7 +205,7 @@ static void r4k_helper_tlbp(CPUMIPSState *env)
             tlb = &env->tlb->mmu.r4k.tlb[i];
             /* 1k pages are not supported. */
             mask = tlb->PageMask | ~(TARGET_PAGE_MASK << 1);
-            tag = env->CP0_EntryHi & ~mask;
+            tag = target_ulong_val(&env->CP0_EntryHi) & ~mask;
             VPN = tlb->VPN & ~mask;
 #if defined(TARGET_MIPS64)
             tag &= env->SEGMask;
@@ -235,7 +235,7 @@ static inline uint64_t get_entrylo_pfn_from_tlb(uint64_t tlb_pfn)
 static void r4k_helper_tlbr(CPUMIPSState *env)
 {
     bool mi = !!((env->CP0_Config5 >> CP0C5_MI) & 1);
-    uint16_t ASID = env->CP0_EntryHi & env->CP0_EntryHi_ASID_mask;
+    uint16_t ASID = target_ulong_val(&env->CP0_EntryHi) & env->CP0_EntryHi_ASID_mask;
     uint32_t MMID = env->CP0_MemoryMapID;
     uint32_t tlb_mmid;
     r4k_tlb_t *tlb;
@@ -254,12 +254,12 @@ static void r4k_helper_tlbr(CPUMIPSState *env)
     r4k_mips_tlb_flush_extra(env, env->tlb->nb_tlb);
 
     if (tlb->EHINV) {
-        env->CP0_EntryHi = 1 << CP0EnHi_EHINV;
+        target_ulong_set(&env->CP0_EntryHi, 1 << CP0EnHi_EHINV);
         env->CP0_PageMask = 0;
         env->CP0_EntryLo0 = 0;
         env->CP0_EntryLo1 = 0;
     } else {
-        env->CP0_EntryHi = mi ? tlb->VPN : tlb->VPN | tlb->ASID;
+        target_ulong_set(&env->CP0_EntryHi, mi ? tlb->VPN : tlb->VPN | tlb->ASID);
         env->CP0_MemoryMapID = tlb->MMID;
         env->CP0_PageMask = tlb->PageMask;
         env->CP0_EntryLo0 = tlb->G | (tlb->V0 << 1) | (tlb->D0 << 2) |
@@ -324,7 +324,7 @@ static void global_invalidate_tlb(CPUMIPSState *env,
             (((tlb->VPN & ~tlb->PageMask) == (invMsgVPN2 & ~tlb->PageMask))
 #ifdef TARGET_MIPS64
             &&
-            (extract64(env->CP0_EntryHi, 62, 2) == invMsgR)
+            (extract64(target_ulong_val(&env->CP0_EntryHi), 62, 2) == invMsgR)
 #endif
             );
         MMidMatch = tlb->MMID == invMsgMMid;
@@ -393,7 +393,7 @@ static int fixed_mmu_map_address(CPUMIPSState *env, hwaddr *physical,
 static int r4k_map_address(CPUMIPSState *env, hwaddr *physical, int *prot,
                            target_ulong address, MMUAccessType access_type)
 {
-    uint16_t ASID = env->CP0_EntryHi & env->CP0_EntryHi_ASID_mask;
+    uint16_t ASID = target_ulong_val(&env->CP0_EntryHi) & env->CP0_EntryHi_ASID_mask;
     uint32_t MMID = env->CP0_MemoryMapID;
     bool mi = !!((env->CP0_Config5 >> CP0C5_MI) & 1);
     uint32_t tlb_mmid;
@@ -557,19 +557,18 @@ static void raise_mmu_exception(CPUMIPSState *env, target_ulong address,
     }
     /* Raise exception */
     if (!(env->hflags & MIPS_HFLAG_DM)) {
-        env->CP0_BadVAddr = address;
+        target_ulong_set(&env->CP0_BadVAddr, address);
     }
-    env->CP0_Context = (env->CP0_Context & ~0x007fffff) |
-                       ((address >> 9) & 0x007ffff0);
-    env->CP0_EntryHi = (env->CP0_EntryHi & env->CP0_EntryHi_ASID_mask) |
-                       (env->CP0_EntryHi & (1 << CP0EnHi_EHINV)) |
-                       (address & (TARGET_PAGE_MASK << 1));
+    target_ulong_set(&env->CP0_Context, (target_ulong_val(&env->CP0_Context) & ~0x007fffff) |
+                       ((address >> 9) & 0x007ffff0));
+    target_ulong_set(&env->CP0_EntryHi, (target_ulong_val(&env->CP0_EntryHi) & env->CP0_EntryHi_ASID_mask) |
+                       (target_ulong_val(&env->CP0_EntryHi) & (1 << CP0EnHi_EHINV)) |
+                       (address & (TARGET_PAGE_MASK << 1)));
 #if defined(TARGET_MIPS64)
-    env->CP0_EntryHi &= env->SEGMask;
-    env->CP0_XContext =
-        (env->CP0_XContext & ((~0ULL) << (env->SEGBITS - 7))) | /* PTEBase */
+    target_ulong_set(&env->CP0_EntryHi, target_ulong_val(&env->CP0_EntryHi) & (env->SEGMask));
+    target_ulong_set(&env->CP0_XContext, (target_ulong_val(&env->CP0_XContext) & ((~0ULL) << (env->SEGBITS - 7))) | /* PTEBase */
         (extract64(address, 62, 2) << (env->SEGBITS - 9)) |     /* R       */
-        (extract64(address, 13, env->SEGBITS - 13) << 4);       /* BadVPN2 */
+        (extract64(address, 13, env->SEGBITS - 13) << 4));       /* BadVPN2 */
 #endif
     cs->exception_index = exception;
     env->error_code = error_code;
@@ -637,7 +636,7 @@ static int walk_directory(CPUMIPSState *env, uint64_t *vaddr,
     int dph = (env->CP0_PWCtl >> CP0PC_DPH) & 0x1;
     int psn = (env->CP0_PWCtl >> CP0PC_PSN) & 0x3F;
     int hugepg = (env->CP0_PWCtl >> CP0PC_HUGEPG) & 0x1;
-    int pf_ptew = (env->CP0_PWField >> CP0PF_PTEW) & 0x3F;
+    int pf_ptew = (target_ulong_val(&env->CP0_PWField) >> CP0PF_PTEW) & 0x3F;
     uint64_t entry;
     uint64_t paddr;
     int prot;
@@ -697,11 +696,11 @@ static int walk_directory(CPUMIPSState *env, uint64_t *vaddr,
 static bool page_table_walk_refill(CPUMIPSState *env, vaddr address,
                                    int ptw_mmu_idx)
 {
-    int gdw = (env->CP0_PWSize >> CP0PS_GDW) & 0x3F;
-    int udw = (env->CP0_PWSize >> CP0PS_UDW) & 0x3F;
-    int mdw = (env->CP0_PWSize >> CP0PS_MDW) & 0x3F;
-    int ptw = (env->CP0_PWSize >> CP0PS_PTW) & 0x3F;
-    int ptew = (env->CP0_PWSize >> CP0PS_PTEW) & 0x3F;
+    int gdw = (target_ulong_val(&env->CP0_PWSize) >> CP0PS_GDW) & 0x3F;
+    int udw = (target_ulong_val(&env->CP0_PWSize) >> CP0PS_UDW) & 0x3F;
+    int mdw = (target_ulong_val(&env->CP0_PWSize) >> CP0PS_MDW) & 0x3F;
+    int ptw = (target_ulong_val(&env->CP0_PWSize) >> CP0PS_PTW) & 0x3F;
+    int ptew = (target_ulong_val(&env->CP0_PWSize) >> CP0PS_PTEW) & 0x3F;
 
     /* Initial values */
     bool huge_page = false;
@@ -717,14 +716,14 @@ static bool page_table_walk_refill(CPUMIPSState *env, vaddr address,
 
     /* Native pointer size */
     /*For the 32-bit architectures, this bit is fixed to 0.*/
-    MemOp native_op = (((env->CP0_PWSize >> CP0PS_PS) & 1) == 0) ? MO_32 : MO_64;
+    MemOp native_op = (((target_ulong_val(&env->CP0_PWSize) >> CP0PS_PS) & 1) == 0) ? MO_32 : MO_64;
 
     /* Indices from PWField */
-    int pf_gdw = (env->CP0_PWField >> CP0PF_GDW) & 0x3F;
-    int pf_udw = (env->CP0_PWField >> CP0PF_UDW) & 0x3F;
-    int pf_mdw = (env->CP0_PWField >> CP0PF_MDW) & 0x3F;
-    int pf_ptw = (env->CP0_PWField >> CP0PF_PTW) & 0x3F;
-    int pf_ptew = (env->CP0_PWField >> CP0PF_PTEW) & 0x3F;
+    int pf_gdw = (target_ulong_val(&env->CP0_PWField) >> CP0PF_GDW) & 0x3F;
+    int pf_udw = (target_ulong_val(&env->CP0_PWField) >> CP0PF_UDW) & 0x3F;
+    int pf_mdw = (target_ulong_val(&env->CP0_PWField) >> CP0PF_MDW) & 0x3F;
+    int pf_ptw = (target_ulong_val(&env->CP0_PWField) >> CP0PF_PTW) & 0x3F;
+    int pf_ptew = (target_ulong_val(&env->CP0_PWField) >> CP0PF_PTEW) & 0x3F;
 
     /* Indices computed from faulting address */
     int gindex = (address >> pf_gdw) & ((1 << gdw) - 1);
@@ -740,7 +739,7 @@ static bool page_table_walk_refill(CPUMIPSState *env, vaddr address,
     unsigned goffset, uoffset, moffset, ptoffset0, ptoffset1;
 
     /* Starting address - Page Table Base */
-    uint64_t vaddr = env->CP0_PWBase;
+    uint64_t vaddr = target_ulong_val(&env->CP0_PWBase);
 
     uint64_t dir_entry;
     uint64_t paddr;
@@ -878,14 +877,14 @@ refill:
     }
     pw_pagemask = m >> TARGET_PAGE_BITS;
     pw_pagemask = compute_pagemask(pw_pagemask << CP0PM_MASK);
-    pw_entryhi = (address & ~0x1fff) | (env->CP0_EntryHi & 0xFF);
+    pw_entryhi = (address & ~0x1fff) | (target_ulong_val(&env->CP0_EntryHi) & 0xFF);
     {
-        target_ulong tmp_entryhi = env->CP0_EntryHi;
+        target_ulong tmp_entryhi = target_ulong_val(&env->CP0_EntryHi);
         int32_t tmp_pagemask = env->CP0_PageMask;
         uint64_t tmp_entrylo0 = env->CP0_EntryLo0;
         uint64_t tmp_entrylo1 = env->CP0_EntryLo1;
 
-        env->CP0_EntryHi = pw_entryhi;
+        target_ulong_set(&env->CP0_EntryHi, pw_entryhi);
         env->CP0_PageMask = pw_pagemask;
         env->CP0_EntryLo0 = pw_entrylo0;
         env->CP0_EntryLo1 = pw_entrylo1;
@@ -897,7 +896,7 @@ refill:
          */
         r4k_helper_tlbwr(env);
 
-        env->CP0_EntryHi = tmp_entryhi;
+        target_ulong_set(&env->CP0_EntryHi, tmp_entryhi);
         env->CP0_PageMask = tmp_pagemask;
         env->CP0_EntryLo0 = tmp_entrylo0;
         env->CP0_EntryLo1 = tmp_entrylo1;
@@ -1007,14 +1006,14 @@ static inline void set_badinstr_registers(CPUMIPSState *env)
             uint32_t instr;
 
             oi = make_memop_idx(mo_endian_env(env) | MO_UW, cpu_mmu_index(cs, true));
-            instr =  cpu_ldw_code_mmu(env, env->active_tc.PC, oi, 0) << 16;
+            instr =  cpu_ldw_code_mmu(env, target_ulong_val(&env->active_tc.PC), oi, 0) << 16;
             if ((instr & 0x10000000) == 0) {
-                instr |= cpu_ldw_code_mmu(env, env->active_tc.PC + 2, oi, 0);
+                instr |= cpu_ldw_code_mmu(env, target_ulong_val(&env->active_tc.PC) + 2, oi, 0);
             }
             env->CP0_BadInstr = instr;
 
             if ((instr & 0xFC000000) == 0x60000000) {
-                instr =  cpu_ldw_code_mmu(env, env->active_tc.PC + 4, oi, 0) << 16;
+                instr =  cpu_ldw_code_mmu(env, target_ulong_val(&env->active_tc.PC) + 4, oi, 0) << 16;
                 env->CP0_BadInstrX = instr;
             }
         }
@@ -1028,11 +1027,11 @@ static inline void set_badinstr_registers(CPUMIPSState *env)
 
     oi = make_memop_idx(mo_endian_env(env) | MO_UL, cpu_mmu_index(cs, true));
     if (env->CP0_Config3 & (1 << CP0C3_BI)) {
-        env->CP0_BadInstr = cpu_ldl_code_mmu(env, env->active_tc.PC, oi, 0);
+        env->CP0_BadInstr = cpu_ldl_code_mmu(env, target_ulong_val(&env->active_tc.PC), oi, 0);
     }
     if ((env->CP0_Config3 & (1 << CP0C3_BP)) &&
         (env->hflags & MIPS_HFLAG_BMASK)) {
-        env->CP0_BadInstrP = cpu_ldl_code_mmu(env, env->active_tc.PC - 4, oi, 0);
+        env->CP0_BadInstrP = cpu_ldl_code_mmu(env, target_ulong_val(&env->active_tc.PC) - 4, oi, 0);
     }
 }
 
@@ -1043,13 +1042,13 @@ void mips_cpu_do_interrupt(CPUState *cs)
     bool update_badinstr = 0;
     target_ulong offset;
     int cause = -1;
-    uint64_t last_pc = env->active_tc.PC;
+    uint64_t last_pc = target_ulong_val(&env->active_tc.PC);
 
     if (qemu_loglevel_mask(CPU_LOG_INT)
         && cs->exception_index != EXCP_EXT_INTERRUPT) {
-        qemu_log("%s enter: PC " TARGET_FMT_lx " EPC " TARGET_FMT_lx
+        qemu_log("%s enter: PC " "%016" PRIx64 " EPC " "%016" PRIx64
                  " %s exception\n",
-                 __func__, env->active_tc.PC, env->CP0_EPC,
+                 __func__, target_ulong_val(&env->active_tc.PC), target_ulong_val(&env->CP0_EPC),
                  mips_exception_name(cs->exception_index));
     }
     if (cs->exception_index == EXCP_EXT_INTERRUPT &&
@@ -1061,7 +1060,7 @@ void mips_cpu_do_interrupt(CPUState *cs)
     case EXCP_SEMIHOST:
         cs->exception_index = EXCP_NONE;
         mips_semihosting(env);
-        env->active_tc.PC += env->error_code;
+        target_ulong_set(&env->active_tc.PC, target_ulong_val(&env->active_tc.PC) + (env->error_code));
         qemu_plugin_vcpu_hostcall_cb(cs, last_pc);
         return;
     case EXCP_DSS:
@@ -1072,7 +1071,7 @@ void mips_cpu_do_interrupt(CPUState *cs)
          * (but we assume the pc has always been updated during
          * code translation).
          */
-        env->CP0_DEPC = env->active_tc.PC | !!(env->hflags & MIPS_HFLAG_M16);
+        target_ulong_set(&env->CP0_DEPC, target_ulong_val(&env->active_tc.PC) | !!(env->hflags & MIPS_HFLAG_M16));
         goto enter_debug_mode;
     case EXCP_DINT:
         env->CP0_Debug |= 1 << CP0DB_DINT;
@@ -1092,7 +1091,7 @@ void mips_cpu_do_interrupt(CPUState *cs)
     case EXCP_DDBL:
         env->CP0_Debug |= 1 << CP0DB_DDBL;
     set_DEPC:
-        env->CP0_DEPC = exception_resume_pc(env);
+        target_ulong_set(&env->CP0_DEPC, exception_resume_pc(env));
         env->hflags &= ~MIPS_HFLAG_BMASK;
  enter_debug_mode:
         if (env->insn_flags & ISA_MIPS3) {
@@ -1108,7 +1107,7 @@ void mips_cpu_do_interrupt(CPUState *cs)
         if (!(env->CP0_Status & (1 << CP0St_EXL))) {
             env->CP0_Cause &= ~(1U << CP0Ca_BD);
         }
-        env->active_tc.PC = env->exception_base + 0x480;
+        target_ulong_set(&env->active_tc.PC, env->exception_base + 0x480);
         set_hflags_for_handler(env);
         break;
     case EXCP_RESET:
@@ -1116,12 +1115,12 @@ void mips_cpu_do_interrupt(CPUState *cs)
         break;
     case EXCP_SRESET:
         env->CP0_Status |= (1 << CP0St_SR);
-        memset(env->CP0_WatchLo, 0, sizeof(env->CP0_WatchLo));
+        memset(&env->CP0_WatchLo, 0, 8 * TARGET_LONG_SIZE);
         goto set_error_EPC;
     case EXCP_NMI:
         env->CP0_Status |= (1 << CP0St_NMI);
  set_error_EPC:
-        env->CP0_ErrorEPC = exception_resume_pc(env);
+        target_ulong_set(&env->CP0_ErrorEPC, exception_resume_pc(env));
         env->hflags &= ~MIPS_HFLAG_BMASK;
         env->CP0_Status |= (1 << CP0St_ERL) | (1 << CP0St_BEV);
         if (env->insn_flags & ISA_MIPS3) {
@@ -1136,7 +1135,7 @@ void mips_cpu_do_interrupt(CPUState *cs)
         if (!(env->CP0_Status & (1 << CP0St_EXL))) {
             env->CP0_Cause &= ~(1U << CP0Ca_BD);
         }
-        env->active_tc.PC = env->exception_base;
+        target_ulong_set(&env->active_tc.PC, env->exception_base);
         set_hflags_for_handler(env);
         break;
     case EXCP_EXT_INTERRUPT:
@@ -1181,7 +1180,7 @@ void mips_cpu_do_interrupt(CPUState *cs)
         if ((env->error_code & EXCP_TLB_NOMATCH) &&
             !(env->CP0_Status & (1 << CP0St_EXL))) {
 #if defined(TARGET_MIPS64)
-            int R = env->CP0_BadVAddr >> 62;
+            int R = target_ulong_val(&env->CP0_BadVAddr) >> 62;
             int UX = (env->CP0_Status & (1 << CP0St_UX)) != 0;
             int KX = (env->CP0_Status & (1 << CP0St_KX)) != 0;
 
@@ -1202,7 +1201,7 @@ void mips_cpu_do_interrupt(CPUState *cs)
         if ((env->error_code & EXCP_TLB_NOMATCH) &&
             !(env->CP0_Status & (1 << CP0St_EXL))) {
 #if defined(TARGET_MIPS64)
-            int R = env->CP0_BadVAddr >> 62;
+            int R = target_ulong_val(&env->CP0_BadVAddr) >> 62;
             int UX = (env->CP0_Status & (1 << CP0St_UX)) != 0;
             int KX = (env->CP0_Status & (1 << CP0St_KX)) != 0;
 
@@ -1300,7 +1299,7 @@ void mips_cpu_do_interrupt(CPUState *cs)
         offset = 0x100;
  set_EPC:
         if (!(env->CP0_Status & (1 << CP0St_EXL))) {
-            env->CP0_EPC = exception_resume_pc(env);
+            target_ulong_set(&env->CP0_EPC, exception_resume_pc(env));
             if (update_badinstr) {
                 set_badinstr_registers(env);
             }
@@ -1322,16 +1321,16 @@ void mips_cpu_do_interrupt(CPUState *cs)
         }
         env->hflags &= ~MIPS_HFLAG_BMASK;
         if (env->CP0_Status & (1 << CP0St_BEV)) {
-            env->active_tc.PC = env->exception_base + 0x200;
+            target_ulong_set(&env->active_tc.PC, env->exception_base + 0x200);
         } else if (cause == 30 && !(env->CP0_Config3 & (1 << CP0C3_SC) &&
                                     env->CP0_Config5 & (1 << CP0C5_CV))) {
             /* Force KSeg1 for cache errors */
-            env->active_tc.PC = KSEG1_BASE | (env->CP0_EBase & 0x1FFFF000);
+            target_ulong_set(&env->active_tc.PC, KSEG1_BASE | (target_ulong_val(&env->CP0_EBase) & 0x1FFFF000));
         } else {
-            env->active_tc.PC = env->CP0_EBase & ~0xfff;
+            target_ulong_set(&env->active_tc.PC, target_ulong_val(&env->CP0_EBase) & ~0xfff);
         }
 
-        env->active_tc.PC += offset;
+        target_ulong_set(&env->active_tc.PC, target_ulong_val(&env->active_tc.PC) + (offset));
         set_hflags_for_handler(env);
         env->CP0_Cause = (env->CP0_Cause & ~(0x1f << CP0Ca_EC)) |
                          (cause << CP0Ca_EC);
@@ -1341,11 +1340,11 @@ void mips_cpu_do_interrupt(CPUState *cs)
     }
     if (qemu_loglevel_mask(CPU_LOG_INT)
         && cs->exception_index != EXCP_EXT_INTERRUPT) {
-        qemu_log("%s: PC " TARGET_FMT_lx " EPC " TARGET_FMT_lx " cause %d\n"
-                 "    S %08x C %08x A " TARGET_FMT_lx " D " TARGET_FMT_lx "\n",
-                 __func__, env->active_tc.PC, env->CP0_EPC, cause,
-                 env->CP0_Status, env->CP0_Cause, env->CP0_BadVAddr,
-                 env->CP0_DEPC);
+        qemu_log("%s: PC " "%016" PRIx64 " EPC " "%016" PRIx64 " cause %d\n"
+                 "    S %08x C %08x A " "%016" PRIx64 " D " "%016" PRIx64 "\n",
+                 __func__, target_ulong_val(&env->active_tc.PC), target_ulong_val(&env->CP0_EPC), cause,
+                 env->CP0_Status, env->CP0_Cause, target_ulong_val(&env->CP0_BadVAddr),
+                 target_ulong_val(&env->CP0_DEPC));
     }
     switch (cs->exception_index) {
     case EXCP_NMI:
@@ -1381,7 +1380,7 @@ void r4k_invalidate_tlb(CPUMIPSState *env, int idx, int use_extra)
     r4k_tlb_t *tlb;
     target_ulong addr;
     target_ulong end;
-    uint16_t ASID = env->CP0_EntryHi & env->CP0_EntryHi_ASID_mask;
+    uint16_t ASID = target_ulong_val(&env->CP0_EntryHi) & env->CP0_EntryHi_ASID_mask;
     uint32_t MMID = env->CP0_MemoryMapID;
     bool mi = !!((env->CP0_Config5 >> CP0C5_MI) & 1);
     uint32_t tlb_mmid;
