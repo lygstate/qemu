@@ -38,22 +38,22 @@ static void sm_state_init_64(X86CPU *cpu)
         x86_stw_phys(cs, sm_state + offset, dt->selector);
         x86_stw_phys(cs, sm_state + offset + 2, (dt->flags >> 8) & 0xf0ff);
         x86_stl_phys(cs, sm_state + offset + 4, dt->limit);
-        x86_stq_phys(cs, sm_state + offset + 8, dt->base);
+        x86_stq_phys(cs, sm_state + offset + 8, target_ulong_val(&dt->base));
     }
 
-    x86_stq_phys(cs, sm_state + 0x7e68, env->gdt.base);
+    x86_stq_phys(cs, sm_state + 0x7e68, target_ulong_val(&(env->gdt).base));
     x86_stl_phys(cs, sm_state + 0x7e64, env->gdt.limit);
 
     x86_stw_phys(cs, sm_state + 0x7e70, env->ldt.selector);
-    x86_stq_phys(cs, sm_state + 0x7e78, env->ldt.base);
+    x86_stq_phys(cs, sm_state + 0x7e78, target_ulong_val(&(env->ldt).base));
     x86_stl_phys(cs, sm_state + 0x7e74, env->ldt.limit);
     x86_stw_phys(cs, sm_state + 0x7e72, (env->ldt.flags >> 8) & 0xf0ff);
 
-    x86_stq_phys(cs, sm_state + 0x7e88, env->idt.base);
+    x86_stq_phys(cs, sm_state + 0x7e88, target_ulong_val(&(env->idt).base));
     x86_stl_phys(cs, sm_state + 0x7e84, env->idt.limit);
 
     x86_stw_phys(cs, sm_state + 0x7e90, env->tr.selector);
-    x86_stq_phys(cs, sm_state + 0x7e98, env->tr.base);
+    x86_stq_phys(cs, sm_state + 0x7e98, target_ulong_val(&(env->tr).base));
     x86_stl_phys(cs, sm_state + 0x7e94, env->tr.limit);
     x86_stw_phys(cs, sm_state + 0x7e92, (env->tr.flags >> 8) & 0xf0ff);
 
@@ -76,12 +76,12 @@ static void sm_state_init_64(X86CPU *cpu)
     }
     x86_stq_phys(cs, sm_state + 0x7f78, target_ulong_val(&(env)->eip));
     x86_stl_phys(cs, sm_state + 0x7f70, cpu_compute_eflags(env));
-    x86_stl_phys(cs, sm_state + 0x7f68, env->dr[6]);
-    x86_stl_phys(cs, sm_state + 0x7f60, env->dr[7]);
+    x86_stl_phys(cs, sm_state + 0x7f68, target_ulong_array_val(&env->dr.rec, 6));
+    x86_stl_phys(cs, sm_state + 0x7f60, target_ulong_array_val(&env->dr.rec, 7));
 
-    x86_stl_phys(cs, sm_state + 0x7f48, env->cr[4]);
-    x86_stq_phys(cs, sm_state + 0x7f50, env->cr[3]);
-    x86_stl_phys(cs, sm_state + 0x7f58, env->cr[0]);
+    x86_stl_phys(cs, sm_state + 0x7f48, target_ulong_array_val(&env->cr.rec, 4));
+    x86_stq_phys(cs, sm_state + 0x7f50, target_ulong_array_val(&env->cr.rec, 3));
+    x86_stl_phys(cs, sm_state + 0x7f58, target_ulong_array_val(&env->cr.rec, 0));
 
     x86_stl_phys(cs, sm_state + 0x7efc, 0x00020064);    /* SMM revision ID */
     x86_stl_phys(cs, sm_state + 0x7f00, env->smbase);
@@ -98,8 +98,8 @@ static void sm_state_init_32(X86CPU *cpu)
     int i, offset;
     target_ulong sm_state = env->smbase + 0x8000;
 
-    x86_stl_phys(cs, sm_state + 0x7ffc, env->cr[0]);
-    x86_stl_phys(cs, sm_state + 0x7ff8, env->cr[3]);
+    x86_stl_phys(cs, sm_state + 0x7ffc, target_ulong_array_val(&env->cr.rec, 0));
+    x86_stl_phys(cs, sm_state + 0x7ff8, target_ulong_array_val(&env->cr.rec, 3));
     x86_stl_phys(cs, sm_state + 0x7ff4, cpu_compute_eflags(env));
     x86_stl_phys(cs, sm_state + 0x7ff0, target_ulong_val(&(env)->eip));
     x86_stl_phys(cs, sm_state + 0x7fec, target_ulong_array_val(&env->regs.rec, R_EDI));
@@ -110,23 +110,23 @@ static void sm_state_init_32(X86CPU *cpu)
     x86_stl_phys(cs, sm_state + 0x7fd8, target_ulong_array_val(&env->regs.rec, R_EDX));
     x86_stl_phys(cs, sm_state + 0x7fd4, target_ulong_array_val(&env->regs.rec, R_ECX));
     x86_stl_phys(cs, sm_state + 0x7fd0, target_ulong_array_val(&env->regs.rec, R_EAX));
-    x86_stl_phys(cs, sm_state + 0x7fcc, env->dr[6]);
-    x86_stl_phys(cs, sm_state + 0x7fc8, env->dr[7]);
+    x86_stl_phys(cs, sm_state + 0x7fcc, target_ulong_array_val(&env->dr.rec, 6));
+    x86_stl_phys(cs, sm_state + 0x7fc8, target_ulong_array_val(&env->dr.rec, 7));
 
     x86_stl_phys(cs, sm_state + 0x7fc4, env->tr.selector);
-    x86_stl_phys(cs, sm_state + 0x7f64, env->tr.base);
+    x86_stl_phys(cs, sm_state + 0x7f64, target_ulong_val(&(env->tr).base));
     x86_stl_phys(cs, sm_state + 0x7f60, env->tr.limit);
     x86_stl_phys(cs, sm_state + 0x7f5c, (env->tr.flags >> 8) & 0xf0ff);
 
     x86_stl_phys(cs, sm_state + 0x7fc0, env->ldt.selector);
-    x86_stl_phys(cs, sm_state + 0x7f80, env->ldt.base);
+    x86_stl_phys(cs, sm_state + 0x7f80, target_ulong_val(&(env->ldt).base));
     x86_stl_phys(cs, sm_state + 0x7f7c, env->ldt.limit);
     x86_stl_phys(cs, sm_state + 0x7f78, (env->ldt.flags >> 8) & 0xf0ff);
 
-    x86_stl_phys(cs, sm_state + 0x7f74, env->gdt.base);
+    x86_stl_phys(cs, sm_state + 0x7f74, target_ulong_val(&(env->gdt).base));
     x86_stl_phys(cs, sm_state + 0x7f70, env->gdt.limit);
 
-    x86_stl_phys(cs, sm_state + 0x7f58, env->idt.base);
+    x86_stl_phys(cs, sm_state + 0x7f58, target_ulong_val(&(env->idt).base));
     x86_stl_phys(cs, sm_state + 0x7f54, env->idt.limit);
 
     for (i = 0; i < 6; i++) {
@@ -137,11 +137,11 @@ static void sm_state_init_32(X86CPU *cpu)
             offset = 0x7f2c + (i - 3) * 12;
         }
         x86_stl_phys(cs, sm_state + 0x7fa8 + i * 4, dt->selector);
-        x86_stl_phys(cs, sm_state + offset + 8, dt->base);
+        x86_stl_phys(cs, sm_state + offset + 8, target_ulong_val(&dt->base));
         x86_stl_phys(cs, sm_state + offset + 4, dt->limit);
         x86_stl_phys(cs, sm_state + offset, (dt->flags >> 8) & 0xf0ff);
     }
-    x86_stl_phys(cs, sm_state + 0x7f14, env->cr[4]);
+    x86_stl_phys(cs, sm_state + 0x7f14, target_ulong_array_val(&env->cr.rec, 4));
 
     x86_stl_phys(cs, sm_state + 0x7efc, 0x00020000);   /* SMM revision ID */
     x86_stl_phys(cs, sm_state + 0x7ef8, env->smbase);
@@ -175,7 +175,7 @@ void do_smm_enter(X86CPU *cpu)
                               DF_MASK));
     target_ulong_set(&(env)->eip,  0x00008000);
     cpu_x86_update_cr0(env,
-                       env->cr[0] & ~(CR0_PE_MASK | CR0_EM_MASK | CR0_TS_MASK |
+                       target_ulong_array_val(&env->cr.rec, 0) & ~(CR0_PE_MASK | CR0_EM_MASK | CR0_TS_MASK |
                                       CR0_PG_MASK));
     cpu_x86_update_cr4(env, 0);
     helper_set_dr(env, 7, 0x00000400);
@@ -213,19 +213,19 @@ static void rsm_load_regs_64(CPUX86State *env)
 
     cpu_load_efer(env, x86_ldq_phys(cs, sm_state + 0x7ed0));
 
-    env->gdt.base = x86_ldq_phys(cs, sm_state + 0x7e68);
+    target_ulong_set(&(env->gdt).base,  x86_ldq_phys(cs, sm_state + 0x7e68));
     env->gdt.limit = x86_ldl_phys(cs, sm_state + 0x7e64);
 
     env->ldt.selector = x86_lduw_phys(cs, sm_state + 0x7e70);
-    env->ldt.base = x86_ldq_phys(cs, sm_state + 0x7e78);
+    target_ulong_set(&(env->ldt).base,  x86_ldq_phys(cs, sm_state + 0x7e78));
     env->ldt.limit = x86_ldl_phys(cs, sm_state + 0x7e74);
     env->ldt.flags = (x86_lduw_phys(cs, sm_state + 0x7e72) & 0xf0ff) << 8;
 
-    env->idt.base = x86_ldq_phys(cs, sm_state + 0x7e88);
+    target_ulong_set(&(env->idt).base,  x86_ldq_phys(cs, sm_state + 0x7e88));
     env->idt.limit = x86_ldl_phys(cs, sm_state + 0x7e84);
 
     env->tr.selector = x86_lduw_phys(cs, sm_state + 0x7e90);
-    env->tr.base = x86_ldq_phys(cs, sm_state + 0x7e98);
+    target_ulong_set(&(env->tr).base,  x86_ldq_phys(cs, sm_state + 0x7e98));
     env->tr.limit = x86_ldl_phys(cs, sm_state + 0x7e94);
     env->tr.flags = (x86_lduw_phys(cs, sm_state + 0x7e92) & 0xf0ff) << 8;
 
@@ -295,19 +295,19 @@ static void rsm_load_regs_32(CPUX86State *env)
     helper_set_dr(env, 7, x86_ldl_phys(cs, sm_state + 0x7fc8));
 
     env->tr.selector = x86_ldl_phys(cs, sm_state + 0x7fc4) & 0xffff;
-    env->tr.base = x86_ldl_phys(cs, sm_state + 0x7f64);
+    target_ulong_set(&(env->tr).base,  x86_ldl_phys(cs, sm_state + 0x7f64));
     env->tr.limit = x86_ldl_phys(cs, sm_state + 0x7f60);
     env->tr.flags = (x86_ldl_phys(cs, sm_state + 0x7f5c) & 0xf0ff) << 8;
 
     env->ldt.selector = x86_ldl_phys(cs, sm_state + 0x7fc0) & 0xffff;
-    env->ldt.base = x86_ldl_phys(cs, sm_state + 0x7f80);
+    target_ulong_set(&(env->ldt).base,  x86_ldl_phys(cs, sm_state + 0x7f80));
     env->ldt.limit = x86_ldl_phys(cs, sm_state + 0x7f7c);
     env->ldt.flags = (x86_ldl_phys(cs, sm_state + 0x7f78) & 0xf0ff) << 8;
 
-    env->gdt.base = x86_ldl_phys(cs, sm_state + 0x7f74);
+    target_ulong_set(&(env->gdt).base,  x86_ldl_phys(cs, sm_state + 0x7f74));
     env->gdt.limit = x86_ldl_phys(cs, sm_state + 0x7f70);
 
-    env->idt.base = x86_ldl_phys(cs, sm_state + 0x7f58);
+    target_ulong_set(&(env->idt).base,  x86_ldl_phys(cs, sm_state + 0x7f58));
     env->idt.limit = x86_ldl_phys(cs, sm_state + 0x7f54);
 
     for (i = 0; i < 6; i++) {

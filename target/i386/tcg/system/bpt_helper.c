@@ -55,8 +55,8 @@ static inline int hw_breakpoint_len(unsigned long dr7, int index)
 static int hw_breakpoint_insert(CPUX86State *env, int index)
 {
     CPUState *cs = env_cpu(env);
-    target_ulong dr7 = env->dr[7];
-    target_ulong drN = env->dr[index];
+    target_ulong dr7 = target_ulong_array_val(&env->dr.rec, 7);
+    target_ulong drN = target_ulong_array_val(&env->dr.rec, index);
     int err = 0;
 
     switch (hw_breakpoint_type(dr7, index)) {
@@ -69,7 +69,7 @@ static int hw_breakpoint_insert(CPUX86State *env, int index)
 
     case DR7_TYPE_IO_RW:
         /* Notice when we should enable calls to bpt_io.  */
-        return hw_breakpoint_enabled(env->dr[7], index)
+        return hw_breakpoint_enabled(target_ulong_array_val(&env->dr.rec, 7), index)
                ? HF_IOBPT_MASK : 0;
 
     case DR7_TYPE_DATA_WR:
@@ -100,7 +100,7 @@ static void hw_breakpoint_remove(CPUX86State *env, int index)
 {
     CPUState *cs = env_cpu(env);
 
-    switch (hw_breakpoint_type(env->dr[7], index)) {
+    switch (hw_breakpoint_type(target_ulong_array_val(&env->dr.rec, 7), index)) {
     case DR7_TYPE_BP_INST:
         if (env->cpu_breakpoint[index]) {
             cpu_breakpoint_remove_by_ref(cs, env->cpu_breakpoint[index]);
@@ -124,7 +124,7 @@ static void hw_breakpoint_remove(CPUX86State *env, int index)
 
 void cpu_x86_update_dr7(CPUX86State *env, uint32_t new_dr7)
 {
-    target_ulong old_dr7 = env->dr[7];
+    target_ulong old_dr7 = target_ulong_array_val(&env->dr.rec, 7);
     int iobpt = 0;
     int i;
 
@@ -143,7 +143,7 @@ void cpu_x86_update_dr7(CPUX86State *env, uint32_t new_dr7)
                 hw_breakpoint_remove(env, i);
             }
         }
-        env->dr[7] = new_dr7;
+        target_ulong_array_set(&env->dr.rec, 7, new_dr7);
         for (i = 0; i < DR7_MAX_BP; i++) {
             if (mod & (2 << i * 2) && hw_breakpoint_enabled(new_dr7, i)) {
                 iobpt |= hw_breakpoint_insert(env, i);
@@ -156,7 +156,7 @@ void cpu_x86_update_dr7(CPUX86State *env, uint32_t new_dr7)
         for (i = 0; i < DR7_MAX_BP; i++) {
             hw_breakpoint_remove(env, i);
         }
-        env->dr[7] = new_dr7;
+        target_ulong_array_set(&env->dr.rec, 7, new_dr7);
         for (i = 0; i < DR7_MAX_BP; i++) {
             iobpt |= hw_breakpoint_insert(env, i);
         }
@@ -171,14 +171,14 @@ bool check_hw_breakpoints(CPUX86State *env, bool force_dr6_update)
     int reg;
     bool hit_enabled = false;
 
-    dr6 = env->dr[6] & ~0xf;
+    dr6 = target_ulong_array_val(&env->dr.rec, 6) & ~0xf;
     for (reg = 0; reg < DR7_MAX_BP; reg++) {
         bool bp_match = false;
         bool wp_match = false;
 
-        switch (hw_breakpoint_type(env->dr[7], reg)) {
+        switch (hw_breakpoint_type(target_ulong_array_val(&env->dr.rec, 7), reg)) {
         case DR7_TYPE_BP_INST:
-            if (env->dr[reg] == target_ulong_val(&(env)->eip)) {
+            if (target_ulong_array_val(&env->dr.rec, reg) == target_ulong_val(&(env)->eip)) {
                 bp_match = true;
             }
             break;
@@ -194,14 +194,14 @@ bool check_hw_breakpoints(CPUX86State *env, bool force_dr6_update)
         }
         if (bp_match || wp_match) {
             dr6 |= 1 << reg;
-            if (hw_breakpoint_enabled(env->dr[7], reg)) {
+            if (hw_breakpoint_enabled(target_ulong_array_val(&env->dr.rec, 7), reg)) {
                 hit_enabled = true;
             }
         }
     }
 
     if (hit_enabled || force_dr6_update) {
-        env->dr[6] = dr6;
+        target_ulong_array_set(&env->dr.rec, 6, dr6);
     }
 
     return hit_enabled;
@@ -238,53 +238,53 @@ void breakpoint_handler(CPUState *cs)
 target_ulong helper_get_dr(CPUX86State *env, int reg)
 {
     if (reg >= 4 && reg < 6) {
-        if (env->cr[4] & CR4_DE_MASK) {
+        if (target_ulong_array_val(&env->cr.rec, 4) & CR4_DE_MASK) {
             raise_exception_ra(env, EXCP06_ILLOP, GETPC());
         } else {
             reg += 2;
         }
     }
 
-    if (env->dr[7] & DR7_GD) {
-        env->dr[7] = env->dr[7] & (~DR7_GD);
-        env->dr[6] = env->dr[6] | (DR6_BD);
+    if (target_ulong_array_val(&env->dr.rec, 7) & DR7_GD) {
+        target_ulong_array_set(&env->dr.rec, 7, target_ulong_array_val(&env->dr.rec, 7) & (~DR7_GD));
+        target_ulong_array_set(&env->dr.rec, 6, target_ulong_array_val(&env->dr.rec, 6) | (DR6_BD));
         raise_exception_ra(env, EXCP01_DB, GETPC());
     }
 
-    return env->dr[reg];
+    return target_ulong_array_val(&env->dr.rec, reg);
 }
 
 void helper_set_dr(CPUX86State *env, int reg, target_ulong t0)
 {
     if (reg >= 4 && reg < 6) {
-        if (env->cr[4] & CR4_DE_MASK) {
+        if (target_ulong_array_val(&env->cr.rec, 4) & CR4_DE_MASK) {
             raise_exception_ra(env, EXCP06_ILLOP, GETPC());
         } else {
             reg += 2;
         }
     }
 
-    if (env->dr[7] & DR7_GD) {
-        env->dr[7] = env->dr[7] & (~DR7_GD);
-        env->dr[6] = env->dr[6] | (DR6_BD);
+    if (target_ulong_array_val(&env->dr.rec, 7) & DR7_GD) {
+        target_ulong_array_set(&env->dr.rec, 7, target_ulong_array_val(&env->dr.rec, 7) & (~DR7_GD));
+        target_ulong_array_set(&env->dr.rec, 6, target_ulong_array_val(&env->dr.rec, 6) | (DR6_BD));
         raise_exception_ra(env, EXCP01_DB, GETPC());
     }
 
     if (reg < 4) {
-        if (hw_breakpoint_enabled(env->dr[7], reg)
-            && hw_breakpoint_type(env->dr[7], reg) != DR7_TYPE_IO_RW) {
+        if (hw_breakpoint_enabled(target_ulong_array_val(&env->dr.rec, 7), reg)
+            && hw_breakpoint_type(target_ulong_array_val(&env->dr.rec, 7), reg) != DR7_TYPE_IO_RW) {
             hw_breakpoint_remove(env, reg);
-            env->dr[reg] = t0;
+            target_ulong_array_set(&env->dr.rec, reg, t0);
             hw_breakpoint_insert(env, reg);
         } else {
-            env->dr[reg] = t0;
+            target_ulong_array_set(&env->dr.rec, reg, t0);
         }
     } else {
         if (t0 & DR_RESERVED_MASK) {
             raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
         }
         if (reg == 6) {
-            env->dr[6] = t0 | DR6_FIXED_1;
+            target_ulong_array_set(&env->dr.rec, 6, t0 | DR6_FIXED_1);
         } else {
             cpu_x86_update_dr7(env, t0);
         }
@@ -295,22 +295,22 @@ void helper_set_dr(CPUX86State *env, int reg, target_ulong t0)
 void helper_bpt_io(CPUX86State *env, uint32_t port,
                    uint32_t size, target_ulong next_eip)
 {
-    target_ulong dr7 = env->dr[7];
+    target_ulong dr7 = target_ulong_array_val(&env->dr.rec, 7);
     int i, hit = 0;
 
     for (i = 0; i < DR7_MAX_BP; ++i) {
         if (hw_breakpoint_type(dr7, i) == DR7_TYPE_IO_RW
             && hw_breakpoint_enabled(dr7, i)) {
             int bpt_len = hw_breakpoint_len(dr7, i);
-            if (port + size - 1 >= env->dr[i]
-                && port <= env->dr[i] + bpt_len - 1) {
+            if (port + size - 1 >= target_ulong_array_val(&env->dr.rec, i)
+                && port <= target_ulong_array_val(&env->dr.rec, i) + bpt_len - 1) {
                 hit |= 1 << i;
             }
         }
     }
 
     if (hit) {
-        env->dr[6] = (env->dr[6] & ~0xf) | hit;
+        target_ulong_array_set(&env->dr.rec, 6, (target_ulong_array_val(&env->dr.rec, 6) & ~0xf) | hit);
         target_ulong_set(&(env)->eip,  next_eip);
         raise_exception(env, EXCP01_DB);
     }

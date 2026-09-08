@@ -36,7 +36,7 @@ void hvf_set_segment(CPUState *cs, struct vmx_segment *vmx_seg,
                      SegmentCache *qseg, bool is_tr)
 {
     vmx_seg->sel = qseg->selector;
-    vmx_seg->base = qseg->base;
+    vmx_seg->base = target_ulong_val(&qseg->base);
     vmx_seg->limit = qseg->limit;
 
     if (!qseg->selector && !x86_is_real(cs) && !is_tr) {
@@ -58,7 +58,7 @@ void hvf_set_segment(CPUState *cs, struct vmx_segment *vmx_seg,
 void hvf_get_segment(SegmentCache *qseg, struct vmx_segment *vmx_seg)
 {
     qseg->limit = vmx_seg->limit;
-    qseg->base = vmx_seg->base;
+    target_ulong_set(&qseg->base, vmx_seg->base);
     qseg->selector = vmx_seg->sel;
     qseg->flags = ((vmx_seg->ar & 0xf) << DESC_TYPE_SHIFT) |
                   (((vmx_seg->ar >> 4) & 1) << DESC_S_SHIFT) |
@@ -88,18 +88,18 @@ static void hvf_put_segments(CPUState *cs)
     struct vmx_segment seg;
     
     wvmcs(cs->accel->fd, VMCS_GUEST_IDTR_LIMIT, env->idt.limit);
-    wvmcs(cs->accel->fd, VMCS_GUEST_IDTR_BASE, env->idt.base);
+    wvmcs(cs->accel->fd, VMCS_GUEST_IDTR_BASE, target_ulong_val(&(env->idt).base));
 
     wvmcs(cs->accel->fd, VMCS_GUEST_GDTR_LIMIT, env->gdt.limit);
-    wvmcs(cs->accel->fd, VMCS_GUEST_GDTR_BASE, env->gdt.base);
+    wvmcs(cs->accel->fd, VMCS_GUEST_GDTR_BASE, target_ulong_val(&(env->gdt).base));
 
-    /* wvmcs(cs->accel->fd, VMCS_GUEST_CR2, env->cr[2]); */
-    wvmcs(cs->accel->fd, VMCS_GUEST_CR3, env->cr[3]);
+    /* wvmcs(cs->accel->fd, VMCS_GUEST_CR2, target_ulong_array_val(&env->cr.rec, 2)); */
+    wvmcs(cs->accel->fd, VMCS_GUEST_CR3, target_ulong_array_val(&env->cr.rec, 3));
     vmx_update_tpr(cs);
     wvmcs(cs->accel->fd, VMCS_GUEST_IA32_EFER, env->efer);
 
-    macvm_set_cr4(cs->accel->fd, env->cr[4]);
-    macvm_set_cr0(cs->accel->fd, env->cr[0]);
+    macvm_set_cr4(cs->accel->fd, target_ulong_array_val(&env->cr.rec, 4));
+    macvm_set_cr0(cs->accel->fd, target_ulong_array_val(&env->cr.rec, 0));
 
     hvf_set_segment(cs, &seg, &env->segs[R_CS], false);
     vmx_write_segment_descriptor(cs, &seg, R_CS);
@@ -133,9 +133,9 @@ void hvf_put_msrs(CPUState *cs)
     hv_vcpu_write_msr(cs->accel->fd, MSR_IA32_SYSENTER_CS,
                       env->sysenter_cs);
     hv_vcpu_write_msr(cs->accel->fd, MSR_IA32_SYSENTER_ESP,
-                      env->sysenter_esp);
+                      target_ulong_val(&(env)->sysenter_esp));
     hv_vcpu_write_msr(cs->accel->fd, MSR_IA32_SYSENTER_EIP,
-                      env->sysenter_eip);
+                      target_ulong_val(&(env)->sysenter_eip));
 
     hv_vcpu_write_msr(cs->accel->fd, MSR_STAR, env->star);
 
@@ -146,8 +146,8 @@ void hvf_put_msrs(CPUState *cs)
     hv_vcpu_write_msr(cs->accel->fd, MSR_LSTAR, env->lstar);
 #endif
 
-    hv_vcpu_write_msr(cs->accel->fd, MSR_GSBASE, env->segs[R_GS].base);
-    hv_vcpu_write_msr(cs->accel->fd, MSR_FSBASE, env->segs[R_FS].base);
+    hv_vcpu_write_msr(cs->accel->fd, MSR_GSBASE, target_ulong_val(&(env->segs[R_GS]).base));
+    hv_vcpu_write_msr(cs->accel->fd, MSR_FSBASE, target_ulong_val(&(env->segs[R_FS]).base));
 }
 
 
@@ -196,14 +196,14 @@ static void hvf_get_segments(CPUState *cs)
     hvf_get_segment(&env->ldt, &seg);
 
     env->idt.limit = rvmcs(cs->accel->fd, VMCS_GUEST_IDTR_LIMIT);
-    env->idt.base = rvmcs(cs->accel->fd, VMCS_GUEST_IDTR_BASE);
+    target_ulong_set(&(env->idt).base,  rvmcs(cs->accel->fd, VMCS_GUEST_IDTR_BASE));
     env->gdt.limit = rvmcs(cs->accel->fd, VMCS_GUEST_GDTR_LIMIT);
-    env->gdt.base = rvmcs(cs->accel->fd, VMCS_GUEST_GDTR_BASE);
+    target_ulong_set(&(env->gdt).base,  rvmcs(cs->accel->fd, VMCS_GUEST_GDTR_BASE));
 
-    env->cr[0] = rvmcs(cs->accel->fd, VMCS_GUEST_CR0);
-    env->cr[2] = 0;
-    env->cr[3] = rvmcs(cs->accel->fd, VMCS_GUEST_CR3);
-    env->cr[4] = rvmcs(cs->accel->fd, VMCS_GUEST_CR4);
+    target_ulong_array_set(&env->cr.rec, 0, rvmcs(cs->accel->fd, VMCS_GUEST_CR0));
+    target_ulong_array_set(&env->cr.rec, 2, 0);
+    target_ulong_array_set(&env->cr.rec, 3, rvmcs(cs->accel->fd, VMCS_GUEST_CR3));
+    target_ulong_array_set(&env->cr.rec, 4, rvmcs(cs->accel->fd, VMCS_GUEST_CR4));
     
     env->efer = rvmcs(cs->accel->fd, VMCS_GUEST_IA32_EFER);
 }
@@ -217,10 +217,10 @@ void hvf_get_msrs(CPUState *cs)
     env->sysenter_cs = tmp;
     
     hv_vcpu_read_msr(cs->accel->fd, MSR_IA32_SYSENTER_ESP, &tmp);
-    env->sysenter_esp = tmp;
+    target_ulong_set(&(env)->sysenter_esp,  tmp);
 
     hv_vcpu_read_msr(cs->accel->fd, MSR_IA32_SYSENTER_EIP, &tmp);
-    env->sysenter_eip = tmp;
+    target_ulong_set(&(env)->sysenter_eip,  tmp);
 
     hv_vcpu_read_msr(cs->accel->fd, MSR_STAR, &env->star);
 
@@ -241,24 +241,24 @@ int hvf_arch_put_registers(CPUState *cs)
     X86CPU *x86cpu = X86_CPU(cs);
     CPUX86State *env = &x86cpu->env;
 
-    wreg(cs->accel->fd, HV_X86_RAX, env->regs[R_EAX]);
-    wreg(cs->accel->fd, HV_X86_RBX, env->regs[R_EBX]);
-    wreg(cs->accel->fd, HV_X86_RCX, env->regs[R_ECX]);
-    wreg(cs->accel->fd, HV_X86_RDX, env->regs[R_EDX]);
-    wreg(cs->accel->fd, HV_X86_RBP, env->regs[R_EBP]);
-    wreg(cs->accel->fd, HV_X86_RSP, env->regs[R_ESP]);
-    wreg(cs->accel->fd, HV_X86_RSI, env->regs[R_ESI]);
-    wreg(cs->accel->fd, HV_X86_RDI, env->regs[R_EDI]);
-    wreg(cs->accel->fd, HV_X86_R8, env->regs[8]);
-    wreg(cs->accel->fd, HV_X86_R9, env->regs[9]);
-    wreg(cs->accel->fd, HV_X86_R10, env->regs[10]);
-    wreg(cs->accel->fd, HV_X86_R11, env->regs[11]);
-    wreg(cs->accel->fd, HV_X86_R12, env->regs[12]);
-    wreg(cs->accel->fd, HV_X86_R13, env->regs[13]);
-    wreg(cs->accel->fd, HV_X86_R14, env->regs[14]);
-    wreg(cs->accel->fd, HV_X86_R15, env->regs[15]);
-    wreg(cs->accel->fd, HV_X86_RFLAGS, env->eflags);
-    wreg(cs->accel->fd, HV_X86_RIP, env->eip);
+    wreg(cs->accel->fd, HV_X86_RAX, target_ulong_array_val(&env->regs.rec, R_EAX));
+    wreg(cs->accel->fd, HV_X86_RBX, target_ulong_array_val(&env->regs.rec, R_EBX));
+    wreg(cs->accel->fd, HV_X86_RCX, target_ulong_array_val(&env->regs.rec, R_ECX));
+    wreg(cs->accel->fd, HV_X86_RDX, target_ulong_array_val(&env->regs.rec, R_EDX));
+    wreg(cs->accel->fd, HV_X86_RBP, target_ulong_array_val(&env->regs.rec, R_EBP));
+    wreg(cs->accel->fd, HV_X86_RSP, target_ulong_array_val(&env->regs.rec, R_ESP));
+    wreg(cs->accel->fd, HV_X86_RSI, target_ulong_array_val(&env->regs.rec, R_ESI));
+    wreg(cs->accel->fd, HV_X86_RDI, target_ulong_array_val(&env->regs.rec, R_EDI));
+    wreg(cs->accel->fd, HV_X86_R8, target_ulong_array_val(&env->regs.rec, 8));
+    wreg(cs->accel->fd, HV_X86_R9, target_ulong_array_val(&env->regs.rec, 9));
+    wreg(cs->accel->fd, HV_X86_R10, target_ulong_array_val(&env->regs.rec, 10));
+    wreg(cs->accel->fd, HV_X86_R11, target_ulong_array_val(&env->regs.rec, 11));
+    wreg(cs->accel->fd, HV_X86_R12, target_ulong_array_val(&env->regs.rec, 12));
+    wreg(cs->accel->fd, HV_X86_R13, target_ulong_array_val(&env->regs.rec, 13));
+    wreg(cs->accel->fd, HV_X86_R14, target_ulong_array_val(&env->regs.rec, 14));
+    wreg(cs->accel->fd, HV_X86_R15, target_ulong_array_val(&env->regs.rec, 15));
+    wreg(cs->accel->fd, HV_X86_RFLAGS, target_ulong_val(&(env)->eflags));
+    wreg(cs->accel->fd, HV_X86_RIP, target_ulong_val(&(env)->eip));
    
     wreg(cs->accel->fd, HV_X86_XCR0, env->xcr0);
     
@@ -268,14 +268,14 @@ int hvf_arch_put_registers(CPUState *cs)
     
     hvf_put_msrs(cs);
     
-    wreg(cs->accel->fd, HV_X86_DR0, env->dr[0]);
-    wreg(cs->accel->fd, HV_X86_DR1, env->dr[1]);
-    wreg(cs->accel->fd, HV_X86_DR2, env->dr[2]);
-    wreg(cs->accel->fd, HV_X86_DR3, env->dr[3]);
-    wreg(cs->accel->fd, HV_X86_DR4, env->dr[4]);
-    wreg(cs->accel->fd, HV_X86_DR5, env->dr[5]);
-    wreg(cs->accel->fd, HV_X86_DR6, env->dr[6]);
-    wreg(cs->accel->fd, HV_X86_DR7, env->dr[7]);
+    wreg(cs->accel->fd, HV_X86_DR0, target_ulong_array_val(&env->dr.rec, 0));
+    wreg(cs->accel->fd, HV_X86_DR1, target_ulong_array_val(&env->dr.rec, 1));
+    wreg(cs->accel->fd, HV_X86_DR2, target_ulong_array_val(&env->dr.rec, 2));
+    wreg(cs->accel->fd, HV_X86_DR3, target_ulong_array_val(&env->dr.rec, 3));
+    wreg(cs->accel->fd, HV_X86_DR4, target_ulong_array_val(&env->dr.rec, 4));
+    wreg(cs->accel->fd, HV_X86_DR5, target_ulong_array_val(&env->dr.rec, 5));
+    wreg(cs->accel->fd, HV_X86_DR6, target_ulong_array_val(&env->dr.rec, 6));
+    wreg(cs->accel->fd, HV_X86_DR7, target_ulong_array_val(&env->dr.rec, 7));
     
     return 0;
 }
@@ -285,25 +285,25 @@ int hvf_arch_get_registers(CPUState *cs)
     X86CPU *x86cpu = X86_CPU(cs);
     CPUX86State *env = &x86cpu->env;
 
-    env->regs[R_EAX] = rreg(cs->accel->fd, HV_X86_RAX);
-    env->regs[R_EBX] = rreg(cs->accel->fd, HV_X86_RBX);
-    env->regs[R_ECX] = rreg(cs->accel->fd, HV_X86_RCX);
-    env->regs[R_EDX] = rreg(cs->accel->fd, HV_X86_RDX);
-    env->regs[R_EBP] = rreg(cs->accel->fd, HV_X86_RBP);
-    env->regs[R_ESP] = rreg(cs->accel->fd, HV_X86_RSP);
-    env->regs[R_ESI] = rreg(cs->accel->fd, HV_X86_RSI);
-    env->regs[R_EDI] = rreg(cs->accel->fd, HV_X86_RDI);
-    env->regs[8] = rreg(cs->accel->fd, HV_X86_R8);
-    env->regs[9] = rreg(cs->accel->fd, HV_X86_R9);
-    env->regs[10] = rreg(cs->accel->fd, HV_X86_R10);
-    env->regs[11] = rreg(cs->accel->fd, HV_X86_R11);
-    env->regs[12] = rreg(cs->accel->fd, HV_X86_R12);
-    env->regs[13] = rreg(cs->accel->fd, HV_X86_R13);
-    env->regs[14] = rreg(cs->accel->fd, HV_X86_R14);
-    env->regs[15] = rreg(cs->accel->fd, HV_X86_R15);
+    target_ulong_array_set(&env->regs.rec, R_EAX, rreg(cs->accel->fd, HV_X86_RAX));
+    target_ulong_array_set(&env->regs.rec, R_EBX, rreg(cs->accel->fd, HV_X86_RBX));
+    target_ulong_array_set(&env->regs.rec, R_ECX, rreg(cs->accel->fd, HV_X86_RCX));
+    target_ulong_array_set(&env->regs.rec, R_EDX, rreg(cs->accel->fd, HV_X86_RDX));
+    target_ulong_array_set(&env->regs.rec, R_EBP, rreg(cs->accel->fd, HV_X86_RBP));
+    target_ulong_array_set(&env->regs.rec, R_ESP, rreg(cs->accel->fd, HV_X86_RSP));
+    target_ulong_array_set(&env->regs.rec, R_ESI, rreg(cs->accel->fd, HV_X86_RSI));
+    target_ulong_array_set(&env->regs.rec, R_EDI, rreg(cs->accel->fd, HV_X86_RDI));
+    target_ulong_array_set(&env->regs.rec, 8, rreg(cs->accel->fd, HV_X86_R8));
+    target_ulong_array_set(&env->regs.rec, 9, rreg(cs->accel->fd, HV_X86_R9));
+    target_ulong_array_set(&env->regs.rec, 10, rreg(cs->accel->fd, HV_X86_R10));
+    target_ulong_array_set(&env->regs.rec, 11, rreg(cs->accel->fd, HV_X86_R11));
+    target_ulong_array_set(&env->regs.rec, 12, rreg(cs->accel->fd, HV_X86_R12));
+    target_ulong_array_set(&env->regs.rec, 13, rreg(cs->accel->fd, HV_X86_R13));
+    target_ulong_array_set(&env->regs.rec, 14, rreg(cs->accel->fd, HV_X86_R14));
+    target_ulong_array_set(&env->regs.rec, 15, rreg(cs->accel->fd, HV_X86_R15));
     
-    env->eflags = rreg(cs->accel->fd, HV_X86_RFLAGS);
-    env->eip = rreg(cs->accel->fd, HV_X86_RIP);
+    target_ulong_set(&(env)->eflags,  rreg(cs->accel->fd, HV_X86_RFLAGS));
+    target_ulong_set(&(env)->eip,  rreg(cs->accel->fd, HV_X86_RIP));
    
     hvf_get_xsave(cs);
     env->xcr0 = rreg(cs->accel->fd, HV_X86_XCR0);
@@ -311,14 +311,14 @@ int hvf_arch_get_registers(CPUState *cs)
     hvf_get_segments(cs);
     hvf_get_msrs(cs);
     
-    env->dr[0] = rreg(cs->accel->fd, HV_X86_DR0);
-    env->dr[1] = rreg(cs->accel->fd, HV_X86_DR1);
-    env->dr[2] = rreg(cs->accel->fd, HV_X86_DR2);
-    env->dr[3] = rreg(cs->accel->fd, HV_X86_DR3);
-    env->dr[4] = rreg(cs->accel->fd, HV_X86_DR4);
-    env->dr[5] = rreg(cs->accel->fd, HV_X86_DR5);
-    env->dr[6] = rreg(cs->accel->fd, HV_X86_DR6);
-    env->dr[7] = rreg(cs->accel->fd, HV_X86_DR7);
+    target_ulong_array_set(&env->dr.rec, 0, rreg(cs->accel->fd, HV_X86_DR0));
+    target_ulong_array_set(&env->dr.rec, 1, rreg(cs->accel->fd, HV_X86_DR1));
+    target_ulong_array_set(&env->dr.rec, 2, rreg(cs->accel->fd, HV_X86_DR2));
+    target_ulong_array_set(&env->dr.rec, 3, rreg(cs->accel->fd, HV_X86_DR3));
+    target_ulong_array_set(&env->dr.rec, 4, rreg(cs->accel->fd, HV_X86_DR4));
+    target_ulong_array_set(&env->dr.rec, 5, rreg(cs->accel->fd, HV_X86_DR5));
+    target_ulong_array_set(&env->dr.rec, 6, rreg(cs->accel->fd, HV_X86_DR6));
+    target_ulong_array_set(&env->dr.rec, 7, rreg(cs->accel->fd, HV_X86_DR7));
     
     x86_update_hflags(env);
     return 0;
@@ -428,7 +428,7 @@ int hvf_process_events(CPUState *cs)
 
     if (!cs->vcpu_dirty) {
         /* light weight sync for CPU_INTERRUPT_HARD and IF_MASK */
-        env->eflags = rreg(cs->accel->fd, HV_X86_RFLAGS);
+        target_ulong_set(&(env)->eflags,  rreg(cs->accel->fd, HV_X86_RFLAGS));
     }
 
     if (cpu_test_interrupt(cs, CPU_INTERRUPT_INIT)) {
@@ -441,7 +441,7 @@ int hvf_process_events(CPUState *cs)
         apic_poll_irq(cpu->apic_state);
     }
     if ((cpu_test_interrupt(cs, CPU_INTERRUPT_HARD) &&
-        (env->eflags & IF_MASK)) ||
+        (target_ulong_val(&(env)->eflags) & IF_MASK)) ||
         cpu_test_interrupt(cs, CPU_INTERRUPT_NMI)) {
         cs->halted = 0;
     }
@@ -453,7 +453,7 @@ int hvf_process_events(CPUState *cs)
     if (cpu_test_interrupt(cs, CPU_INTERRUPT_TPR)) {
         cpu_reset_interrupt(cs, CPU_INTERRUPT_TPR);
         cpu_synchronize_state(cs);
-        apic_handle_tpr_access_report(cpu->apic_state, env->eip,
+        apic_handle_tpr_access_report(cpu->apic_state, target_ulong_val(&(env)->eip),
                                       env->tpr_access_type);
     }
     return cs->halted;

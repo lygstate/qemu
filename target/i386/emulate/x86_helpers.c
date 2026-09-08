@@ -153,10 +153,10 @@ bool x86_read_segment_descriptor(CPUState *cpu,
     }
 
     if (GDT_SEL == sel.ti) {
-        base = env->gdt.base;
+        base = target_ulong_val(&(env->gdt).base);
         limit = env->gdt.limit;
     } else {
-        base = env->ldt.base;
+        base = target_ulong_val(&(env->ldt).base);
         limit = env->ldt.limit;
     }
 
@@ -179,7 +179,7 @@ bool x86_read_call_gate(CPUState *cpu, struct x86_call_gate *idt_desc,
     CPUX86State *env = &x86_cpu->env;
     target_ulong gva;
 
-    base = env->idt.base;
+    base = target_ulong_val(&(env->idt).base);
     limit = env->idt.limit;
 
     memset(idt_desc, 0, sizeof(*idt_desc));
@@ -202,7 +202,7 @@ target_ulong x86_read_cr(CPUState *cpu, int cr)
     if (emul_ops->read_cr) {
         return emul_ops->read_cr(cpu, cr);
     }
-    return env->cr[cr];
+    return target_ulong_array_val(&env->cr.rec, cr);
 }
 
 bool x86_is_protected(CPUState *cpu)

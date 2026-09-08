@@ -375,20 +375,20 @@ static void setup_sigcontext(CPUX86State *env,
     __put_user(env->segs[R_FS].selector, (uint32_t *)&sc->fs);
     __put_user(env->segs[R_ES].selector, (uint32_t *)&sc->es);
     __put_user(env->segs[R_DS].selector, (uint32_t *)&sc->ds);
-    __put_user(env->regs[R_EDI], &sc->edi);
-    __put_user(env->regs[R_ESI], &sc->esi);
-    __put_user(env->regs[R_EBP], &sc->ebp);
-    __put_user(env->regs[R_ESP], &sc->esp);
-    __put_user(env->regs[R_EBX], &sc->ebx);
-    __put_user(env->regs[R_EDX], &sc->edx);
-    __put_user(env->regs[R_ECX], &sc->ecx);
-    __put_user(env->regs[R_EAX], &sc->eax);
+    __put_user(target_ulong_array_val(&env->regs.rec, R_EDI), &sc->edi);
+    __put_user(target_ulong_array_val(&env->regs.rec, R_ESI), &sc->esi);
+    __put_user(target_ulong_array_val(&env->regs.rec, R_EBP), &sc->ebp);
+    __put_user(target_ulong_array_val(&env->regs.rec, R_ESP), &sc->esp);
+    __put_user(target_ulong_array_val(&env->regs.rec, R_EBX), &sc->ebx);
+    __put_user(target_ulong_array_val(&env->regs.rec, R_EDX), &sc->edx);
+    __put_user(target_ulong_array_val(&env->regs.rec, R_ECX), &sc->ecx);
+    __put_user(target_ulong_array_val(&env->regs.rec, R_EAX), &sc->eax);
     __put_user(env->trap_nr, &sc->trapno);
     __put_user(env->error_code, &sc->err);
-    __put_user(env->eip, &sc->eip);
+    __put_user(target_ulong_val(&env->eip), &sc->eip);
     __put_user(env->segs[R_CS].selector, (uint32_t *)&sc->cs);
-    __put_user(env->eflags, &sc->eflags);
-    __put_user(env->regs[R_ESP], &sc->esp_at_signal);
+    __put_user(target_ulong_val(&env->eflags), &sc->eflags);
+    __put_user(target_ulong_array_val(&env->regs.rec, R_ESP), &sc->esp_at_signal);
     __put_user(env->segs[R_SS].selector, (uint32_t *)&sc->ss);
 
     cpu_x86_fsave(env, fpstate, sizeof(*fpstate));
@@ -396,29 +396,29 @@ static void setup_sigcontext(CPUX86State *env,
     magic = (fpkind == FPSTATE_FSAVE ? 0 : 0xffff);
     __put_user(magic, &fpstate->magic);
 #else
-    __put_user(env->regs[R_EDI], &sc->rdi);
-    __put_user(env->regs[R_ESI], &sc->rsi);
-    __put_user(env->regs[R_EBP], &sc->rbp);
-    __put_user(env->regs[R_ESP], &sc->rsp);
-    __put_user(env->regs[R_EBX], &sc->rbx);
-    __put_user(env->regs[R_EDX], &sc->rdx);
-    __put_user(env->regs[R_ECX], &sc->rcx);
-    __put_user(env->regs[R_EAX], &sc->rax);
+    __put_user(target_ulong_array_val(&env->regs.rec, R_EDI), &sc->rdi);
+    __put_user(target_ulong_array_val(&env->regs.rec, R_ESI), &sc->rsi);
+    __put_user(target_ulong_array_val(&env->regs.rec, R_EBP), &sc->rbp);
+    __put_user(target_ulong_array_val(&env->regs.rec, R_ESP), &sc->rsp);
+    __put_user(target_ulong_array_val(&env->regs.rec, R_EBX), &sc->rbx);
+    __put_user(target_ulong_array_val(&env->regs.rec, R_EDX), &sc->rdx);
+    __put_user(target_ulong_array_val(&env->regs.rec, R_ECX), &sc->rcx);
+    __put_user(target_ulong_array_val(&env->regs.rec, R_EAX), &sc->rax);
 
-    __put_user(env->regs[8], &sc->r8);
-    __put_user(env->regs[9], &sc->r9);
-    __put_user(env->regs[10], &sc->r10);
-    __put_user(env->regs[11], &sc->r11);
-    __put_user(env->regs[12], &sc->r12);
-    __put_user(env->regs[13], &sc->r13);
-    __put_user(env->regs[14], &sc->r14);
-    __put_user(env->regs[15], &sc->r15);
+    __put_user(target_ulong_array_val(&env->regs.rec, 8), &sc->r8);
+    __put_user(target_ulong_array_val(&env->regs.rec, 9), &sc->r9);
+    __put_user(target_ulong_array_val(&env->regs.rec, 10), &sc->r10);
+    __put_user(target_ulong_array_val(&env->regs.rec, 11), &sc->r11);
+    __put_user(target_ulong_array_val(&env->regs.rec, 12), &sc->r12);
+    __put_user(target_ulong_array_val(&env->regs.rec, 13), &sc->r13);
+    __put_user(target_ulong_array_val(&env->regs.rec, 14), &sc->r14);
+    __put_user(target_ulong_array_val(&env->regs.rec, 15), &sc->r15);
 
     __put_user(env->trap_nr, &sc->trapno);
     __put_user(env->error_code, &sc->err);
-    __put_user(env->eip, &sc->rip);
+    __put_user(target_ulong_val(&env->eip), &sc->rip);
 
-    __put_user(env->eflags, &sc->eflags);
+    __put_user(target_ulong_val(&env->eflags), &sc->eflags);
     __put_user(env->segs[R_CS].selector, &sc->cs);
     __put_user((uint16_t)0, &sc->gs);
     __put_user((uint16_t)0, &sc->fs);
@@ -439,7 +439,7 @@ static void setup_sigcontext(CPUX86State *env,
     __put_user(fpstate_addr, &sc->fpstate);
     /* non-iBCS2 extensions.. */
     __put_user(mask, &sc->oldmask);
-    __put_user(env->cr[2], &sc->cr2);
+    __put_user(target_ulong_array_val(&env->cr.rec, 2), &sc->cr2);
 }
 
 #ifndef TARGET_X86_64
@@ -508,21 +508,21 @@ void setup_frame(int sig, struct target_sigaction *ka,
     unlock_user(frame, frame_addr, total_size);
 
     /* Set up registers for signal handler */
-    env->regs[R_ESP] = frame_addr;
-    env->eip = ka->_sa_handler;
+    target_ulong_array_set(&env->regs.rec, R_ESP, frame_addr);
+    target_ulong_set(&env->eip, ka->_sa_handler);
 
     /* Store argument for both -mregparm=3 and standard. */
-    env->regs[R_EAX] = sig;
+    target_ulong_array_set(&env->regs.rec, R_EAX, sig);
     __put_user(sig, &frame->sig);
     /* The kernel clears EDX and ECX even though there is only one arg. */
-    env->regs[R_EDX] = 0;
-    env->regs[R_ECX] = 0;
+    target_ulong_array_set(&env->regs.rec, R_EDX, 0);
+    target_ulong_array_set(&env->regs.rec, R_ECX, 0);
 
     cpu_x86_load_seg(env, R_DS, __USER_DS);
     cpu_x86_load_seg(env, R_ES, __USER_DS);
     cpu_x86_load_seg(env, R_SS, __USER_DS);
     cpu_x86_load_seg(env, R_CS, __USER_CS);
-    env->eflags &= ~TF_MASK;
+    target_ulong_set(&env->eflags, target_ulong_val(&env->eflags) & ~TF_MASK);
 }
 #endif
 
@@ -590,22 +590,22 @@ void setup_rt_frame(int sig, struct target_sigaction *ka,
     }
 
     /* Set up registers for signal handler */
-    env->regs[R_ESP] = frame_addr;
-    env->eip = ka->_sa_handler;
+    target_ulong_array_set(&env->regs.rec, R_ESP, frame_addr);
+    target_ulong_set(&env->eip, ka->_sa_handler);
 
 #ifndef TARGET_X86_64
     /* Store arguments for both -mregparm=3 and standard. */
-    env->regs[R_EAX] = sig;
+    target_ulong_array_set(&env->regs.rec, R_EAX, sig);
     __put_user(sig, &frame->sig);
-    env->regs[R_EDX] = frame_addr + offsetof(struct rt_sigframe, info);
-    __put_user(env->regs[R_EDX], &frame->pinfo);
-    env->regs[R_ECX] = frame_addr + offsetof(struct rt_sigframe, uc);
-    __put_user(env->regs[R_ECX], &frame->puc);
+    target_ulong_array_set(&env->regs.rec, R_EDX, frame_addr + offsetof(struct rt_sigframe, info));
+    __put_user(target_ulong_array_val(&env->regs.rec, R_EDX), &frame->pinfo);
+    target_ulong_array_set(&env->regs.rec, R_ECX, frame_addr + offsetof(struct rt_sigframe, uc));
+    __put_user(target_ulong_array_val(&env->regs.rec, R_ECX), &frame->puc);
 #else
-    env->regs[R_EAX] = 0;
-    env->regs[R_EDI] = sig;
-    env->regs[R_ESI] = frame_addr + offsetof(struct rt_sigframe, info);
-    env->regs[R_EDX] = frame_addr + offsetof(struct rt_sigframe, uc);
+    target_ulong_array_set(&env->regs.rec, R_EAX, 0);
+    target_ulong_array_set(&env->regs.rec, R_EDI, sig);
+    target_ulong_array_set(&env->regs.rec, R_ESI, frame_addr + offsetof(struct rt_sigframe, info));
+    target_ulong_array_set(&env->regs.rec, R_EDX, frame_addr + offsetof(struct rt_sigframe, uc));
 #endif
     unlock_user(frame, frame_addr, total_size);
 
@@ -613,7 +613,7 @@ void setup_rt_frame(int sig, struct target_sigaction *ka,
     cpu_x86_load_seg(env, R_ES, __USER_DS);
     cpu_x86_load_seg(env, R_CS, __USER_CS);
     cpu_x86_load_seg(env, R_SS, __USER_DS);
-    env->eflags &= ~TF_MASK;
+    target_ulong_set(&env->eflags, target_ulong_val(&env->eflags) & ~TF_MASK);
     return;
 
 give_sigsegv:
@@ -743,43 +743,43 @@ static bool restore_sigcontext(CPUX86State *env, struct target_sigcontext *sc)
     cpu_x86_load_seg(env, R_ES, tswap16(sc->es));
     cpu_x86_load_seg(env, R_DS, tswap16(sc->ds));
 
-    env->regs[R_EDI] = tswapl(sc->edi);
-    env->regs[R_ESI] = tswapl(sc->esi);
-    env->regs[R_EBP] = tswapl(sc->ebp);
-    env->regs[R_ESP] = tswapl(sc->esp);
-    env->regs[R_EBX] = tswapl(sc->ebx);
-    env->regs[R_EDX] = tswapl(sc->edx);
-    env->regs[R_ECX] = tswapl(sc->ecx);
-    env->regs[R_EAX] = tswapl(sc->eax);
+    target_ulong_array_set(&env->regs.rec, R_EDI, tswapl(sc->edi));
+    target_ulong_array_set(&env->regs.rec, R_ESI, tswapl(sc->esi));
+    target_ulong_array_set(&env->regs.rec, R_EBP, tswapl(sc->ebp));
+    target_ulong_array_set(&env->regs.rec, R_ESP, tswapl(sc->esp));
+    target_ulong_array_set(&env->regs.rec, R_EBX, tswapl(sc->ebx));
+    target_ulong_array_set(&env->regs.rec, R_EDX, tswapl(sc->edx));
+    target_ulong_array_set(&env->regs.rec, R_ECX, tswapl(sc->ecx));
+    target_ulong_array_set(&env->regs.rec, R_EAX, tswapl(sc->eax));
 
-    env->eip = tswapl(sc->eip);
+    target_ulong_set(&env->eip, tswapl(sc->eip));
 #else
-    env->regs[8] = tswapl(sc->r8);
-    env->regs[9] = tswapl(sc->r9);
-    env->regs[10] = tswapl(sc->r10);
-    env->regs[11] = tswapl(sc->r11);
-    env->regs[12] = tswapl(sc->r12);
-    env->regs[13] = tswapl(sc->r13);
-    env->regs[14] = tswapl(sc->r14);
-    env->regs[15] = tswapl(sc->r15);
+    target_ulong_array_set(&env->regs.rec, 8, tswapl(sc->r8));
+    target_ulong_array_set(&env->regs.rec, 9, tswapl(sc->r9));
+    target_ulong_array_set(&env->regs.rec, 10, tswapl(sc->r10));
+    target_ulong_array_set(&env->regs.rec, 11, tswapl(sc->r11));
+    target_ulong_array_set(&env->regs.rec, 12, tswapl(sc->r12));
+    target_ulong_array_set(&env->regs.rec, 13, tswapl(sc->r13));
+    target_ulong_array_set(&env->regs.rec, 14, tswapl(sc->r14));
+    target_ulong_array_set(&env->regs.rec, 15, tswapl(sc->r15));
 
-    env->regs[R_EDI] = tswapl(sc->rdi);
-    env->regs[R_ESI] = tswapl(sc->rsi);
-    env->regs[R_EBP] = tswapl(sc->rbp);
-    env->regs[R_EBX] = tswapl(sc->rbx);
-    env->regs[R_EDX] = tswapl(sc->rdx);
-    env->regs[R_EAX] = tswapl(sc->rax);
-    env->regs[R_ECX] = tswapl(sc->rcx);
-    env->regs[R_ESP] = tswapl(sc->rsp);
+    target_ulong_array_set(&env->regs.rec, R_EDI, tswapl(sc->rdi));
+    target_ulong_array_set(&env->regs.rec, R_ESI, tswapl(sc->rsi));
+    target_ulong_array_set(&env->regs.rec, R_EBP, tswapl(sc->rbp));
+    target_ulong_array_set(&env->regs.rec, R_EBX, tswapl(sc->rbx));
+    target_ulong_array_set(&env->regs.rec, R_EDX, tswapl(sc->rdx));
+    target_ulong_array_set(&env->regs.rec, R_EAX, tswapl(sc->rax));
+    target_ulong_array_set(&env->regs.rec, R_ECX, tswapl(sc->rcx));
+    target_ulong_array_set(&env->regs.rec, R_ESP, tswapl(sc->rsp));
 
-    env->eip = tswapl(sc->rip);
+    target_ulong_set(&env->eip, tswapl(sc->rip));
 #endif
 
     cpu_x86_load_seg(env, R_CS, lduw_le_p(&sc->cs) | 3);
     cpu_x86_load_seg(env, R_SS, lduw_le_p(&sc->ss) | 3);
 
     tmpflags = tswapl(sc->eflags);
-    env->eflags = (env->eflags & ~0x40DD5) | (tmpflags & 0x40DD5);
+    target_ulong_set(&env->eflags, (target_ulong_val(&env->eflags) & ~0x40DD5) | (tmpflags & 0x40DD5));
 
     fpstate_addr = tswapl(sc->fpstate);
     if (fpstate_addr == 0) {
@@ -815,7 +815,7 @@ static bool restore_sigcontext(CPUX86State *env, struct target_sigcontext *sc)
 long do_sigreturn(CPUX86State *env)
 {
     struct sigframe *frame;
-    abi_ulong frame_addr = env->regs[R_ESP] - 8;
+    abi_ulong frame_addr = target_ulong_array_val(&env->regs.rec, R_ESP) - 8;
     target_sigset_t target_set;
     sigset_t set;
 
@@ -849,7 +849,7 @@ long do_rt_sigreturn(CPUX86State *env)
     struct rt_sigframe *frame;
     sigset_t set;
 
-    frame_addr = env->regs[R_ESP] - sizeof(abi_ulong);
+    frame_addr = target_ulong_array_val(&env->regs.rec, R_ESP) - sizeof(abi_ulong);
     trace_user_do_rt_sigreturn(env, frame_addr);
     if (!lock_user_struct(VERIFY_READ, frame, frame_addr, 1))
         goto badframe;

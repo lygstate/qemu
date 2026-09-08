@@ -60,7 +60,7 @@ static TCGTBCPUState x86_get_tb_cpu_state(CPUState *cs)
         cs_base = 0;
         pc = target_ulong_val(&(env)->eip);
     } else {
-        cs_base = env->segs[R_CS].base;
+        cs_base = target_ulong_val(&(env->segs[R_CS]).base);
         pc = (uint32_t)(cs_base + target_ulong_val(&(env)->eip));
     }
 

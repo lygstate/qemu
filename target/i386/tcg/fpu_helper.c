@@ -228,7 +228,7 @@ static inline floatx80 helper_fdiv(CPUX86State *env, floatx80 a, floatx80 b)
 
 static void fpu_raise_exception(CPUX86State *env, uintptr_t retaddr)
 {
-    if (env->cr[0] & CR0_NE_MASK) {
+    if (target_ulong_array_val(&env->cr.rec, 0) & CR0_NE_MASK) {
         raise_exception_ra(env, EXCP10_COPR, retaddr);
     }
 #if !defined(CONFIG_USER_ONLY)
@@ -2718,7 +2718,7 @@ static void do_fxsave(X86Access *ac, target_ulong ptr)
     CPUX86State *env = ac->env;
 
     do_xsave_fpu(ac, ptr);
-    if (env->cr[4] & CR4_OSFXSR_MASK) {
+    if (target_ulong_array_val(&env->cr.rec, 4) & CR4_OSFXSR_MASK) {
         do_xsave_mxcsr(ac, ptr);
         /* Fast FXSAVE leaves out the XMM registers */
         if (!(env->efer & MSR_EFER_FFXSR)
@@ -2795,7 +2795,7 @@ static void do_xsave_access(X86Access *ac, target_ulong ptr, uint64_t rfbm,
 static void do_xsave_chk(CPUX86State *env, target_ulong ptr, uintptr_t ra)
 {
     /* The OS must have enabled XSAVE.  */
-    if (!(env->cr[4] & CR4_OSXSAVE_MASK)) {
+    if (!(target_ulong_array_val(&env->cr.rec, 4) & CR4_OSXSAVE_MASK)) {
         raise_exception_ra(env, EXCP06_ILLOP, ra);
     }
 
@@ -2967,7 +2967,7 @@ static void do_fxrstor(X86Access *ac, target_ulong ptr)
     CPUX86State *env = ac->env;
 
     do_xrstor_fpu(ac, ptr);
-    if (env->cr[4] & CR4_OSFXSR_MASK) {
+    if (target_ulong_array_val(&env->cr.rec, 4) & CR4_OSFXSR_MASK) {
         do_xrstor_mxcsr(ac, ptr);
         /* Fast FXRSTOR leaves out the XMM registers */
         if (!(env->efer & MSR_EFER_FFXSR)
@@ -3205,7 +3205,7 @@ bool cpu_x86_xrstor(CPUX86State *env, void *host, size_t len, uint64_t rfbm)
 uint64_t helper_xgetbv(CPUX86State *env, uint32_t ecx)
 {
     /* The OS must have enabled XSAVE.  */
-    if (!(env->cr[4] & CR4_OSXSAVE_MASK)) {
+    if (!(target_ulong_array_val(&env->cr.rec, 4) & CR4_OSXSAVE_MASK)) {
         raise_exception_ra(env, EXCP06_ILLOP, GETPC());
     }
 
@@ -3227,7 +3227,7 @@ void helper_xsetbv(CPUX86State *env, uint32_t ecx, uint64_t mask)
     uint64_t ena;
 
     /* The OS must have enabled XSAVE.  */
-    if (!(env->cr[4] & CR4_OSXSAVE_MASK)) {
+    if (!(target_ulong_array_val(&env->cr.rec, 4) & CR4_OSXSAVE_MASK)) {
         raise_exception_ra(env, EXCP06_ILLOP, GETPC());
     }
 

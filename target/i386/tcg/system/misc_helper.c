@@ -84,7 +84,7 @@ void helper_write_crN(CPUX86State *env, int reg, target_ulong t0)
         * intercept for bits other than TS and MP
         */
         if (cpu_svm_has_intercept(env, SVM_EXIT_CR0_SEL_WRITE) &&
-            ((env->cr[0] ^ t0) & ~(CR0_TS_MASK | CR0_MP_MASK))) {
+            ((target_ulong_array_val(&env->cr.rec, 0) ^ t0) & ~(CR0_TS_MASK | CR0_MP_MASK))) {
             cpu_vmexit(env, SVM_EXIT_CR0_SEL_WRITE, 0, GETPC());
         }
         cpu_x86_update_cr0(env, t0);
@@ -103,7 +103,7 @@ void helper_write_crN(CPUX86State *env, int reg, target_ulong t0)
         if (t0 & cr4_reserved_bits(env)) {
             cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
         }
-        if (((t0 ^ env->cr[4]) & CR4_LA57_MASK) &&
+        if (((t0 ^ target_ulong_array_val(&env->cr.rec, 4)) & CR4_LA57_MASK) &&
             (env->hflags & HF_CS64_MASK)) {
             raise_exception_ra(env, EXCP0D_GPF, GETPC());
         }
@@ -125,7 +125,7 @@ void helper_write_crN(CPUX86State *env, int reg, target_ulong t0)
         }
         break;
     default:
-        env->cr[reg] = t0;
+        target_ulong_array_set(&env->cr.rec, reg, t0);
         break;
     }
 }
@@ -145,10 +145,10 @@ void helper_wrmsr(CPUX86State *env)
         env->sysenter_cs = val & 0xffff;
         break;
     case MSR_IA32_SYSENTER_ESP:
-        env->sysenter_esp = val;
+        target_ulong_set(&(env)->sysenter_esp,  val);
         break;
     case MSR_IA32_SYSENTER_EIP:
-        env->sysenter_eip = val;
+        target_ulong_set(&(env)->sysenter_eip,  val);
         break;
     case MSR_IA32_APICBASE: {
         int ret;
@@ -220,10 +220,10 @@ void helper_wrmsr(CPUX86State *env)
         env->fmask = val;
         break;
     case MSR_FSBASE:
-        env->segs[R_FS].base = val;
+        target_ulong_set(&(env->segs[R_FS]).base,  val);
         break;
     case MSR_GSBASE:
-        env->segs[R_GS].base = val;
+        target_ulong_set(&(env->segs[R_GS]).base,  val);
         break;
     case MSR_KERNELGSBASE:
         env->kernelgsbase = val;
@@ -339,10 +339,10 @@ void helper_rdmsr(CPUX86State *env)
         val = env->sysenter_cs;
         break;
     case MSR_IA32_SYSENTER_ESP:
-        val = env->sysenter_esp;
+        val = target_ulong_val(&(env)->sysenter_esp);
         break;
     case MSR_IA32_SYSENTER_EIP:
-        val = env->sysenter_eip;
+        val = target_ulong_val(&(env)->sysenter_eip);
         break;
     case MSR_IA32_APICBASE:
         val = cpu_get_apic_base(env_archcpu(env)->apic_state);
@@ -379,10 +379,10 @@ void helper_rdmsr(CPUX86State *env)
         val = env->fmask;
         break;
     case MSR_FSBASE:
-        val = env->segs[R_FS].base;
+        val = target_ulong_val(&(env->segs[R_FS]).base);
         break;
     case MSR_GSBASE:
-        val = env->segs[R_GS].base;
+        val = target_ulong_val(&(env->segs[R_GS]).base);
         break;
     case MSR_KERNELGSBASE:
         val = env->kernelgsbase;

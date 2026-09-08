@@ -177,9 +177,9 @@ int x86_cpu_gdb_read_register(CPUState *cs, GByteArray *mem_buf, int n)
         case IDX_SEG_REGS + 5:
             return gdb_get_reg32(mem_buf, env->segs[R_GS].selector);
         case IDX_SEG_REGS + 6:
-            return gdb_read_reg_cs64(env->hflags, mem_buf, env->segs[R_FS].base);
+            return gdb_read_reg_cs64(env->hflags, mem_buf, target_ulong_val(&(env->segs[R_FS]).base));
         case IDX_SEG_REGS + 7:
-            return gdb_read_reg_cs64(env->hflags, mem_buf, env->segs[R_GS].base);
+            return gdb_read_reg_cs64(env->hflags, mem_buf, target_ulong_val(&(env->segs[R_GS]).base));
 
         case IDX_SEG_REGS + 8:
 #ifdef TARGET_X86_64
@@ -207,13 +207,13 @@ int x86_cpu_gdb_read_register(CPUState *cs, GByteArray *mem_buf, int n)
             return gdb_get_reg32(mem_buf, 0); /* fop */
 
         case IDX_CTL_CR0_REG:
-            return gdb_read_reg_cs64(env->hflags, mem_buf, env->cr[0]);
+            return gdb_read_reg_cs64(env->hflags, mem_buf, target_ulong_array_val(&env->cr.rec, 0));
         case IDX_CTL_CR2_REG:
-            return gdb_read_reg_cs64(env->hflags, mem_buf, env->cr[2]);
+            return gdb_read_reg_cs64(env->hflags, mem_buf, target_ulong_array_val(&env->cr.rec, 2));
         case IDX_CTL_CR3_REG:
-            return gdb_read_reg_cs64(env->hflags, mem_buf, env->cr[3]);
+            return gdb_read_reg_cs64(env->hflags, mem_buf, target_ulong_array_val(&env->cr.rec, 3));
         case IDX_CTL_CR4_REG:
-            return gdb_read_reg_cs64(env->hflags, mem_buf, env->cr[4]);
+            return gdb_read_reg_cs64(env->hflags, mem_buf, target_ulong_array_val(&env->cr.rec, 4));
         case IDX_CTL_CR8_REG:
 #ifndef CONFIG_USER_ONLY
             tpr = cpu_get_apic_tpr(cpu->apic_state);
@@ -241,7 +241,7 @@ static int x86_cpu_gdb_load_seg(X86CPU *cpu, X86Seg sreg, uint8_t *mem_buf)
         unsigned int limit, flags;
         target_ulong base;
 
-        if (!(env->cr[0] & CR0_PE_MASK) || (target_ulong_val(&(env)->eflags) & VM_MASK)) {
+        if (!(target_ulong_array_val(&env->cr.rec, 0) & CR0_PE_MASK) || (target_ulong_val(&(env)->eflags) & VM_MASK)) {
             int dpl = (target_ulong_val(&(env)->eflags) & VM_MASK) ? 3 : 0;
             base = selector << 4;
             limit = 0xffff;
@@ -342,11 +342,11 @@ int x86_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
             return x86_cpu_gdb_load_seg(cpu, R_GS, mem_buf);
         case IDX_SEG_REGS + 6:
             len = gdb_write_reg_cs64(env->hflags, mem_buf, &tmp);
-            env->segs[R_FS].base = tmp;
+            target_ulong_set(&env->segs[R_FS].base, tmp);
             return len;
         case IDX_SEG_REGS + 7:
             len = gdb_write_reg_cs64(env->hflags, mem_buf, &tmp);
-            env->segs[R_GS].base = tmp;
+            target_ulong_set(&env->segs[R_GS].base, tmp);
             return len;
         case IDX_SEG_REGS + 8:
 #ifdef TARGET_X86_64
@@ -385,7 +385,7 @@ int x86_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
         case IDX_CTL_CR2_REG:
             len = gdb_write_reg_cs64(env->hflags, mem_buf, &tmp);
 #ifndef CONFIG_USER_ONLY
-            env->cr[2] = tmp;
+            target_ulong_array_set(&env->cr.rec, 2, tmp);
 #endif
             return len;
 
