@@ -142,16 +142,16 @@ void elf_core_copy_fpregs(target_elf_fpregset_t *r, const CPUMIPSState *env)
 #ifndef TARGET_MIPS64
 void elf_core_copy_regs(target_elf_gregset_t *r, const CPUMIPSState *env)
 {
-    for (int i = 1; i < ARRAY_SIZE(env->active_tc.gpr); i++) {
-        r->pt.regs[i] = tswap32(env->active_tc.gpr[i]);
+    for (int i = 1; i < ARRAY_SIZE(env->active_tc.gpr.u64); i++) {
+        r->pt.regs[i] = tswap32(target_ulong_array_val(&env->active_tc.gpr.rec, i));
     }
 
     r->pt.regs[26] = 0;
     r->pt.regs[27] = 0;
-    r->pt.lo = tswap32(env->active_tc.LO[0]);
-    r->pt.hi = tswap32(env->active_tc.HI[0]);
-    r->pt.cp0_epc = tswap32(env->active_tc.PC);
-    r->pt.cp0_badvaddr = tswap32(env->CP0_BadVAddr);
+    r->pt.lo = tswap32(target_ulong_array_val(&env->active_tc.LO.rec, 0));
+    r->pt.hi = tswap32(target_ulong_array_val(&env->active_tc.HI.rec, 0));
+    r->pt.cp0_epc = tswap32(target_ulong_val(&env->active_tc.PC));
+    r->pt.cp0_badvaddr = tswap32(target_ulong_val(&env->CP0_BadVAddr));
     r->pt.cp0_status = tswap32(env->CP0_Status);
     r->pt.cp0_cause = tswap32(env->CP0_Cause);
 }

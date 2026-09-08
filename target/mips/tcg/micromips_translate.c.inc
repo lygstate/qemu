@@ -2983,7 +2983,7 @@ static int decode_isa_micromips(CPUMIPSState *env, DisasContext *ctx)
 
     /* make sure instructions are on a halfword boundary */
     if (ctx->base.pc_next & 0x1) {
-        env->CP0_BadVAddr = ctx->base.pc_next;
+        target_ulong_set(&env->CP0_BadVAddr, ctx->base.pc_next);
         generate_exception_end(ctx, EXCP_AdEL);
         return 2;
     }

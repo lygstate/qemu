@@ -119,7 +119,7 @@ enum UHIErrno {
 
 static void report_fault(CPUMIPSState *env)
 {
-    int op = env->active_tc.gpr[25];
+    int op = target_ulong_array_val(&env->active_tc.gpr.rec, 25);
     error_report("Fault during UHI operation %d", op);
     abort();
 }
@@ -158,8 +158,8 @@ static void uhi_cb(CPUState *cs, uint64_t ret, int err)
 
 #undef E
 
-    env->active_tc.gpr[2] = ret;
-    env->active_tc.gpr[3] = err;
+    target_ulong_array_set(&env->active_tc.gpr.rec, 2, ret);
+    target_ulong_array_set(&env->active_tc.gpr.rec, 3, err);
 }
 
 static void uhi_fstat_cb(CPUState *cs, uint64_t ret, int err)
@@ -169,7 +169,7 @@ static void uhi_fstat_cb(CPUState *cs, uint64_t ret, int err)
     if (!err) {
         CPUMIPSState *env = cpu_env(cs);
         bool swap_needed = HOST_BIG_ENDIAN != mips_env_is_bigendian(env);
-        target_ulong addr = env->active_tc.gpr[5];
+        target_ulong addr = target_ulong_array_val(&env->active_tc.gpr.rec, 5);
         UHIStat *dst = lock_user(VERIFY_WRITE, addr, sizeof(UHIStat), 1);
         struct gdb_stat s;
 
@@ -219,7 +219,7 @@ static void uhi_fstat_cb(CPUState *cs, uint64_t ret, int err)
 void mips_semihosting(CPUMIPSState *env)
 {
     CPUState *cs = env_cpu(env);
-    target_ulong *gpr = env->active_tc.gpr;
+    target_ulong *gpr = target_ulong_array_elem(&env->active_tc.gpr.rec, 0);
     const UHIOp op = gpr[25];
     char *p;
 

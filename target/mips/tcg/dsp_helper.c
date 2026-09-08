@@ -54,18 +54,18 @@ typedef union {
 static inline void set_DSPControl_overflow_flag(uint32_t flag, int position,
                                                 CPUMIPSState *env)
 {
-    env->active_tc.DSPControl |= (target_ulong)flag << position;
+    target_ulong_set(&env->active_tc.DSPControl, target_ulong_val(&env->active_tc.DSPControl) | ((target_ulong)flag << position));
 }
 
 static inline void set_DSPControl_carryflag(bool flag, CPUMIPSState *env)
 {
-    env->active_tc.DSPControl &= ~(1 << 13);
-    env->active_tc.DSPControl |= flag << 13;
+    target_ulong_set(&env->active_tc.DSPControl, target_ulong_val(&env->active_tc.DSPControl) & (~(1 << 13)));
+    target_ulong_set(&env->active_tc.DSPControl, target_ulong_val(&env->active_tc.DSPControl) | (flag << 13));
 }
 
 static inline uint32_t get_DSPControl_carryflag(CPUMIPSState *env)
 {
-    return (env->active_tc.DSPControl >> 13) & 0x01;
+    return (target_ulong_val(&env->active_tc.DSPControl) >> 13) & 0x01;
 }
 
 static inline void set_DSPControl_24(uint32_t flag, int len, CPUMIPSState *env)
@@ -75,15 +75,15 @@ static inline void set_DSPControl_24(uint32_t flag, int len, CPUMIPSState *env)
   filter = ((0x01 << len) - 1) << 24;
   filter = ~filter;
 
-  env->active_tc.DSPControl &= filter;
-  env->active_tc.DSPControl |= (target_ulong)flag << 24;
+  target_ulong_set(&env->active_tc.DSPControl, target_ulong_val(&env->active_tc.DSPControl) & (filter));
+  target_ulong_set(&env->active_tc.DSPControl, target_ulong_val(&env->active_tc.DSPControl) | ((target_ulong)flag << 24));
 }
 
 static inline void set_DSPControl_pos(uint32_t pos, CPUMIPSState *env)
 {
     target_ulong dspc;
 
-    dspc = env->active_tc.DSPControl;
+    dspc = target_ulong_val(&env->active_tc.DSPControl);
 #ifndef TARGET_MIPS64
     dspc = dspc & 0xFFFFFFC0;
     dspc |= (pos & 0x3F);
@@ -91,7 +91,7 @@ static inline void set_DSPControl_pos(uint32_t pos, CPUMIPSState *env)
     dspc = dspc & 0xFFFFFF80;
     dspc |= (pos & 0x7F);
 #endif
-    env->active_tc.DSPControl = dspc;
+    target_ulong_set(&env->active_tc.DSPControl, dspc);
 }
 
 static inline uint32_t get_DSPControl_pos(CPUMIPSState *env)
@@ -99,7 +99,7 @@ static inline uint32_t get_DSPControl_pos(CPUMIPSState *env)
     target_ulong dspc;
     uint32_t pos;
 
-    dspc = env->active_tc.DSPControl;
+    dspc = target_ulong_val(&env->active_tc.DSPControl);
 
 #ifndef TARGET_MIPS64
     pos = dspc & 0x3F;
@@ -112,8 +112,8 @@ static inline uint32_t get_DSPControl_pos(CPUMIPSState *env)
 
 static inline void set_DSPControl_efi(uint32_t flag, CPUMIPSState *env)
 {
-    env->active_tc.DSPControl &= 0xFFFFBFFF;
-    env->active_tc.DSPControl |= (target_ulong)flag << 14;
+    target_ulong_set(&env->active_tc.DSPControl, target_ulong_val(&env->active_tc.DSPControl) & (0xFFFFBFFF));
+    target_ulong_set(&env->active_tc.DSPControl, target_ulong_val(&env->active_tc.DSPControl) | ((target_ulong)flag << 14));
 }
 
 #define DO_MIPS_SAT_ABS(size)                                          \
@@ -253,10 +253,10 @@ static inline int32_t mipsdsp_sat32_acc_q31(int32_t acc, int32_t a,
     int64_t temp_sum;
 
 #ifndef TARGET_MIPS64
-    temp = ((uint64_t)env->active_tc.HI[acc] << 32) |
-           (uint64_t)env->active_tc.LO[acc];
+    temp = ((uint64_t)target_ulong_array_val(&env->active_tc.HI.rec, acc) << 32) |
+           (uint64_t)target_ulong_array_val(&env->active_tc.LO.rec, acc);
 #else
-    temp = (uint64_t)env->active_tc.LO[acc];
+    temp = (uint64_t)target_ulong_array_val(&env->active_tc.LO.rec, acc);
 #endif
 
     temp_sum = (int64_t)a + temp;
@@ -286,10 +286,10 @@ static inline void mipsdsp_sat64_acc_add_q63(int64_t *ret,
 {
     bool temp64;
 
-    ret[0] = env->active_tc.LO[ac] + a[0];
-    ret[1] = env->active_tc.HI[ac] + a[1];
+    ret[0] = target_ulong_array_val(&env->active_tc.LO.rec, ac) + a[0];
+    ret[1] = target_ulong_array_val(&env->active_tc.HI.rec, ac) + a[1];
 
-    if (((uint64_t)ret[0] < (uint64_t)env->active_tc.LO[ac]) &&
+    if (((uint64_t)ret[0] < (uint64_t)target_ulong_array_val(&env->active_tc.LO.rec, ac)) &&
         ((uint64_t)ret[0] < (uint64_t)a[0])) {
         ret[1] += 1;
     }
@@ -313,10 +313,10 @@ static inline void mipsdsp_sat64_acc_sub_q63(int64_t *ret,
 {
     bool temp64;
 
-    ret[0] = env->active_tc.LO[ac] - a[0];
-    ret[1] = env->active_tc.HI[ac] - a[1];
+    ret[0] = target_ulong_array_val(&env->active_tc.LO.rec, ac) - a[0];
+    ret[1] = target_ulong_array_val(&env->active_tc.HI.rec, ac) - a[1];
 
-    if ((uint64_t)ret[0] > (uint64_t)env->active_tc.LO[ac]) {
+    if ((uint64_t)ret[0] > (uint64_t)target_ulong_array_val(&env->active_tc.LO.rec, ac)) {
         ret[1] -= 1;
     }
     temp64 = ret[1] & 1;
@@ -507,8 +507,8 @@ static inline void mipsdsp_rndrashift_short_acc(int64_t *p,
 {
     int64_t acc;
 
-    acc = ((int64_t)env->active_tc.HI[ac] << 32) |
-          ((int64_t)env->active_tc.LO[ac] & 0xFFFFFFFF);
+    acc = ((int64_t)target_ulong_array_val(&env->active_tc.HI.rec, ac) << 32) |
+          ((int64_t)target_ulong_array_val(&env->active_tc.LO.rec, ac) & 0xFFFFFFFF);
     p[0] = (shift == 0) ? (acc << 1) : (acc >> (shift - 1));
     p[1] = (acc >> 63) & 0x01;
 }
@@ -522,8 +522,8 @@ static inline void mipsdsp_rashift_acc(uint64_t *p,
 {
     uint64_t tempB, tempA;
 
-    tempB = env->active_tc.HI[ac];
-    tempA = env->active_tc.LO[ac];
+    tempB = target_ulong_array_val(&env->active_tc.HI.rec, ac);
+    tempA = target_ulong_array_val(&env->active_tc.LO.rec, ac);
     shift = shift & 0x1F;
 
     if (shift == 0) {
@@ -543,8 +543,8 @@ static inline void mipsdsp_rndrashift_acc(uint64_t *p,
 {
     int64_t tempB, tempA;
 
-    tempB = env->active_tc.HI[ac];
-    tempA = env->active_tc.LO[ac];
+    tempB = target_ulong_array_val(&env->active_tc.HI.rec, ac);
+    tempA = target_ulong_array_val(&env->active_tc.LO.rec, ac);
     shift = shift & 0x3F;
 
     if (shift == 0) {
@@ -2054,12 +2054,12 @@ void helper_##name(uint32_t ac, target_ulong rs, target_ulong rt,        \
     }                                                                    \
                                                                          \
     dotp = (int64_t)tempB - (int64_t)tempA;                              \
-    acc = ((uint64_t)env->active_tc.HI[ac] << 32) |                      \
-          ((uint64_t)env->active_tc.LO[ac] & MIPSDSP_LLO);               \
+    acc = ((uint64_t)target_ulong_array_val(&env->active_tc.HI.rec, ac) << 32) |                      \
+          ((uint64_t)target_ulong_array_val(&env->active_tc.LO.rec, ac) & MIPSDSP_LLO);               \
     dotp = dotp + acc;                                                   \
-    env->active_tc.HI[ac] = (target_long)(int32_t)                       \
-                            ((dotp & MIPSDSP_LHI) >> 32);                \
-    env->active_tc.LO[ac] = (target_long)(int32_t)(dotp & MIPSDSP_LLO);  \
+    target_ulong_array_set(&env->active_tc.HI.rec, ac, (target_long)(int32_t)                       \
+                            ((dotp & MIPSDSP_LHI) >> 32));                \
+    target_ulong_array_set(&env->active_tc.LO.rec, ac, (target_long)(int32_t)(dotp & MIPSDSP_LLO));  \
 }
 
 MUL_VOID_PH(mulsaq_s_w_ph, 1);
@@ -2160,8 +2160,8 @@ void helper_mulsaq_s_w_qh(target_ulong rs, target_ulong rt, uint32_t ac,
         temp[1] = ~0ull;
     }
 
-    acc[0] = env->active_tc.LO[ac];
-    acc[1] = env->active_tc.HI[ac];
+    acc[0] = target_ulong_array_val(&env->active_tc.LO.rec, ac);
+    acc[1] = target_ulong_array_val(&env->active_tc.HI.rec, ac);
 
     temp_sum = acc[0] + temp[0];
     if (((uint64_t)temp_sum < (uint64_t)acc[0]) &&
@@ -2171,8 +2171,8 @@ void helper_mulsaq_s_w_qh(target_ulong rs, target_ulong rt, uint32_t ac,
     acc[0] = temp_sum;
     acc[1] += temp[1];
 
-    env->active_tc.HI[ac] = acc[1];
-    env->active_tc.LO[ac] = acc[0];
+    target_ulong_array_set(&env->active_tc.HI.rec, ac, acc[1]);
+    target_ulong_array_set(&env->active_tc.LO.rec, ac, acc[0]);
 }
 #endif
 
@@ -2193,18 +2193,18 @@ void helper_##name(uint32_t ac, target_ulong rs, target_ulong rt,        \
     tempA = mipsdsp_##func(rs2, rt2);                                    \
     dotp = (int64_t)tempB + (int64_t)tempA;                              \
     if (is_add) {                                                        \
-        tempC = (((uint64_t)env->active_tc.HI[ac] << 32) |               \
-                 ((uint64_t)env->active_tc.LO[ac] & MIPSDSP_LLO))        \
+        tempC = (((uint64_t)target_ulong_array_val(&env->active_tc.HI.rec, ac) << 32) |               \
+                 ((uint64_t)target_ulong_array_val(&env->active_tc.LO.rec, ac) & MIPSDSP_LLO))        \
             + dotp;                                                      \
     } else {                                                             \
-        tempC = (((uint64_t)env->active_tc.HI[ac] << 32) |               \
-                 ((uint64_t)env->active_tc.LO[ac] & MIPSDSP_LLO))        \
+        tempC = (((uint64_t)target_ulong_array_val(&env->active_tc.HI.rec, ac) << 32) |               \
+                 ((uint64_t)target_ulong_array_val(&env->active_tc.LO.rec, ac) & MIPSDSP_LLO))        \
             - dotp;                                                      \
     }                                                                    \
                                                                          \
-    env->active_tc.HI[ac] = (target_long)(int32_t)                       \
-                            ((tempC & MIPSDSP_LHI) >> 32);               \
-    env->active_tc.LO[ac] = (target_long)(int32_t)(tempC & MIPSDSP_LLO); \
+    target_ulong_array_set(&env->active_tc.HI.rec, ac, (target_long)(int32_t)                       \
+                            ((tempC & MIPSDSP_LHI) >> 32));               \
+    target_ulong_array_set(&env->active_tc.LO.rec, ac, (target_long)(int32_t)(tempC & MIPSDSP_LLO)); \
 }
 
 DP_QB(dpau_h_qbl, mul_u8_u8, 1, 24, 16, 24, 16);
@@ -2248,8 +2248,8 @@ void helper_##name(target_ulong rs, target_ulong rt, uint32_t ac,       \
     temp[0] = (uint64_t)tempD + (uint64_t)tempC +                       \
       (uint64_t)tempB + (uint64_t)tempA;                                \
                                                                         \
-    acc[0] = env->active_tc.LO[ac];                                     \
-    acc[1] = env->active_tc.HI[ac];                                     \
+    acc[0] = target_ulong_array_val(&env->active_tc.LO.rec, ac);                                     \
+    acc[1] = target_ulong_array_val(&env->active_tc.HI.rec, ac);                                     \
                                                                         \
     if (add_sub) {                                                      \
         temp_sum = acc[0] + temp[0];                                    \
@@ -2268,8 +2268,8 @@ void helper_##name(target_ulong rs, target_ulong rt, uint32_t ac,       \
         temp[1] = acc[1] - temp[1];                                     \
     }                                                                   \
                                                                         \
-    env->active_tc.HI[ac] = temp[1];                                    \
-    env->active_tc.LO[ac] = temp[0];                                    \
+    target_ulong_array_set(&env->active_tc.HI.rec, ac, temp[1]);                                    \
+    target_ulong_array_set(&env->active_tc.LO.rec, ac, temp[0]);                                    \
 }
 
 DP_OB(dpau_h_obl, 1, 56, 48, 40, 32, 56, 48, 40, 32);
@@ -2296,8 +2296,8 @@ void helper_##name(uint32_t ac, target_ulong rs, target_ulong rt,              \
     tempB = (int32_t)rsB * (int32_t)rtB;                                       \
     tempA = (int32_t)rsA * (int32_t)rtA;                                       \
                                                                                \
-    acc = ((uint64_t)env->active_tc.HI[ac] << 32) |                            \
-          ((uint64_t)env->active_tc.LO[ac] & MIPSDSP_LLO);                     \
+    acc = ((uint64_t)target_ulong_array_val(&env->active_tc.HI.rec, ac) << 32) |                            \
+          ((uint64_t)target_ulong_array_val(&env->active_tc.LO.rec, ac) & MIPSDSP_LLO);                     \
                                                                                \
     if (is_add) {                                                              \
         acc = acc + ((int64_t)tempB + (int64_t)tempA);                         \
@@ -2305,8 +2305,8 @@ void helper_##name(uint32_t ac, target_ulong rs, target_ulong rt,              \
         acc = acc - ((int64_t)tempB + (int64_t)tempA);                         \
     }                                                                          \
                                                                                \
-    env->active_tc.HI[ac] = (target_long)(int32_t)((acc & MIPSDSP_LHI) >> 32); \
-    env->active_tc.LO[ac] = (target_long)(int32_t)(acc & MIPSDSP_LLO);         \
+    target_ulong_array_set(&env->active_tc.HI.rec, ac, (target_long)(int32_t)((acc & MIPSDSP_LHI) >> 32)); \
+    target_ulong_array_set(&env->active_tc.LO.rec, ac, (target_long)(int32_t)(acc & MIPSDSP_LLO));         \
 }
 
 DP_NOFUNC_PH(dpa_w_ph, 1, 16, 0, 16, 0);
@@ -2332,8 +2332,8 @@ void helper_##name(uint32_t ac, target_ulong rs, target_ulong rt,   \
     tempA = mipsdsp_mul_q15_q15(ac, rsA, rtA, env);        \
                                                            \
     dotp = (int64_t)tempB + (int64_t)tempA;                \
-    acc = ((uint64_t)env->active_tc.HI[ac] << 32) |        \
-          ((uint64_t)env->active_tc.LO[ac] & MIPSDSP_LLO); \
+    acc = ((uint64_t)target_ulong_array_val(&env->active_tc.HI.rec, ac) << 32) |        \
+          ((uint64_t)target_ulong_array_val(&env->active_tc.LO.rec, ac) & MIPSDSP_LLO); \
                                                            \
     if (is_add) {                                          \
         acc = acc + dotp;                                  \
@@ -2341,10 +2341,10 @@ void helper_##name(uint32_t ac, target_ulong rs, target_ulong rt,   \
         acc = acc - dotp;                                  \
     }                                                      \
                                                            \
-    env->active_tc.HI[ac] = (target_long)(int32_t)         \
-        ((acc & MIPSDSP_LHI) >> 32);                       \
-    env->active_tc.LO[ac] = (target_long)(int32_t)         \
-        (acc & MIPSDSP_LLO);                               \
+    target_ulong_array_set(&env->active_tc.HI.rec, ac, (target_long)(int32_t)         \
+        ((acc & MIPSDSP_LHI) >> 32));                       \
+    target_ulong_array_set(&env->active_tc.LO.rec, ac, (target_long)(int32_t)         \
+        (acc & MIPSDSP_LLO));                               \
 }
 
 DP_HASFUNC_PH(dpaq_s_w_ph, 1, 16, 0, 16, 0);
@@ -2369,8 +2369,8 @@ void helper_##name(uint32_t ac, target_ulong rs, target_ulong rt, \
     tempA = mipsdsp_mul_q15_q15(ac, rsl, rth, env);                      \
                                                                          \
     dotp = (int64_t)tempB + (int64_t)tempA;                              \
-    acc = ((uint64_t)env->active_tc.HI[ac] << 32) |                      \
-          ((uint64_t)env->active_tc.LO[ac] & MIPSDSP_LLO);               \
+    acc = ((uint64_t)target_ulong_array_val(&env->active_tc.HI.rec, ac) << 32) |                      \
+          ((uint64_t)target_ulong_array_val(&env->active_tc.LO.rec, ac) & MIPSDSP_LLO);               \
     if (is_add) {                                                        \
         tempC = acc + dotp;                                              \
     } else {                                                             \
@@ -2389,10 +2389,10 @@ void helper_##name(uint32_t ac, target_ulong rs, target_ulong rt, \
         set_DSPControl_overflow_flag(1, 16 + ac, env);                   \
     }                                                                    \
                                                                          \
-    env->active_tc.HI[ac] = (target_long)(int32_t)                       \
-        ((tempC & MIPSDSP_LHI) >> 32);                                   \
-    env->active_tc.LO[ac] = (target_long)(int32_t)                       \
-        (tempC & MIPSDSP_LLO);                                           \
+    target_ulong_array_set(&env->active_tc.HI.rec, ac, (target_long)(int32_t)                       \
+        ((tempC & MIPSDSP_LHI) >> 32));                                   \
+    target_ulong_array_set(&env->active_tc.LO.rec, ac, (target_long)(int32_t)                       \
+        (tempC & MIPSDSP_LLO));                                           \
 }
 
 DP_128OPERATION_PH(dpaqx_sa_w_ph, 1);
@@ -2436,8 +2436,8 @@ void helper_##name(target_ulong rs, target_ulong rt, uint32_t ac,    \
         temp[1] = ~0ull;                                             \
     }                                                                \
                                                                      \
-    acc[1] = env->active_tc.HI[ac];                                  \
-    acc[0] = env->active_tc.LO[ac];                                  \
+    acc[1] = target_ulong_array_val(&env->active_tc.HI.rec, ac);                                  \
+    acc[0] = target_ulong_array_val(&env->active_tc.LO.rec, ac);                                  \
                                                                      \
     if (is_add) {                                                    \
         temp_sum = acc[0] + temp[0];                                 \
@@ -2456,8 +2456,8 @@ void helper_##name(target_ulong rs, target_ulong rt, uint32_t ac,    \
         temp[1] = acc[1] - temp[1];                                  \
     }                                                                \
                                                                      \
-    env->active_tc.HI[ac] = temp[1];                                 \
-    env->active_tc.LO[ac] = temp[0];                                 \
+    target_ulong_array_set(&env->active_tc.HI.rec, ac, temp[1]);                                 \
+    target_ulong_array_set(&env->active_tc.LO.rec, ac, temp[0]);                                 \
 }
 
 DP_QH(dpa_w_qh, 1, 0);
@@ -2479,8 +2479,8 @@ void helper_##name(uint32_t ac, target_ulong rs, target_ulong rt,      \
     bool overflow;                                                     \
                                                                        \
     dotp = mipsdsp_mul_q31_q31(ac, rs, rt, env);                       \
-    acc = ((uint64_t)env->active_tc.HI[ac] << 32) |                    \
-          ((uint64_t)env->active_tc.LO[ac] & MIPSDSP_LLO);             \
+    acc = ((uint64_t)target_ulong_array_val(&env->active_tc.HI.rec, ac) << 32) |                    \
+          ((uint64_t)target_ulong_array_val(&env->active_tc.LO.rec, ac) & MIPSDSP_LLO);             \
     if (is_add) {                                                      \
         temp = acc + dotp;                                             \
         overflow = MIPSDSP_OVERFLOW_ADD((uint64_t)acc, (uint64_t)dotp, \
@@ -2502,10 +2502,10 @@ void helper_##name(uint32_t ac, target_ulong rs, target_ulong rt,      \
         set_DSPControl_overflow_flag(1, 16 + ac, env);                 \
     }                                                                  \
                                                                        \
-    env->active_tc.HI[ac] = (target_long)(int32_t)                     \
-        ((temp & MIPSDSP_LHI) >> 32);                                  \
-    env->active_tc.LO[ac] = (target_long)(int32_t)                     \
-        (temp & MIPSDSP_LLO);                                          \
+    target_ulong_array_set(&env->active_tc.HI.rec, ac, (target_long)(int32_t)                     \
+        ((temp & MIPSDSP_LHI) >> 32));                                  \
+    target_ulong_array_set(&env->active_tc.LO.rec, ac, (target_long)(int32_t)                     \
+        (temp & MIPSDSP_LLO));                                          \
 }
 
 DP_L_W(dpaq_sa_l_w, 1);
@@ -2556,8 +2556,8 @@ void helper_##name(target_ulong rs, target_ulong rt, uint32_t ac, \
                                                                   \
     mipsdsp_##func(acc, ac, temp, env);                           \
                                                                   \
-    env->active_tc.HI[ac] = acc[1];                               \
-    env->active_tc.LO[ac] = acc[0];                               \
+    target_ulong_array_set(&env->active_tc.HI.rec, ac, acc[1]);                               \
+    target_ulong_array_set(&env->active_tc.LO.rec, ac, acc[0]);                               \
 }
 
 DP_L_PW(dpaq_sa_l_pw, sat64_acc_add_q63);
@@ -2595,8 +2595,8 @@ void helper_mulsaq_s_l_pw(target_ulong rs, target_ulong rt, uint32_t ac,
         tempA[1] = ~0ull;
     }
 
-    acc[0] = env->active_tc.LO[ac];
-    acc[1] = env->active_tc.HI[ac];
+    acc[0] = target_ulong_array_val(&env->active_tc.LO.rec, ac);
+    acc[1] = target_ulong_array_val(&env->active_tc.HI.rec, ac);
 
     temp_sum = tempB[0] - tempA[0];
     if ((uint64_t)temp_sum > (uint64_t)tempB[0]) {
@@ -2619,8 +2619,8 @@ void helper_mulsaq_s_l_pw(target_ulong rs, target_ulong rt, uint32_t ac,
     acc[0] = temp_sum;
     acc[1] += temp[1];
 
-    env->active_tc.HI[ac] = acc[1];
-    env->active_tc.LO[ac] = acc[0];
+    target_ulong_array_set(&env->active_tc.HI.rec, ac, acc[1]);
+    target_ulong_array_set(&env->active_tc.LO.rec, ac, acc[0]);
 }
 #endif
 
@@ -2635,13 +2635,13 @@ void helper_##name(uint32_t ac, target_ulong rs, target_ulong rt, \
     rsh = (rs >> mov) & MIPSDSP_LO;                               \
     rth = (rt >> mov) & MIPSDSP_LO;                               \
     tempA  = mipsdsp_mul_q15_q15(ac, rsh, rth, env);              \
-    acc = ((uint64_t)env->active_tc.HI[ac] << 32) |               \
-          ((uint64_t)env->active_tc.LO[ac] & MIPSDSP_LLO);        \
+    acc = ((uint64_t)target_ulong_array_val(&env->active_tc.HI.rec, ac) << 32) |               \
+          ((uint64_t)target_ulong_array_val(&env->active_tc.LO.rec, ac) & MIPSDSP_LLO);        \
     tempL  = (int64_t)tempA + acc;                                \
-    env->active_tc.HI[ac] = (target_long)(int32_t)                \
-        ((tempL & MIPSDSP_LHI) >> 32);                            \
-    env->active_tc.LO[ac] = (target_long)(int32_t)                \
-        (tempL & MIPSDSP_LLO);                                    \
+    target_ulong_array_set(&env->active_tc.HI.rec, ac, (target_long)(int32_t)                \
+        ((tempL & MIPSDSP_LHI) >> 32));                            \
+    target_ulong_array_set(&env->active_tc.LO.rec, ac, (target_long)(int32_t)                \
+        (tempL & MIPSDSP_LLO));                                    \
 }
 
 MAQ_S_W(maq_s_w_phl, 16);
@@ -2661,10 +2661,10 @@ void helper_##name(uint32_t ac, target_ulong rs, target_ulong rt,        \
     tempA = mipsdsp_mul_q15_q15(ac, rsh, rth, env);                      \
     tempA = mipsdsp_sat32_acc_q31(ac, tempA, env);                       \
                                                                          \
-    env->active_tc.HI[ac] = (target_long)(int32_t)(((int64_t)tempA &     \
-                                                    MIPSDSP_LHI) >> 32); \
-    env->active_tc.LO[ac] = (target_long)(int32_t)((int64_t)tempA &      \
-                                                   MIPSDSP_LLO);         \
+    target_ulong_array_set(&env->active_tc.HI.rec, ac, (target_long)(int32_t)(((int64_t)tempA &     \
+                                                    MIPSDSP_LHI) >> 32)); \
+    target_ulong_array_set(&env->active_tc.LO.rec, ac, (target_long)(int32_t)((int64_t)tempA &      \
+                                                   MIPSDSP_LLO));         \
 }
 
 MAQ_SA_W(maq_sa_w_phl, 16);
@@ -2726,8 +2726,8 @@ void helper_##name(target_ulong rs, target_ulong rt, uint32_t ac, \
         temp[1] = ~0ull;                                          \
     }                                                             \
                                                                   \
-    acc[0] = env->active_tc.LO[ac];                               \
-    acc[1] = env->active_tc.HI[ac];                               \
+    acc[0] = target_ulong_array_val(&env->active_tc.LO.rec, ac);                               \
+    acc[1] = target_ulong_array_val(&env->active_tc.HI.rec, ac);                               \
                                                                   \
     temp_sum = acc[0] + temp[0];                                  \
     if (((uint64_t)temp_sum < (uint64_t)acc[0]) &&                \
@@ -2737,8 +2737,8 @@ void helper_##name(target_ulong rs, target_ulong rt, uint32_t ac, \
     acc[0] = temp_sum;                                            \
     acc[1] += temp[1];                                            \
                                                                   \
-    env->active_tc.HI[ac] = acc[1];                               \
-    env->active_tc.LO[ac] = acc[0];                               \
+    target_ulong_array_set(&env->active_tc.HI.rec, ac, acc[1]);                               \
+    target_ulong_array_set(&env->active_tc.LO.rec, ac, acc[0]);                               \
 }
 
 MAQ_S_W_QH(maq_s_w_qhll, 48);
@@ -2768,8 +2768,8 @@ void helper_##name(target_ulong rs, target_ulong rt, uint32_t ac, \
         acc[1] = ~0ull;                                           \
     }                                                             \
                                                                   \
-    env->active_tc.HI[ac] = acc[1];                               \
-    env->active_tc.LO[ac] = acc[0];                               \
+    target_ulong_array_set(&env->active_tc.HI.rec, ac, acc[1]);                               \
+    target_ulong_array_set(&env->active_tc.LO.rec, ac, acc[0]);                               \
 }
 
 MAQ_SA_W(maq_sa_w_qhll, 48);
@@ -2801,8 +2801,8 @@ void helper_##name(target_ulong rs, target_ulong rt, uint32_t ac, \
         temp[1] = ~0ull;                                          \
     }                                                             \
                                                                   \
-    acc[0] = env->active_tc.LO[ac];                               \
-    acc[1] = env->active_tc.HI[ac];                               \
+    acc[0] = target_ulong_array_val(&env->active_tc.LO.rec, ac);                               \
+    acc[1] = target_ulong_array_val(&env->active_tc.HI.rec, ac);                               \
                                                                   \
     temp_sum = acc[0] + temp[0];                                  \
     if (((uint64_t)temp_sum < (uint64_t)acc[0]) &&                \
@@ -2812,8 +2812,8 @@ void helper_##name(target_ulong rs, target_ulong rt, uint32_t ac, \
     acc[0] = temp_sum;                                            \
     acc[1] += temp[1];                                            \
                                                                   \
-    env->active_tc.HI[ac] = acc[1];                               \
-    env->active_tc.LO[ac] = acc[0];                               \
+    target_ulong_array_set(&env->active_tc.HI.rec, ac, acc[1]);                               \
+    target_ulong_array_set(&env->active_tc.LO.rec, ac, acc[0]);                               \
 }
 
 MAQ_S_L_PW(maq_s_l_pwl, 32);
@@ -2860,8 +2860,8 @@ void helper_##name(target_ulong rs, target_ulong rt, uint32_t ac,    \
         tempAL[1] = 0;                                               \
     }                                                                \
                                                                      \
-    acc[1] = env->active_tc.HI[ac];                                  \
-    acc[0] = env->active_tc.LO[ac];                                  \
+    acc[1] = target_ulong_array_val(&env->active_tc.HI.rec, ac);                                  \
+    acc[0] = target_ulong_array_val(&env->active_tc.LO.rec, ac);                                  \
                                                                      \
     temp_sum = tempBL[0] + tempAL[0];                                \
     if (((uint64_t)temp_sum < (uint64_t)tempBL[0]) &&                \
@@ -2888,8 +2888,8 @@ void helper_##name(target_ulong rs, target_ulong rt, uint32_t ac,    \
         temp[1] = acc[1] - temp[1];                                  \
     }                                                                \
                                                                      \
-    env->active_tc.HI[ac] = temp[1];                                 \
-    env->active_tc.LO[ac] = temp[0];                                 \
+    target_ulong_array_set(&env->active_tc.HI.rec, ac, temp[1]);                                 \
+    target_ulong_array_set(&env->active_tc.LO.rec, ac, temp[0]);                                 \
 }
 
 DM_OPERATE(dmadd, mul_i32_i32, 1, 1);
@@ -2925,7 +2925,7 @@ target_ulong helper_##name(CPUMIPSState *env, target_ulong rs,  \
     target_ulong temp;                                          \
     target_ulong dspc;                                          \
                                                                 \
-    dspc = env->active_tc.DSPControl;                           \
+    dspc = target_ulong_val(&env->active_tc.DSPControl);                           \
                                                                 \
     pos  = dspc & posfilter;                                    \
     size = (dspc >> 7) & sizefilter;                            \
@@ -3067,7 +3067,7 @@ target_ulong helper_##name(target_ulong rs, target_ulong rt,   \
     int i;                                                     \
     target_ulong result = 0;                                   \
                                                                \
-    dsp = env->active_tc.DSPControl;                           \
+    dsp = target_ulong_val(&env->active_tc.DSPControl);                           \
     for (i = 0; i < split_num; i++) {                          \
         rs_t = (rs >> (bit_size * i)) & filter;                \
         rt_t = (rt >> (bit_size * i)) & filter;                \
@@ -3358,8 +3358,8 @@ target_ulong helper_extr_s_h(target_ulong ac, target_ulong shift,
 
     shift = shift & 0x1F;
 
-    acc = ((int64_t)env->active_tc.HI[ac] << 32) |
-          ((int64_t)env->active_tc.LO[ac] & 0xFFFFFFFF);
+    acc = ((int64_t)target_ulong_array_val(&env->active_tc.HI.rec, ac) << 32) |
+          ((int64_t)target_ulong_array_val(&env->active_tc.LO.rec, ac) & 0xFFFFFFFF);
 
     temp = acc >> shift;
 
@@ -3418,8 +3418,8 @@ target_ulong helper_extp(target_ulong ac, target_ulong size, CPUMIPSState *env)
     start_pos = get_DSPControl_pos(env);
     sub = start_pos - (size + 1);
     if (sub >= -1) {
-        acc = ((uint64_t)env->active_tc.HI[ac] << 32) |
-              ((uint64_t)env->active_tc.LO[ac] & MIPSDSP_LLO);
+        acc = ((uint64_t)target_ulong_array_val(&env->active_tc.HI.rec, ac) << 32) |
+              ((uint64_t)target_ulong_array_val(&env->active_tc.LO.rec, ac) & MIPSDSP_LLO);
         temp = (acc >> (start_pos - size)) & (~0U >> (31 - size));
         set_DSPControl_efi(0, env);
     } else {
@@ -3442,8 +3442,8 @@ target_ulong helper_extpdp(target_ulong ac, target_ulong size,
     start_pos = get_DSPControl_pos(env);
     sub = start_pos - (size + 1);
     if (sub >= -1) {
-        acc  = ((uint64_t)env->active_tc.HI[ac] << 32) |
-               ((uint64_t)env->active_tc.LO[ac] & MIPSDSP_LLO);
+        acc  = ((uint64_t)target_ulong_array_val(&env->active_tc.HI.rec, ac) << 32) |
+               ((uint64_t)target_ulong_array_val(&env->active_tc.LO.rec, ac) & MIPSDSP_LLO);
         temp = extract64(acc, start_pos - size, size + 1);
 
         set_DSPControl_pos(sub, env);
@@ -3470,8 +3470,8 @@ target_ulong helper_dextp(target_ulong ac, target_ulong size, CPUMIPSState *env)
     size = size & 0x3F;
     start_pos = get_DSPControl_pos(env);
     len = start_pos - size;
-    tempB = env->active_tc.HI[ac];
-    tempA = env->active_tc.LO[ac];
+    tempB = target_ulong_array_val(&env->active_tc.HI.rec, ac);
+    tempA = target_ulong_array_val(&env->active_tc.LO.rec, ac);
 
     sub = start_pos - (size + 1);
 
@@ -3499,8 +3499,8 @@ target_ulong helper_dextpdp(target_ulong ac, target_ulong size,
     size = size & 0x3F;
     start_pos = get_DSPControl_pos(env);
     len = start_pos - size;
-    tempB = env->active_tc.HI[ac];
-    tempA = env->active_tc.LO[ac];
+    tempB = target_ulong_array_val(&env->active_tc.HI.rec, ac);
+    tempA = target_ulong_array_val(&env->active_tc.LO.rec, ac);
 
     sub = start_pos - (size + 1);
 
@@ -3530,8 +3530,8 @@ void helper_shilo(target_ulong ac, target_ulong rs, CPUMIPSState *env)
         return;
     }
 
-    acc   = (((uint64_t)env->active_tc.HI[ac] << 32) & MIPSDSP_LHI) |
-            ((uint64_t)env->active_tc.LO[ac] & MIPSDSP_LLO);
+    acc   = (((uint64_t)target_ulong_array_val(&env->active_tc.HI.rec, ac) << 32) & MIPSDSP_LHI) |
+            ((uint64_t)target_ulong_array_val(&env->active_tc.LO.rec, ac) & MIPSDSP_LLO);
 
     if (rs5_0 > 0) {
         temp = acc >> rs5_0;
@@ -3539,8 +3539,8 @@ void helper_shilo(target_ulong ac, target_ulong rs, CPUMIPSState *env)
         temp = acc << -rs5_0;
     }
 
-    env->active_tc.HI[ac] = (target_ulong)(int32_t)((temp & MIPSDSP_LHI) >> 32);
-    env->active_tc.LO[ac] = (target_ulong)(int32_t)(temp & MIPSDSP_LLO);
+    target_ulong_array_set(&env->active_tc.HI.rec, ac, (target_ulong)(int32_t)((temp & MIPSDSP_LHI) >> 32));
+    target_ulong_array_set(&env->active_tc.LO.rec, ac, (target_ulong)(int32_t)(temp & MIPSDSP_LLO));
 }
 
 #if defined(TARGET_MIPS64)
@@ -3551,8 +3551,8 @@ void helper_dshilo(target_ulong shift, target_ulong ac, CPUMIPSState *env)
 
     shift_t = (int8_t)(shift << 1) >> 1;
 
-    tempB = env->active_tc.HI[ac];
-    tempA = env->active_tc.LO[ac];
+    tempB = target_ulong_array_val(&env->active_tc.HI.rec, ac);
+    tempA = target_ulong_array_val(&env->active_tc.LO.rec, ac);
 
     if (shift_t != 0) {
         if (shift_t >= 0) {
@@ -3565,8 +3565,8 @@ void helper_dshilo(target_ulong shift, target_ulong ac, CPUMIPSState *env)
         }
     }
 
-    env->active_tc.HI[ac] = tempB;
-    env->active_tc.LO[ac] = tempA;
+    target_ulong_array_set(&env->active_tc.HI.rec, ac, tempB);
+    target_ulong_array_set(&env->active_tc.LO.rec, ac, tempA);
 }
 
 #endif
@@ -3575,9 +3575,9 @@ void helper_mthlip(target_ulong ac, target_ulong rs, CPUMIPSState *env)
     int32_t tempA, tempB, pos;
 
     tempA = rs;
-    tempB = env->active_tc.LO[ac];
-    env->active_tc.HI[ac] = (target_long)tempB;
-    env->active_tc.LO[ac] = (target_long)tempA;
+    tempB = target_ulong_array_val(&env->active_tc.LO.rec, ac);
+    target_ulong_array_set(&env->active_tc.HI.rec, ac, (target_long)tempB);
+    target_ulong_array_set(&env->active_tc.LO.rec, ac, (target_long)tempA);
     pos = get_DSPControl_pos(env);
 
     if (pos > 32) {
@@ -3597,10 +3597,10 @@ void helper_dmthlip(target_ulong rs, target_ulong ac, CPUMIPSState *env)
     ac_t = ac & 0x3;
 
     tempA = rs;
-    tempB = env->active_tc.LO[ac_t];
+    tempB = target_ulong_array_val(&env->active_tc.LO.rec, ac_t);
 
-    env->active_tc.HI[ac_t] = tempB;
-    env->active_tc.LO[ac_t] = tempA;
+    target_ulong_array_set(&env->active_tc.HI.rec, ac_t, tempB);
+    target_ulong_array_set(&env->active_tc.LO.rec, ac_t, tempA);
 
     pos = get_DSPControl_pos(env);
 
@@ -3620,7 +3620,7 @@ void cpu_wrdsp(uint32_t rs, uint32_t mask_num, CPUMIPSState *env)
 
     newbits   = 0x00;
     overwrite = 0xFFFFFFFF;
-    dsp = env->active_tc.DSPControl;
+    dsp = target_ulong_val(&env->active_tc.DSPControl);
 
     for (i = 0; i < 6; i++) {
         mask[i] = (mask_num >> i) & 0x01;
@@ -3674,7 +3674,7 @@ void cpu_wrdsp(uint32_t rs, uint32_t mask_num, CPUMIPSState *env)
 
     dsp = dsp & overwrite;
     dsp = dsp | newbits;
-    env->active_tc.DSPControl = dsp;
+    target_ulong_set(&env->active_tc.DSPControl, dsp);
 }
 
 void helper_wrdsp(target_ulong rs, target_ulong mask_num, CPUMIPSState *env)
@@ -3696,7 +3696,7 @@ uint32_t cpu_rddsp(uint32_t mask_num, CPUMIPSState *env)
     }
 
     temp  = 0x00;
-    dsp = env->active_tc.DSPControl;
+    dsp = target_ulong_val(&env->active_tc.DSPControl);
 
     if (mask[0] == 1) {
 #if defined(TARGET_MIPS64)

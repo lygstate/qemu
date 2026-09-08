@@ -45,13 +45,13 @@ target_ulong helper_ei(CPUMIPSState *env)
 static void debug_pre_eret(CPUMIPSState *env)
 {
     if (qemu_loglevel_mask(CPU_LOG_EXEC)) {
-        qemu_log("ERET: PC " TARGET_FMT_lx " EPC " TARGET_FMT_lx,
-                env->active_tc.PC, env->CP0_EPC);
+        qemu_log("ERET: PC " "%016" PRIx64 " EPC " "%016" PRIx64,
+                target_ulong_val(&env->active_tc.PC), target_ulong_val(&env->CP0_EPC));
         if (env->CP0_Status & (1 << CP0St_ERL)) {
-            qemu_log(" ErrorEPC " TARGET_FMT_lx, env->CP0_ErrorEPC);
+            qemu_log(" ErrorEPC " "%016" PRIx64, target_ulong_val(&env->CP0_ErrorEPC));
         }
         if (env->hflags & MIPS_HFLAG_DM) {
-            qemu_log(" DEPC " TARGET_FMT_lx, env->CP0_DEPC);
+            qemu_log(" DEPC " "%016" PRIx64, target_ulong_val(&env->CP0_DEPC));
         }
         qemu_log("\n");
     }
@@ -60,13 +60,13 @@ static void debug_pre_eret(CPUMIPSState *env)
 static void debug_post_eret(CPUMIPSState *env)
 {
     if (qemu_loglevel_mask(CPU_LOG_EXEC)) {
-        qemu_log("  =>  PC " TARGET_FMT_lx " EPC " TARGET_FMT_lx,
-                env->active_tc.PC, env->CP0_EPC);
+        qemu_log("  =>  PC " "%016" PRIx64 " EPC " "%016" PRIx64,
+                target_ulong_val(&env->active_tc.PC), target_ulong_val(&env->CP0_EPC));
         if (env->CP0_Status & (1 << CP0St_ERL)) {
-            qemu_log(" ErrorEPC " TARGET_FMT_lx, env->CP0_ErrorEPC);
+            qemu_log(" ErrorEPC " "%016" PRIx64, target_ulong_val(&env->CP0_ErrorEPC));
         }
         if (env->hflags & MIPS_HFLAG_DM) {
-            qemu_log(" DEPC " TARGET_FMT_lx, env->CP0_DEPC);
+            qemu_log(" DEPC " "%016" PRIx64, target_ulong_val(&env->CP0_DEPC));
         }
         switch (mips_env_mmu_index(env)) {
         case 3:
@@ -93,8 +93,8 @@ bool mips_io_recompile_replay_branch(CPUState *cs, const TranslationBlock *tb)
     CPUMIPSState *env = cpu_env(cs);
 
     if ((env->hflags & MIPS_HFLAG_BMASK) != 0
-        && !tcg_cflags_has(cs, CF_PCREL) && env->active_tc.PC != tb->pc) {
-        env->active_tc.PC -= (env->hflags & MIPS_HFLAG_B16 ? 2 : 4);
+        && !tcg_cflags_has(cs, CF_PCREL) && target_ulong_val(&env->active_tc.PC) != tb->pc) {
+        target_ulong_set(&env->active_tc.PC, target_ulong_val(&env->active_tc.PC) - ((env->hflags & MIPS_HFLAG_B16 ? 2 : 4)));
         env->hflags &= ~MIPS_HFLAG_BMASK;
         return true;
     }
@@ -105,10 +105,10 @@ static inline void exception_return(CPUMIPSState *env)
 {
     debug_pre_eret(env);
     if (env->CP0_Status & (1 << CP0St_ERL)) {
-        mips_env_set_pc(env, env->CP0_ErrorEPC);
+        mips_env_set_pc(env, target_ulong_val(&env->CP0_ErrorEPC));
         env->CP0_Status &= ~(1 << CP0St_ERL);
     } else {
-        mips_env_set_pc(env, env->CP0_EPC);
+        mips_env_set_pc(env, target_ulong_val(&env->CP0_EPC));
         env->CP0_Status &= ~(1 << CP0St_EXL);
     }
     compute_hflags(env);
@@ -119,7 +119,7 @@ void helper_eret(CPUMIPSState *env)
 {
     exception_return(env);
     env->CP0_LLAddr = 1;
-    env->lladdr = 1;
+    target_ulong_set(&env->lladdr, 1);
 }
 
 void helper_eretnc(CPUMIPSState *env)
@@ -134,7 +134,7 @@ void helper_deret(CPUMIPSState *env)
     env->hflags &= ~MIPS_HFLAG_DM;
     compute_hflags(env);
 
-    mips_env_set_pc(env, env->CP0_DEPC);
+    mips_env_set_pc(env, target_ulong_val(&env->CP0_DEPC));
 
     debug_post_eret(env);
 }

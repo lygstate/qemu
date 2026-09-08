@@ -406,10 +406,10 @@ static void main_cpu_reset(void *opaque)
         MIPSCPU *cpu = opaque;
         CPUMIPSState *env = &cpu->env;
 
-        env->active_tc.gpr[4] = loaderparams.a0;
-        env->active_tc.gpr[5] = loaderparams.a1;
-        env->active_tc.gpr[6] = loaderparams.a2;
-        env->active_tc.PC = loaderparams.kernel_entry;
+        target_ulong_array_set(&env->active_tc.gpr.rec, 4, loaderparams.a0);
+        target_ulong_array_set(&env->active_tc.gpr.rec, 5, loaderparams.a1);
+        target_ulong_array_set(&env->active_tc.gpr.rec, 6, loaderparams.a2);
+        target_ulong_set(&env->active_tc.PC, loaderparams.kernel_entry);
     }
 }
 
