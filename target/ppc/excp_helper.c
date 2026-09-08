@@ -110,11 +110,11 @@ static void dump_syscall(CPUPPCState *env)
     qemu_log_mask(CPU_LOG_INT, "syscall r0=%016" PRIx64
                   " r3=%016" PRIx64 " r4=%016" PRIx64 " r5=%016" PRIx64
                   " r6=%016" PRIx64 " r7=%016" PRIx64 " r8=%016" PRIx64
-                  " nip=" TARGET_FMT_lx "\n",
+                  " nip=" "%016" PRIx64 "\n",
                   ppc_dump_gpr(env, 0), ppc_dump_gpr(env, 3),
                   ppc_dump_gpr(env, 4), ppc_dump_gpr(env, 5),
                   ppc_dump_gpr(env, 6), ppc_dump_gpr(env, 7),
-                  ppc_dump_gpr(env, 8), env->nip);
+                  ppc_dump_gpr(env, 8), target_ulong_val(&env->nip));
 }
 
 static void dump_hcall(CPUPPCState *env)
@@ -123,13 +123,13 @@ static void dump_hcall(CPUPPCState *env)
                   " r4=%016" PRIx64 " r5=%016" PRIx64 " r6=%016" PRIx64
                   " r7=%016" PRIx64 " r8=%016" PRIx64 " r9=%016" PRIx64
                   " r10=%016" PRIx64 " r11=%016" PRIx64 " r12=%016" PRIx64
-                  " nip=" TARGET_FMT_lx "\n",
+                  " nip=" "%016" PRIx64 "\n",
                   ppc_dump_gpr(env, 3), ppc_dump_gpr(env, 4),
                   ppc_dump_gpr(env, 5), ppc_dump_gpr(env, 6),
                   ppc_dump_gpr(env, 7), ppc_dump_gpr(env, 8),
                   ppc_dump_gpr(env, 9), ppc_dump_gpr(env, 10),
                   ppc_dump_gpr(env, 11), ppc_dump_gpr(env, 12),
-                  env->nip);
+                  target_ulong_val(&env->nip));
 }
 
 static void ppc_excp_debug_sw_tlb(CPUPPCState *env, int excp)
@@ -145,8 +145,8 @@ static void ppc_excp_debug_sw_tlb(CPUPPCState *env, int excp)
     if (excp == POWERPC_EXCP_IFTLB) {
         es = "I";
         en = 'I';
-        miss = &env->spr[SPR_IMISS];
-        cmp = &env->spr[SPR_ICMP];
+        miss = target_ulong_array_elem(&env->spr.rec, SPR_IMISS);
+        cmp = target_ulong_array_elem(&env->spr.rec, SPR_ICMP);
     } else {
         if (excp == POWERPC_EXCP_DLTLB) {
             es = "DL";
@@ -154,13 +154,13 @@ static void ppc_excp_debug_sw_tlb(CPUPPCState *env, int excp)
             es = "DS";
         }
         en = 'D';
-        miss = &env->spr[SPR_DMISS];
-        cmp = &env->spr[SPR_DCMP];
+        miss = target_ulong_array_elem(&env->spr.rec, SPR_DMISS);
+        cmp = target_ulong_array_elem(&env->spr.rec, SPR_DCMP);
     }
     qemu_log("6xx %sTLB miss: %cM " TARGET_FMT_lx " %cC "
-             TARGET_FMT_lx " H1 " TARGET_FMT_lx " H2 "
-             TARGET_FMT_lx " %08x\n", es, en, *miss, en, *cmp,
-             env->spr[SPR_HASH1], env->spr[SPR_HASH2],
+             TARGET_FMT_lx " H1 " "%016" PRIx64 " H2 "
+             "%016" PRIx64 " %08x\n", es, en, *miss, en, *cmp,
+             target_ulong_array_val(&env->spr.rec, SPR_HASH1), target_ulong_array_val(&env->spr.rec, SPR_HASH2),
              env->error_code);
 }
 
@@ -289,7 +289,7 @@ static void ppc_excp_apply_ail(PowerPCCPU *cpu, int excp, target_ulong msr,
             /* AIL only works if MSR[IR] and MSR[DR] are both enabled. */
             return;
         }
-        if (hv_escalation && !(env->spr[SPR_LPCR] & LPCR_HR)) {
+        if (hv_escalation && !(target_ulong_array_val(&env->spr.rec, SPR_LPCR) & LPCR_HR)) {
             /*
              * AIL does not work if there is a MSR[HV] 0->1 transition and the
              * partition is in HPT mode. For radix guests, such interrupts are
@@ -298,7 +298,7 @@ static void ppc_excp_apply_ail(PowerPCCPU *cpu, int excp, target_ulong msr,
             return;
         }
 
-        ail = (env->spr[SPR_LPCR] & LPCR_AIL) >> LPCR_AIL_SHIFT;
+        ail = (target_ulong_array_val(&env->spr.rec, SPR_LPCR) & LPCR_AIL) >> LPCR_AIL_SHIFT;
         if (ail == 0 || ail == 1) {
             /* AIL=1 is reserved, treat it like AIL=0 */
             return;
@@ -315,13 +315,13 @@ static void ppc_excp_apply_ail(PowerPCCPU *cpu, int excp, target_ulong msr,
         }
 
         if (*new_msr & MSR_HVB) {
-            if (!(env->spr[SPR_LPCR] & LPCR_HAIL)) {
+            if (!(target_ulong_array_val(&env->spr.rec, SPR_LPCR) & LPCR_HAIL)) {
                 /* HV interrupts depend on LPCR[HAIL] */
                 return;
             }
             ail = 3; /* HAIL=1 gives AIL=3 behaviour for HV interrupts */
         } else {
-            ail = (env->spr[SPR_LPCR] & LPCR_AIL) >> LPCR_AIL_SHIFT;
+            ail = (target_ulong_array_val(&env->spr.rec, SPR_LPCR) & LPCR_AIL) >> LPCR_AIL_SHIFT;
         }
         if (ail == 0 || ail == 1 || ail == 2) {
             /* AIL=1 and AIL=2 are reserved, treat them like AIL=0 */
@@ -378,8 +378,8 @@ static void powerpc_set_excp_state(PowerPCCPU *cpu, target_ulong vector,
      * Note: We *MUST* not use hreg_store_msr() as-is anyway because it will
      * prevent setting of the HV bit which some exceptions might need to do.
      */
-    env->nip = vector;
-    env->msr = msr;
+    target_ulong_set(&env->nip, vector);
+    target_ulong_set(&env->msr, msr);
     hreg_compute_hflags(env);
     ppc_maybe_interrupt(env);
 
@@ -392,13 +392,13 @@ static void powerpc_set_excp_state(PowerPCCPU *cpu, target_ulong vector,
     check_tlb_flush(env, false);
 
     /* Reset the reservation */
-    env->reserve_addr = -1;
+    target_ulong_set(&env->reserve_addr, -1);
 }
 
 static void powerpc_mcheck_checkstop(CPUPPCState *env)
 {
     /* KVM guests always have MSR[ME] enabled */
-    if (FIELD_EX64(env->msr, MSR, ME)) {
+    if (FIELD_EX64(target_ulong_val(&env->msr), MSR, ME)) {
         return;
     }
     assert(tcg_enabled());
@@ -429,13 +429,13 @@ static void powerpc_excp_40x(PowerPCCPU *cpu, int excp)
     CPUPPCState *env = &cpu->env;
     target_ulong msr, new_msr, vector;
     int srr0 = SPR_SRR0, srr1 = SPR_SRR1;
-    uint64_t last_pc = env->nip;
+    uint64_t last_pc = target_ulong_val(&env->nip);
 
     /* new srr1 value excluding must-be-zero bits */
-    msr = env->msr & ~0x783f0000ULL;
+    msr = target_ulong_val(&env->msr) & ~0x783f0000ULL;
 
     /* new interrupt handler msr preserves ME unless explicitly overridden */
-    new_msr = env->msr & (((target_ulong)1 << MSR_ME));
+    new_msr = target_ulong_val(&env->msr) & (((target_ulong)1 << MSR_ME));
 
     /* HV emu assistance interrupt only exists on server arch 2.05 or later */
     if (excp == POWERPC_EXCP_HV_EMU) {
@@ -462,10 +462,10 @@ static void powerpc_excp_40x(PowerPCCPU *cpu, int excp)
         srr1 = SPR_40x_SRR3;
         break;
     case POWERPC_EXCP_DSI:       /* Data storage exception                   */
-        trace_ppc_excp_dsi(env->spr[SPR_40x_ESR], env->spr[SPR_40x_DEAR]);
+        trace_ppc_excp_dsi(target_ulong_array_val(&env->spr.rec, SPR_40x_ESR), target_ulong_array_val(&env->spr.rec, SPR_40x_DEAR));
         break;
     case POWERPC_EXCP_ISI:       /* Instruction storage exception            */
-        trace_ppc_excp_isi(msr, env->nip);
+        trace_ppc_excp_isi(msr, target_ulong_val(&env->nip));
         break;
     case POWERPC_EXCP_EXTERNAL:  /* External input                           */
         break;
@@ -474,23 +474,23 @@ static void powerpc_excp_40x(PowerPCCPU *cpu, int excp)
     case POWERPC_EXCP_PROGRAM:   /* Program exception                        */
         switch (env->error_code & ~0xF) {
         case POWERPC_EXCP_FP:
-            if (!FIELD_EX64_FE(env->msr) || !FIELD_EX64(env->msr, MSR, FP)) {
+            if (!FIELD_EX64_FE(target_ulong_val(&env->msr)) || !FIELD_EX64(target_ulong_val(&env->msr), MSR, FP)) {
                 trace_ppc_excp_fp_ignore();
                 powerpc_reset_excp_state(cpu);
                 qemu_plugin_vcpu_exception_cb(env_cpu(env), last_pc);
                 return;
             }
-            env->spr[SPR_40x_ESR] = ESR_FP;
+            target_ulong_array_set(&env->spr.rec, SPR_40x_ESR, ESR_FP);
             break;
         case POWERPC_EXCP_INVAL:
-            trace_ppc_excp_inval(env->nip);
-            env->spr[SPR_40x_ESR] = ESR_PIL;
+            trace_ppc_excp_inval(target_ulong_val(&env->nip));
+            target_ulong_array_set(&env->spr.rec, SPR_40x_ESR, ESR_PIL);
             break;
         case POWERPC_EXCP_PRIV:
-            env->spr[SPR_40x_ESR] = ESR_PPR;
+            target_ulong_array_set(&env->spr.rec, SPR_40x_ESR, ESR_PPR);
             break;
         case POWERPC_EXCP_TRAP:
-            env->spr[SPR_40x_ESR] = ESR_PTR;
+            target_ulong_array_set(&env->spr.rec, SPR_40x_ESR, ESR_PTR);
             break;
         default:
             cpu_abort(env_cpu(env), "Invalid program exception %d. Aborting\n",
@@ -505,7 +505,7 @@ static void powerpc_excp_40x(PowerPCCPU *cpu, int excp)
          * We need to correct the NIP which in this case is supposed
          * to point to the next instruction
          */
-        env->nip += 4;
+        target_ulong_set(&env->nip, target_ulong_val(&env->nip) + 4);
         break;
     case POWERPC_EXCP_FIT:       /* Fixed-interval timer interrupt           */
         trace_ppc_excp_print("FIT");
@@ -529,8 +529,8 @@ static void powerpc_excp_40x(PowerPCCPU *cpu, int excp)
         break;
     }
 
-    env->spr[srr0] = env->nip;
-    env->spr[srr1] = msr;
+    target_ulong_array_set(&env->spr.rec, srr0, target_ulong_val(&env->nip));
+    target_ulong_array_set(&env->spr.rec, srr1, msr);
     powerpc_set_excp_state(cpu, vector, new_msr);
     powerpc_do_plugin_vcpu_interrupt_cb(env_cpu(env), excp, last_pc);
 }
@@ -539,13 +539,13 @@ static void powerpc_excp_6xx(PowerPCCPU *cpu, int excp)
 {
     CPUPPCState *env = &cpu->env;
     target_ulong msr, new_msr, vector;
-    uint64_t last_pc = env->nip;
+    uint64_t last_pc = target_ulong_val(&env->nip);
 
     /* new srr1 value excluding must-be-zero bits */
-    msr = env->msr & ~0x783f0000ULL;
+    msr = target_ulong_val(&env->msr) & ~0x783f0000ULL;
 
     /* new interrupt handler msr preserves ME unless explicitly overridden */
-    new_msr = env->msr & ((target_ulong)1 << MSR_ME);
+    new_msr = target_ulong_val(&env->msr) & ((target_ulong)1 << MSR_ME);
 
     /* HV emu assistance interrupt only exists on server arch 2.05 or later */
     if (excp == POWERPC_EXCP_HV_EMU) {
@@ -568,10 +568,10 @@ static void powerpc_excp_6xx(PowerPCCPU *cpu, int excp)
         new_msr &= ~((target_ulong)1 << MSR_ME);
         break;
     case POWERPC_EXCP_DSI:       /* Data storage exception                   */
-        trace_ppc_excp_dsi(env->spr[SPR_DSISR], env->spr[SPR_DAR]);
+        trace_ppc_excp_dsi(target_ulong_array_val(&env->spr.rec, SPR_DSISR), target_ulong_array_val(&env->spr.rec, SPR_DAR));
         break;
     case POWERPC_EXCP_ISI:       /* Instruction storage exception            */
-        trace_ppc_excp_isi(msr, env->nip);
+        trace_ppc_excp_isi(msr, target_ulong_val(&env->nip));
         msr |= env->error_code;
         break;
     case POWERPC_EXCP_EXTERNAL:  /* External input                           */
@@ -583,12 +583,12 @@ static void powerpc_excp_6xx(PowerPCCPU *cpu, int excp)
          * direct store load/store, but nobody cares as nobody
          * actually uses direct store segments.
          */
-        env->spr[SPR_DSISR] |= (env->error_code & 0x03FF0000) >> 16;
+        target_ulong_array_set(&env->spr.rec, SPR_DSISR, target_ulong_array_val(&env->spr.rec, SPR_DSISR) | ((env->error_code & 0x03FF0000) >> 16));
         break;
     case POWERPC_EXCP_PROGRAM:   /* Program exception                        */
         switch (env->error_code & ~0xF) {
         case POWERPC_EXCP_FP:
-            if (!FIELD_EX64_FE(env->msr) || !FIELD_EX64(env->msr, MSR, FP)) {
+            if (!FIELD_EX64_FE(target_ulong_val(&env->msr)) || !FIELD_EX64(target_ulong_val(&env->msr), MSR, FP)) {
                 trace_ppc_excp_fp_ignore();
                 powerpc_reset_excp_state(cpu);
                 qemu_plugin_vcpu_exception_cb(env_cpu(env), last_pc);
@@ -601,7 +601,7 @@ static void powerpc_excp_6xx(PowerPCCPU *cpu, int excp)
             msr |= 0x00100000;
             break;
         case POWERPC_EXCP_INVAL:
-            trace_ppc_excp_inval(env->nip);
+            trace_ppc_excp_inval(target_ulong_val(&env->nip));
             msr |= 0x00080000;
             break;
         case POWERPC_EXCP_PRIV:
@@ -624,7 +624,7 @@ static void powerpc_excp_6xx(PowerPCCPU *cpu, int excp)
          * We need to correct the NIP which in this case is supposed
          * to point to the next instruction
          */
-        env->nip += 4;
+        target_ulong_set(&env->nip, target_ulong_val(&env->nip) + 4);
         break;
     case POWERPC_EXCP_FPU:       /* Floating-point unavailable exception     */
     case POWERPC_EXCP_DECR:      /* Decrementer exception                    */
@@ -633,7 +633,7 @@ static void powerpc_excp_6xx(PowerPCCPU *cpu, int excp)
     case POWERPC_EXCP_ITLB:      /* Instruction TLB error                    */
         break;
     case POWERPC_EXCP_RESET:     /* System reset exception                   */
-        if (FIELD_EX64(env->msr, MSR, POW)) {
+        if (FIELD_EX64(target_ulong_val(&env->msr), MSR, POW)) {
             cpu_abort(env_cpu(env),
                       "Trying to deliver power-saving system reset exception "
                       "%d with no HV support\n", excp);
@@ -675,8 +675,8 @@ static void powerpc_excp_6xx(PowerPCCPU *cpu, int excp)
     if (ppc_interrupts_little_endian(cpu, !!(new_msr & MSR_HVB))) {
         new_msr |= (target_ulong)1 << MSR_LE;
     }
-    env->spr[SPR_SRR0] = env->nip;
-    env->spr[SPR_SRR1] = msr;
+    target_ulong_array_set(&env->spr.rec, SPR_SRR0, target_ulong_val(&env->nip));
+    target_ulong_array_set(&env->spr.rec, SPR_SRR1, msr);
     powerpc_set_excp_state(cpu, vector, new_msr);
     powerpc_do_plugin_vcpu_interrupt_cb(env_cpu(env), excp, last_pc);
 }
@@ -685,13 +685,13 @@ static void powerpc_excp_7xx(PowerPCCPU *cpu, int excp)
 {
     CPUPPCState *env = &cpu->env;
     target_ulong msr, new_msr, vector;
-    uint64_t last_pc = env->nip;
+    uint64_t last_pc = target_ulong_val(&env->nip);
 
     /* new srr1 value excluding must-be-zero bits */
-    msr = env->msr & ~0x783f0000ULL;
+    msr = target_ulong_val(&env->msr) & ~0x783f0000ULL;
 
     /* new interrupt handler msr preserves ME unless explicitly overridden */
-    new_msr = env->msr & ((target_ulong)1 << MSR_ME);
+    new_msr = target_ulong_val(&env->msr) & ((target_ulong)1 << MSR_ME);
 
     /* HV emu assistance interrupt only exists on server arch 2.05 or later */
     if (excp == POWERPC_EXCP_HV_EMU) {
@@ -712,10 +712,10 @@ static void powerpc_excp_7xx(PowerPCCPU *cpu, int excp)
         new_msr &= ~((target_ulong)1 << MSR_ME);
         break;
     case POWERPC_EXCP_DSI:       /* Data storage exception                   */
-        trace_ppc_excp_dsi(env->spr[SPR_DSISR], env->spr[SPR_DAR]);
+        trace_ppc_excp_dsi(target_ulong_array_val(&env->spr.rec, SPR_DSISR), target_ulong_array_val(&env->spr.rec, SPR_DAR));
         break;
     case POWERPC_EXCP_ISI:       /* Instruction storage exception            */
-        trace_ppc_excp_isi(msr, env->nip);
+        trace_ppc_excp_isi(msr, target_ulong_val(&env->nip));
         msr |= env->error_code;
         break;
     case POWERPC_EXCP_EXTERNAL:  /* External input                           */
@@ -727,12 +727,12 @@ static void powerpc_excp_7xx(PowerPCCPU *cpu, int excp)
          * direct store load/store, but nobody cares as nobody
          * actually uses direct store segments.
          */
-        env->spr[SPR_DSISR] |= (env->error_code & 0x03FF0000) >> 16;
+        target_ulong_array_set(&env->spr.rec, SPR_DSISR, target_ulong_array_val(&env->spr.rec, SPR_DSISR) | ((env->error_code & 0x03FF0000) >> 16));
         break;
     case POWERPC_EXCP_PROGRAM:   /* Program exception                        */
         switch (env->error_code & ~0xF) {
         case POWERPC_EXCP_FP:
-            if (!FIELD_EX64_FE(env->msr) || !FIELD_EX64(env->msr, MSR, FP)) {
+            if (!FIELD_EX64_FE(target_ulong_val(&env->msr)) || !FIELD_EX64(target_ulong_val(&env->msr), MSR, FP)) {
                 trace_ppc_excp_fp_ignore();
                 powerpc_reset_excp_state(cpu);
                 qemu_plugin_vcpu_exception_cb(env_cpu(env), last_pc);
@@ -745,7 +745,7 @@ static void powerpc_excp_7xx(PowerPCCPU *cpu, int excp)
             msr |= 0x00100000;
             break;
         case POWERPC_EXCP_INVAL:
-            trace_ppc_excp_inval(env->nip);
+            trace_ppc_excp_inval(target_ulong_val(&env->nip));
             msr |= 0x00080000;
             break;
         case POWERPC_EXCP_PRIV:
@@ -775,7 +775,7 @@ static void powerpc_excp_7xx(PowerPCCPU *cpu, int excp)
          * We need to correct the NIP which in this case is supposed
          * to point to the next instruction
          */
-        env->nip += 4;
+        target_ulong_set(&env->nip, target_ulong_val(&env->nip) + 4);
 
         /*
          * The Virtual Open Firmware (VOF) relies on the 'sc 1'
@@ -796,7 +796,7 @@ static void powerpc_excp_7xx(PowerPCCPU *cpu, int excp)
     case POWERPC_EXCP_DECR:      /* Decrementer exception                    */
         break;
     case POWERPC_EXCP_RESET:     /* System reset exception                   */
-        if (FIELD_EX64(env->msr, MSR, POW)) {
+        if (FIELD_EX64(target_ulong_val(&env->msr), MSR, POW)) {
             cpu_abort(env_cpu(env),
                       "Trying to deliver power-saving system reset exception "
                       "%d with no HV support\n", excp);
@@ -829,8 +829,8 @@ static void powerpc_excp_7xx(PowerPCCPU *cpu, int excp)
     if (ppc_interrupts_little_endian(cpu, !!(new_msr & MSR_HVB))) {
         new_msr |= (target_ulong)1 << MSR_LE;
     }
-    env->spr[SPR_SRR0] = env->nip;
-    env->spr[SPR_SRR1] = msr;
+    target_ulong_array_set(&env->spr.rec, SPR_SRR0, target_ulong_val(&env->nip));
+    target_ulong_array_set(&env->spr.rec, SPR_SRR1, msr);
     powerpc_set_excp_state(cpu, vector, new_msr);
     powerpc_do_plugin_vcpu_interrupt_cb(env_cpu(env), excp, last_pc);
 }
@@ -839,13 +839,13 @@ static void powerpc_excp_74xx(PowerPCCPU *cpu, int excp)
 {
     CPUPPCState *env = &cpu->env;
     target_ulong msr, new_msr, vector;
-    uint64_t last_pc = env->nip;
+    uint64_t last_pc = target_ulong_val(&env->nip);
 
     /* new srr1 value excluding must-be-zero bits */
-    msr = env->msr & ~0x783f0000ULL;
+    msr = target_ulong_val(&env->msr) & ~0x783f0000ULL;
 
     /* new interrupt handler msr preserves ME unless explicitly overridden */
-    new_msr = env->msr & ((target_ulong)1 << MSR_ME);
+    new_msr = target_ulong_val(&env->msr) & ((target_ulong)1 << MSR_ME);
 
     /* HV emu assistance interrupt only exists on server arch 2.05 or later */
     if (excp == POWERPC_EXCP_HV_EMU) {
@@ -866,10 +866,10 @@ static void powerpc_excp_74xx(PowerPCCPU *cpu, int excp)
         new_msr &= ~((target_ulong)1 << MSR_ME);
         break;
     case POWERPC_EXCP_DSI:       /* Data storage exception                   */
-        trace_ppc_excp_dsi(env->spr[SPR_DSISR], env->spr[SPR_DAR]);
+        trace_ppc_excp_dsi(target_ulong_array_val(&env->spr.rec, SPR_DSISR), target_ulong_array_val(&env->spr.rec, SPR_DAR));
         break;
     case POWERPC_EXCP_ISI:       /* Instruction storage exception            */
-        trace_ppc_excp_isi(msr, env->nip);
+        trace_ppc_excp_isi(msr, target_ulong_val(&env->nip));
         msr |= env->error_code;
         break;
     case POWERPC_EXCP_EXTERNAL:  /* External input                           */
@@ -881,12 +881,12 @@ static void powerpc_excp_74xx(PowerPCCPU *cpu, int excp)
          * direct store load/store, but nobody cares as nobody
          * actually uses direct store segments.
          */
-        env->spr[SPR_DSISR] |= (env->error_code & 0x03FF0000) >> 16;
+        target_ulong_array_set(&env->spr.rec, SPR_DSISR, target_ulong_array_val(&env->spr.rec, SPR_DSISR) | ((env->error_code & 0x03FF0000) >> 16));
         break;
     case POWERPC_EXCP_PROGRAM:   /* Program exception                        */
         switch (env->error_code & ~0xF) {
         case POWERPC_EXCP_FP:
-            if (!FIELD_EX64_FE(env->msr) || !FIELD_EX64(env->msr, MSR, FP)) {
+            if (!FIELD_EX64_FE(target_ulong_val(&env->msr)) || !FIELD_EX64(target_ulong_val(&env->msr), MSR, FP)) {
                 trace_ppc_excp_fp_ignore();
                 powerpc_reset_excp_state(cpu);
                 qemu_plugin_vcpu_exception_cb(env_cpu(env), last_pc);
@@ -899,7 +899,7 @@ static void powerpc_excp_74xx(PowerPCCPU *cpu, int excp)
             msr |= 0x00100000;
             break;
         case POWERPC_EXCP_INVAL:
-            trace_ppc_excp_inval(env->nip);
+            trace_ppc_excp_inval(target_ulong_val(&env->nip));
             msr |= 0x00080000;
             break;
         case POWERPC_EXCP_PRIV:
@@ -929,7 +929,7 @@ static void powerpc_excp_74xx(PowerPCCPU *cpu, int excp)
          * We need to correct the NIP which in this case is supposed
          * to point to the next instruction
          */
-        env->nip += 4;
+        target_ulong_set(&env->nip, target_ulong_val(&env->nip) + 4);
 
         /*
          * The Virtual Open Firmware (VOF) relies on the 'sc 1'
@@ -950,7 +950,7 @@ static void powerpc_excp_74xx(PowerPCCPU *cpu, int excp)
     case POWERPC_EXCP_DECR:      /* Decrementer exception                    */
         break;
     case POWERPC_EXCP_RESET:     /* System reset exception                   */
-        if (FIELD_EX64(env->msr, MSR, POW)) {
+        if (FIELD_EX64(target_ulong_val(&env->msr), MSR, POW)) {
             cpu_abort(env_cpu(env),
                       "Trying to deliver power-saving system reset "
                       "exception %d with no HV support\n", excp);
@@ -977,8 +977,8 @@ static void powerpc_excp_74xx(PowerPCCPU *cpu, int excp)
     if (ppc_interrupts_little_endian(cpu, !!(new_msr & MSR_HVB))) {
         new_msr |= (target_ulong)1 << MSR_LE;
     }
-    env->spr[SPR_SRR0] = env->nip;
-    env->spr[SPR_SRR1] = msr;
+    target_ulong_array_set(&env->spr.rec, SPR_SRR0, target_ulong_val(&env->nip));
+    target_ulong_array_set(&env->spr.rec, SPR_SRR1, msr);
     powerpc_set_excp_state(cpu, vector, new_msr);
     powerpc_do_plugin_vcpu_interrupt_cb(env_cpu(env), excp, last_pc);
 }
@@ -990,13 +990,13 @@ static void powerpc_excp_ppe42(PowerPCCPU *cpu, int excp)
     target_ulong mcs = PPE42_ISR_MCS_INSTRUCTION;
     bool promote_unmaskable;
 
-    msr = env->msr;
+    msr = target_ulong_val(&env->msr);
 
     /*
      * New interrupt handler msr preserves SIBRC and ME unless explicitly
      * overridden by the exception.  All other MSR bits are zeroed out.
      */
-    new_msr = env->msr & (((target_ulong)1 << MSR_ME) | R_MSR_SIBRC_MASK);
+    new_msr = target_ulong_val(&env->msr) & (((target_ulong)1 << MSR_ME) | R_MSR_SIBRC_MASK);
 
     /* HV emu assistance interrupt only exists on server arch 2.05 or later */
     if (excp == POWERPC_EXCP_HV_EMU) {
@@ -1014,14 +1014,14 @@ static void powerpc_excp_ppe42(PowerPCCPU *cpu, int excp)
     case POWERPC_EXCP_MCHECK:    /* Machine check exception                  */
         break;
     case POWERPC_EXCP_DSI:       /* Data storage exception                   */
-        trace_ppc_excp_dsi(env->spr[SPR_PPE42_ISR], env->spr[SPR_PPE42_EDR]);
+        trace_ppc_excp_dsi(target_ulong_array_val(&env->spr.rec, SPR_PPE42_ISR), target_ulong_array_val(&env->spr.rec, SPR_PPE42_EDR));
         if (promote_unmaskable) {
             excp = POWERPC_EXCP_MCHECK;
             mcs = PPE42_ISR_MCS_DSI;
         }
         break;
     case POWERPC_EXCP_ISI:       /* Instruction storage exception            */
-        trace_ppc_excp_isi(msr, env->nip);
+        trace_ppc_excp_isi(msr, target_ulong_val(&env->nip));
         if (promote_unmaskable) {
             excp = POWERPC_EXCP_MCHECK;
             mcs = PPE42_ISR_MCS_ISI;
@@ -1042,11 +1042,11 @@ static void powerpc_excp_ppe42(PowerPCCPU *cpu, int excp)
         }
         switch (env->error_code & ~0xF) {
         case POWERPC_EXCP_INVAL:
-            trace_ppc_excp_inval(env->nip);
-            env->spr[SPR_PPE42_ISR] &= ~((target_ulong)1 << PPE42_ISR_PTR);
+            trace_ppc_excp_inval(target_ulong_val(&env->nip));
+            target_ulong_array_set(&env->spr.rec, SPR_PPE42_ISR, target_ulong_array_val(&env->spr.rec, SPR_PPE42_ISR) & (~((target_ulong)1 << PPE42_ISR_PTR)));
             break;
         case POWERPC_EXCP_TRAP:
-            env->spr[SPR_PPE42_ISR] |= ((target_ulong)1 << PPE42_ISR_PTR);
+            target_ulong_array_set(&env->spr.rec, SPR_PPE42_ISR, target_ulong_array_val(&env->spr.rec, SPR_PPE42_ISR) | (((target_ulong)1 << PPE42_ISR_PTR)));
             break;
         default:
             /* Should never occur */
@@ -1055,7 +1055,7 @@ static void powerpc_excp_ppe42(PowerPCCPU *cpu, int excp)
             break;
         }
 #ifdef CONFIG_TCG
-        env->spr[SPR_PPE42_EDR] = ppc_ldl_code(env, env->nip);
+        target_ulong_array_set(&env->spr.rec, SPR_PPE42_EDR, ppc_ldl_code(env, target_ulong_val(&env->nip)));
 #endif
         break;
     case POWERPC_EXCP_DECR:      /* Decrementer exception                    */
@@ -1076,21 +1076,21 @@ static void powerpc_excp_ppe42(PowerPCCPU *cpu, int excp)
         break;
     }
 
-    env->spr[SPR_SRR0] = env->nip;
-    env->spr[SPR_SRR1] = msr;
+    target_ulong_array_set(&env->spr.rec, SPR_SRR0, target_ulong_val(&env->nip));
+    target_ulong_array_set(&env->spr.rec, SPR_SRR1, msr);
 
     vector = env->excp_vectors[excp];
     if (vector == (target_ulong)-1ULL) {
         cpu_abort(env_cpu(env),
                   "Raised an exception without defined vector %d\n", excp);
     }
-    vector |= env->spr[SPR_PPE42_IVPR];
+    vector |= target_ulong_array_val(&env->spr.rec, SPR_PPE42_IVPR);
 
     if (excp == POWERPC_EXCP_MCHECK) {
         /* Also set the Machine Check Status (MCS) */
-        env->spr[SPR_PPE42_ISR] &= ~R_PPE42_ISR_MCS_MASK;
-        env->spr[SPR_PPE42_ISR] |= (mcs & R_PPE42_ISR_MCS_MASK);
-        env->spr[SPR_PPE42_ISR] &= ~((target_ulong)1 << PPE42_ISR_MFE);
+        target_ulong_array_set(&env->spr.rec, SPR_PPE42_ISR, target_ulong_array_val(&env->spr.rec, SPR_PPE42_ISR) & (~R_PPE42_ISR_MCS_MASK));
+        target_ulong_array_set(&env->spr.rec, SPR_PPE42_ISR, target_ulong_array_val(&env->spr.rec, SPR_PPE42_ISR) | ((mcs & R_PPE42_ISR_MCS_MASK)));
+        target_ulong_array_set(&env->spr.rec, SPR_PPE42_ISR, target_ulong_array_val(&env->spr.rec, SPR_PPE42_ISR) & (~((target_ulong)1 << PPE42_ISR_MFE)));
 
         /* Machine checks halt execution if MSR_ME is 0 */
         powerpc_mcheck_checkstop(env);
@@ -1107,16 +1107,16 @@ static void powerpc_excp_booke(PowerPCCPU *cpu, int excp)
     CPUPPCState *env = &cpu->env;
     target_ulong msr, new_msr, vector;
     int srr0 = SPR_SRR0, srr1 = SPR_SRR1;
-    uint64_t last_pc = env->nip;
+    uint64_t last_pc = target_ulong_val(&env->nip);
 
     /*
      * Book E does not play games with certain bits of xSRR1 being MSR save
      * bits and others being error status. xSRR1 is the old MSR, period.
      */
-    msr = env->msr;
+    msr = target_ulong_val(&env->msr);
 
     /* new interrupt handler msr preserves ME unless explicitly overridden */
-    new_msr = env->msr & ((target_ulong)1 << MSR_ME);
+    new_msr = target_ulong_val(&env->msr) & ((target_ulong)1 << MSR_ME);
 
     /* HV emu assistance interrupt only exists on server arch 2.05 or later */
     if (excp == POWERPC_EXCP_HV_EMU) {
@@ -1154,21 +1154,21 @@ static void powerpc_excp_booke(PowerPCCPU *cpu, int excp)
         srr0 = SPR_BOOKE_MCSRR0;
         srr1 = SPR_BOOKE_MCSRR1;
 
-        env->spr[SPR_BOOKE_CSRR0] = env->nip;
-        env->spr[SPR_BOOKE_CSRR1] = msr;
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_CSRR0, target_ulong_val(&env->nip));
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_CSRR1, msr);
 
         break;
     case POWERPC_EXCP_DSI:       /* Data storage exception                   */
-        trace_ppc_excp_dsi(env->spr[SPR_BOOKE_ESR], env->spr[SPR_BOOKE_DEAR]);
+        trace_ppc_excp_dsi(target_ulong_array_val(&env->spr.rec, SPR_BOOKE_ESR), target_ulong_array_val(&env->spr.rec, SPR_BOOKE_DEAR));
         break;
     case POWERPC_EXCP_ISI:       /* Instruction storage exception            */
-        trace_ppc_excp_isi(msr, env->nip);
+        trace_ppc_excp_isi(msr, target_ulong_val(&env->nip));
         break;
     case POWERPC_EXCP_EXTERNAL:  /* External input                           */
         if (env->mpic_proxy) {
             CPUState *cs = env_cpu(env);
             /* IACK the IRQ on delivery */
-            env->spr[SPR_BOOKE_EPR] = ldl_phys(cs->as, env->mpic_iack);
+            target_ulong_array_set(&env->spr.rec, SPR_BOOKE_EPR, ldl_phys(cs->as, env->mpic_iack));
         }
         break;
     case POWERPC_EXCP_ALIGN:     /* Alignment exception                      */
@@ -1176,7 +1176,7 @@ static void powerpc_excp_booke(PowerPCCPU *cpu, int excp)
     case POWERPC_EXCP_PROGRAM:   /* Program exception                        */
         switch (env->error_code & ~0xF) {
         case POWERPC_EXCP_FP:
-            if (!FIELD_EX64_FE(env->msr) || !FIELD_EX64(env->msr, MSR, FP)) {
+            if (!FIELD_EX64_FE(target_ulong_val(&env->msr)) || !FIELD_EX64(target_ulong_val(&env->msr), MSR, FP)) {
                 trace_ppc_excp_fp_ignore();
                 powerpc_reset_excp_state(cpu);
                 qemu_plugin_vcpu_exception_cb(env_cpu(env), last_pc);
@@ -1187,20 +1187,20 @@ static void powerpc_excp_booke(PowerPCCPU *cpu, int excp)
              * so always use store_next and claim we are precise in the MSR.
              */
             msr |= 0x00100000;
-            env->spr[SPR_BOOKE_ESR] = ESR_FP;
+            target_ulong_array_set(&env->spr.rec, SPR_BOOKE_ESR, ESR_FP);
             break;
         case POWERPC_EXCP_INVAL:
-            trace_ppc_excp_inval(env->nip);
+            trace_ppc_excp_inval(target_ulong_val(&env->nip));
             msr |= 0x00080000;
-            env->spr[SPR_BOOKE_ESR] = ESR_PIL;
+            target_ulong_array_set(&env->spr.rec, SPR_BOOKE_ESR, ESR_PIL);
             break;
         case POWERPC_EXCP_PRIV:
             msr |= 0x00040000;
-            env->spr[SPR_BOOKE_ESR] = ESR_PPR;
+            target_ulong_array_set(&env->spr.rec, SPR_BOOKE_ESR, ESR_PPR);
             break;
         case POWERPC_EXCP_TRAP:
             msr |= 0x00020000;
-            env->spr[SPR_BOOKE_ESR] = ESR_PTR;
+            target_ulong_array_set(&env->spr.rec, SPR_BOOKE_ESR, ESR_PTR);
             break;
         default:
             /* Should never occur */
@@ -1216,7 +1216,7 @@ static void powerpc_excp_booke(PowerPCCPU *cpu, int excp)
          * We need to correct the NIP which in this case is supposed
          * to point to the next instruction
          */
-        env->nip += 4;
+        target_ulong_set(&env->nip, target_ulong_val(&env->nip) + 4);
         break;
     case POWERPC_EXCP_FPU:       /* Floating-point unavailable exception     */
     case POWERPC_EXCP_APU:       /* Auxiliary processor unavailable          */
@@ -1240,8 +1240,8 @@ static void powerpc_excp_booke(PowerPCCPU *cpu, int excp)
             srr0 = SPR_BOOKE_DSRR0;
             srr1 = SPR_BOOKE_DSRR1;
 
-            env->spr[SPR_BOOKE_CSRR0] = env->nip;
-            env->spr[SPR_BOOKE_CSRR1] = msr;
+            target_ulong_array_set(&env->spr.rec, SPR_BOOKE_CSRR0, target_ulong_val(&env->nip));
+            target_ulong_array_set(&env->spr.rec, SPR_BOOKE_CSRR1, msr);
 
             /* DBSR already modified by caller */
         } else {
@@ -1250,7 +1250,7 @@ static void powerpc_excp_booke(PowerPCCPU *cpu, int excp)
         }
         break;
     case POWERPC_EXCP_SPEU:   /* SPE/embedded floating-point unavailable/VPU  */
-        env->spr[SPR_BOOKE_ESR] = ESR_SPV;
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_ESR, ESR_SPV);
         break;
     case POWERPC_EXCP_DOORI:     /* Embedded doorbell interrupt              */
         break;
@@ -1259,7 +1259,7 @@ static void powerpc_excp_booke(PowerPCCPU *cpu, int excp)
         srr1 = SPR_BOOKE_CSRR1;
         break;
     case POWERPC_EXCP_RESET:     /* System reset exception                   */
-        if (FIELD_EX64(env->msr, MSR, POW)) {
+        if (FIELD_EX64(target_ulong_val(&env->msr), MSR, POW)) {
             cpu_abort(env_cpu(env),
                       "Trying to deliver power-saving system reset "
                       "exception %d with no HV support\n", excp);
@@ -1277,7 +1277,7 @@ static void powerpc_excp_booke(PowerPCCPU *cpu, int excp)
     }
 
 #ifdef TARGET_PPC64
-    if (env->spr[SPR_BOOKE_EPCR] & EPCR_ICM) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_EPCR) & EPCR_ICM) {
         /* Cat.64-bit: EPCR.ICM is copied to MSR.CM */
         new_msr |= (target_ulong)1 << MSR_CM;
     } else {
@@ -1285,8 +1285,8 @@ static void powerpc_excp_booke(PowerPCCPU *cpu, int excp)
     }
 #endif
 
-    env->spr[srr0] = env->nip;
-    env->spr[srr1] = msr;
+    target_ulong_array_set(&env->spr.rec, srr0, target_ulong_val(&env->nip));
+    target_ulong_array_set(&env->spr.rec, srr1, msr);
     powerpc_set_excp_state(cpu, vector, new_msr);
     powerpc_do_plugin_vcpu_interrupt_cb(env_cpu(env), excp, last_pc);
 }
@@ -1368,7 +1368,7 @@ static bool is_prefix_insn_excp(PowerPCCPU *cpu, int excp)
         break;
     case POWERPC_EXCP_HDSI:
         /* HDSI PRTABLE_FAULT has the originating access type in error_code */
-        if ((env->spr[SPR_HDSISR] & DSISR_PRTABLE_FAULT) &&
+        if ((target_ulong_array_val(&env->spr.rec, SPR_HDSISR) & DSISR_PRTABLE_FAULT) &&
             (env->error_code == MMU_INST_FETCH)) {
             /*
              * Fetch failed due to partition scope translation, so prefix
@@ -1396,7 +1396,7 @@ static bool is_prefix_insn_excp(PowerPCCPU *cpu, int excp)
         return false;
     }
 
-    return is_prefix_insn(env, ppc_ldl_code(env, env->nip));
+    return is_prefix_insn(env, ppc_ldl_code(env, target_ulong_val(&env->nip)));
 }
 #else
 static bool is_prefix_insn_excp(PowerPCCPU *cpu, int excp)
@@ -1410,16 +1410,16 @@ static void powerpc_excp_books(PowerPCCPU *cpu, int excp)
     CPUPPCState *env = &cpu->env;
     target_ulong msr, new_msr, vector;
     int srr0 = SPR_SRR0, srr1 = SPR_SRR1, lev = -1;
-    uint64_t last_pc = env->nip;
+    uint64_t last_pc = target_ulong_val(&env->nip);
 
     /* new srr1 value excluding must-be-zero bits */
-    msr = env->msr & ~0x783f0000ULL;
+    msr = target_ulong_val(&env->msr) & ~0x783f0000ULL;
 
     /*
      * new interrupt handler msr preserves HV and ME unless explicitly
      * overridden
      */
-    new_msr = env->msr & (((target_ulong)1 << MSR_ME) | MSR_HVB);
+    new_msr = target_ulong_val(&env->msr) & (((target_ulong)1 << MSR_ME) | MSR_HVB);
 
     /*
      * check for special resume at 0x100 from doze/nap/sleep/winkle on
@@ -1469,10 +1469,10 @@ static void powerpc_excp_books(PowerPCCPU *cpu, int excp)
         break;
 
     case POWERPC_EXCP_DSI:       /* Data storage exception                   */
-        trace_ppc_excp_dsi(env->spr[SPR_DSISR], env->spr[SPR_DAR]);
+        trace_ppc_excp_dsi(target_ulong_array_val(&env->spr.rec, SPR_DSISR), target_ulong_array_val(&env->spr.rec, SPR_DAR));
         break;
     case POWERPC_EXCP_ISI:       /* Instruction storage exception            */
-        trace_ppc_excp_isi(msr, env->nip);
+        trace_ppc_excp_isi(msr, target_ulong_val(&env->nip));
         msr |= env->error_code;
         break;
     case POWERPC_EXCP_EXTERNAL:  /* External input                           */
@@ -1483,10 +1483,10 @@ static void powerpc_excp_books(PowerPCCPU *cpu, int excp)
         if (!env->has_hv_mode) {
             break;
         }
-        lpes0 = !!(env->spr[SPR_LPCR] & LPCR_LPES0);
+        lpes0 = !!(target_ulong_array_val(&env->spr.rec, SPR_LPCR) & LPCR_LPES0);
         if (!lpes0) {
             new_msr |= (target_ulong)MSR_HVB;
-            new_msr |= env->msr & ((target_ulong)1 << MSR_RI);
+            new_msr |= target_ulong_val(&env->msr) & ((target_ulong)1 << MSR_RI);
             srr0 = SPR_HSRR0;
             srr1 = SPR_HSRR1;
         }
@@ -1501,13 +1501,13 @@ static void powerpc_excp_books(PowerPCCPU *cpu, int excp)
              * direct store load/store, but nobody cares as nobody
              * actually uses direct store segments.
              */
-            env->spr[SPR_DSISR] |= (env->error_code & 0x03FF0000) >> 16;
+            target_ulong_array_set(&env->spr.rec, SPR_DSISR, target_ulong_array_val(&env->spr.rec, SPR_DSISR) | ((env->error_code & 0x03FF0000) >> 16));
         }
         break;
     case POWERPC_EXCP_PROGRAM:   /* Program exception                        */
         switch (env->error_code & ~0xF) {
         case POWERPC_EXCP_FP:
-            if (!FIELD_EX64_FE(env->msr) || !FIELD_EX64(env->msr, MSR, FP)) {
+            if (!FIELD_EX64_FE(target_ulong_val(&env->msr)) || !FIELD_EX64(target_ulong_val(&env->msr), MSR, FP)) {
                 trace_ppc_excp_fp_ignore();
                 powerpc_reset_excp_state(cpu);
                 qemu_plugin_vcpu_exception_cb(env_cpu(env), last_pc);
@@ -1520,7 +1520,7 @@ static void powerpc_excp_books(PowerPCCPU *cpu, int excp)
             msr |= 0x00100000;
             break;
         case POWERPC_EXCP_INVAL:
-            trace_ppc_excp_inval(env->nip);
+            trace_ppc_excp_inval(target_ulong_val(&env->nip));
             msr |= 0x00080000;
             break;
         case POWERPC_EXCP_PRIV:
@@ -1549,7 +1549,7 @@ static void powerpc_excp_books(PowerPCCPU *cpu, int excp)
          * We need to correct the NIP which in this case is supposed
          * to point to the next instruction
          */
-        env->nip += 4;
+        target_ulong_set(&env->nip, target_ulong_val(&env->nip) + 4);
 
         /* "PAPR mode" built-in hypercall emulation */
         if (lev == 1 && books_vhyp_handles_hcall(cpu)) {
@@ -1569,13 +1569,13 @@ static void powerpc_excp_books(PowerPCCPU *cpu, int excp)
     case POWERPC_EXCP_SYSCALL_VECTORED: /* scv exception                     */
         lev = env->error_code;
         dump_syscall(env);
-        env->nip += 4;
-        new_msr |= env->msr & ((target_ulong)1 << MSR_EE);
-        new_msr |= env->msr & ((target_ulong)1 << MSR_RI);
+        target_ulong_set(&env->nip, target_ulong_val(&env->nip) + 4);
+        new_msr |= target_ulong_val(&env->msr) & ((target_ulong)1 << MSR_EE);
+        new_msr |= target_ulong_val(&env->msr) & ((target_ulong)1 << MSR_RI);
 
         vector += lev * 0x20;
 
-        env->lr = env->nip;
+        env->lr = target_ulong_val(&env->nip);
         env->ctr = msr;
         break;
     case POWERPC_EXCP_FPU:       /* Floating-point unavailable exception     */
@@ -1583,7 +1583,7 @@ static void powerpc_excp_books(PowerPCCPU *cpu, int excp)
         break;
     case POWERPC_EXCP_RESET:     /* System reset exception                   */
         /* A power-saving exception sets ME, otherwise it is unchanged */
-        if (FIELD_EX64(env->msr, MSR, POW)) {
+        if (FIELD_EX64(target_ulong_val(&env->msr), MSR, POW)) {
             /* indicate that we resumed from power save mode */
             msr |= 0x10000;
             new_msr |= ((target_ulong)1 << MSR_ME);
@@ -1595,7 +1595,7 @@ static void powerpc_excp_books(PowerPCCPU *cpu, int excp)
              */
             new_msr |= (target_ulong)MSR_HVB;
         } else {
-            if (FIELD_EX64(env->msr, MSR, POW)) {
+            if (FIELD_EX64(target_ulong_val(&env->msr), MSR, POW)) {
                 cpu_abort(env_cpu(env),
                           "Trying to deliver power-saving system reset "
                           "exception %d with no HV support\n", excp);
@@ -1620,46 +1620,46 @@ static void powerpc_excp_books(PowerPCCPU *cpu, int excp)
         srr0 = SPR_HSRR0;
         srr1 = SPR_HSRR1;
         new_msr |= (target_ulong)MSR_HVB;
-        new_msr |= env->msr & ((target_ulong)1 << MSR_RI);
+        new_msr |= target_ulong_val(&env->msr) & ((target_ulong)1 << MSR_RI);
         break;
 #ifdef CONFIG_TCG
     case POWERPC_EXCP_HV_EMU: {
-        uint32_t insn = ppc_ldl_code(env, env->nip);
-        env->spr[SPR_HEIR] = insn;
+        uint32_t insn = ppc_ldl_code(env, target_ulong_val(&env->nip));
+        target_ulong_array_set(&env->spr.rec, SPR_HEIR, insn);
         if (is_prefix_insn(env, insn)) {
-            uint32_t insn2 = ppc_ldl_code(env, env->nip + 4);
-            env->spr[SPR_HEIR] <<= 32;
-            env->spr[SPR_HEIR] |= insn2;
+            uint32_t insn2 = ppc_ldl_code(env, target_ulong_val(&env->nip) + 4);
+            target_ulong_array_set(&env->spr.rec, SPR_HEIR, target_ulong_array_val(&env->spr.rec, SPR_HEIR) << 32);
+            target_ulong_array_set(&env->spr.rec, SPR_HEIR, target_ulong_array_val(&env->spr.rec, SPR_HEIR) | (insn2));
         }
         srr0 = SPR_HSRR0;
         srr1 = SPR_HSRR1;
         new_msr |= (target_ulong)MSR_HVB;
-        new_msr |= env->msr & ((target_ulong)1 << MSR_RI);
+        new_msr |= target_ulong_val(&env->msr) & ((target_ulong)1 << MSR_RI);
         break;
     }
 #endif
     case POWERPC_EXCP_VPU:       /* Vector unavailable exception             */
     case POWERPC_EXCP_VSXU:       /* VSX unavailable exception               */
     case POWERPC_EXCP_FU:         /* Facility unavailable exception          */
-        env->spr[SPR_FSCR] |= ((target_ulong)env->error_code << 56);
+        target_ulong_array_set(&env->spr.rec, SPR_FSCR, target_ulong_array_val(&env->spr.rec, SPR_FSCR) | (((target_ulong)env->error_code << 56)));
         break;
     case POWERPC_EXCP_HV_FU:     /* Hypervisor Facility Unavailable Exception */
-        env->spr[SPR_HFSCR] |= ((target_ulong)env->error_code << FSCR_IC_POS);
+        target_ulong_array_set(&env->spr.rec, SPR_HFSCR, target_ulong_array_val(&env->spr.rec, SPR_HFSCR) | (((target_ulong)env->error_code << FSCR_IC_POS)));
         srr0 = SPR_HSRR0;
         srr1 = SPR_HSRR1;
         new_msr |= (target_ulong)MSR_HVB;
-        new_msr |= env->msr & ((target_ulong)1 << MSR_RI);
+        new_msr |= target_ulong_val(&env->msr) & ((target_ulong)1 << MSR_RI);
         break;
     case POWERPC_EXCP_PERFM_EBB:        /* Performance Monitor EBB Exception  */
     case POWERPC_EXCP_EXTERNAL_EBB:     /* External EBB Exception             */
-        env->spr[SPR_BESCR] &= ~BESCR_GE;
+        target_ulong_array_set(&env->spr.rec, SPR_BESCR, target_ulong_array_val(&env->spr.rec, SPR_BESCR) & (~BESCR_GE));
 
         /*
          * Save NIP for rfebb insn in SPR_EBBRR. Next nip is
          * stored in the EBB Handler SPR_EBBHR.
          */
-        env->spr[SPR_EBBRR] = env->nip;
-        powerpc_set_excp_state(cpu, env->spr[SPR_EBBHR], env->msr);
+        target_ulong_array_set(&env->spr.rec, SPR_EBBRR, target_ulong_val(&env->nip));
+        powerpc_set_excp_state(cpu, target_ulong_array_val(&env->spr.rec, SPR_EBBHR), target_ulong_val(&env->msr));
 
         /*
          * This exception is handled in userspace. No need to proceed.
@@ -1684,8 +1684,8 @@ static void powerpc_excp_books(PowerPCCPU *cpu, int excp)
     new_msr |= (target_ulong)1 << MSR_SF;
 
     if (excp != POWERPC_EXCP_SYSCALL_VECTORED) {
-        env->spr[srr0] = env->nip;
-        env->spr[srr1] = msr;
+        target_ulong_array_set(&env->spr.rec, srr0, target_ulong_val(&env->nip));
+        target_ulong_array_set(&env->spr.rec, srr1, msr);
     }
 
     if ((new_msr & MSR_HVB) && books_vhyp_handles_hv_excp(cpu)) {
@@ -1720,8 +1720,8 @@ void powerpc_excp(PowerPCCPU *cpu, int excp)
                   excp);
     }
 
-    qemu_log_mask(CPU_LOG_INT, "Raise exception at " TARGET_FMT_lx
-                  " => %s (%d) error=%02x\n", env->nip, powerpc_excp_name(excp),
+    qemu_log_mask(CPU_LOG_INT, "Raise exception at " "%016" PRIx64
+                  " => %s (%d) error=%02x\n", target_ulong_val(&env->nip), powerpc_excp_name(excp),
                   excp, env->error_code);
     env->excp_stats[excp]++;
 
@@ -1803,7 +1803,7 @@ static int p7_next_unmasked_interrupt(CPUPPCState *env,
     CPUState *cs = env_cpu(env);
 
     /* Ignore MSR[EE] when coming out of some power management states */
-    bool msr_ee = FIELD_EX64(env->msr, MSR, EE) || env->resume_as_sreset;
+    bool msr_ee = FIELD_EX64(target_ulong_val(&env->msr), MSR, EE) || env->resume_as_sreset;
 
     assert((pending_interrupts & P7_UNUSED_INTERRUPTS) == 0);
 
@@ -1820,8 +1820,8 @@ static int p7_next_unmasked_interrupt(CPUPPCState *env,
     /* Hypervisor decrementer exception */
     if (pending_interrupts & PPC_INTERRUPT_HDECR) {
         /* LPCR will be clear when not supported so this will work */
-        bool hdice = !!(env->spr[SPR_LPCR] & LPCR_HDICE);
-        if ((msr_ee || !FIELD_EX64_HV(env->msr)) && hdice) {
+        bool hdice = !!(target_ulong_array_val(&env->spr.rec, SPR_LPCR) & LPCR_HDICE);
+        if ((msr_ee || !FIELD_EX64_HV(target_ulong_val(&env->msr))) && hdice) {
             /* HDEC clears on delivery */
             return PPC_INTERRUPT_HDECR;
         }
@@ -1832,9 +1832,9 @@ static int p7_next_unmasked_interrupt(CPUPPCState *env,
         bool lpes0 = !!(lpcr & LPCR_LPES0);
         bool heic = !!(lpcr & LPCR_HEIC);
         /* HEIC blocks delivery to the hypervisor */
-        if ((msr_ee && !(heic && FIELD_EX64_HV(env->msr) &&
-            !FIELD_EX64(env->msr, MSR, PR))) ||
-            (env->has_hv_mode && !FIELD_EX64_HV(env->msr) && !lpes0)) {
+        if ((msr_ee && !(heic && FIELD_EX64_HV(target_ulong_val(&env->msr)) &&
+            !FIELD_EX64(target_ulong_val(&env->msr), MSR, PR))) ||
+            (env->has_hv_mode && !FIELD_EX64_HV(target_ulong_val(&env->msr)) && !lpes0)) {
             return PPC_INTERRUPT_EXT;
         }
     }
@@ -1896,7 +1896,7 @@ static int p8_next_unmasked_interrupt(CPUPPCState *env,
     CPUState *cs = env_cpu(env);
 
     /* Ignore MSR[EE] when coming out of some power management states */
-    bool msr_ee = FIELD_EX64(env->msr, MSR, EE) || env->resume_as_sreset;
+    bool msr_ee = FIELD_EX64(target_ulong_val(&env->msr), MSR, EE) || env->resume_as_sreset;
 
     assert((env->pending_interrupts & P8_UNUSED_INTERRUPTS) == 0);
 
@@ -1914,7 +1914,7 @@ static int p8_next_unmasked_interrupt(CPUPPCState *env,
     if (pending_interrupts & PPC_INTERRUPT_HDECR) {
         /* LPCR will be clear when not supported so this will work */
         bool hdice = !!(lpcr & LPCR_HDICE);
-        if ((msr_ee || !FIELD_EX64_HV(env->msr)) && hdice) {
+        if ((msr_ee || !FIELD_EX64_HV(target_ulong_val(&env->msr))) && hdice) {
             /* HDEC clears on delivery */
             return PPC_INTERRUPT_HDECR;
         }
@@ -1925,9 +1925,9 @@ static int p8_next_unmasked_interrupt(CPUPPCState *env,
         bool lpes0 = !!(lpcr & LPCR_LPES0);
         bool heic = !!(lpcr & LPCR_HEIC);
         /* HEIC blocks delivery to the hypervisor */
-        if ((msr_ee && !(heic && FIELD_EX64_HV(env->msr) &&
-            !FIELD_EX64(env->msr, MSR, PR))) ||
-            (env->has_hv_mode && !FIELD_EX64_HV(env->msr) && !lpes0)) {
+        if ((msr_ee && !(heic && FIELD_EX64_HV(target_ulong_val(&env->msr)) &&
+            !FIELD_EX64(target_ulong_val(&env->msr), MSR, PR))) ||
+            (env->has_hv_mode && !FIELD_EX64_HV(target_ulong_val(&env->msr)) && !lpes0)) {
             return PPC_INTERRUPT_EXT;
         }
     }
@@ -1951,8 +1951,8 @@ static int p8_next_unmasked_interrupt(CPUPPCState *env,
              * EBB exception must be taken in problem state and
              * with BESCR_GE set.
              */
-            if (FIELD_EX64(env->msr, MSR, PR) &&
-                (env->spr[SPR_BESCR] & BESCR_GE)) {
+            if (FIELD_EX64(target_ulong_val(&env->msr), MSR, PR) &&
+                (target_ulong_array_val(&env->spr.rec, SPR_BESCR) & BESCR_GE)) {
                 return PPC_INTERRUPT_EBB;
             }
         }
@@ -1975,8 +1975,8 @@ static int p9_interrupt_powersave(CPUPPCState *env,
     if ((pending_interrupts & PPC_INTERRUPT_EXT) &&
         (lpcr & LPCR_EEE)) {
         bool heic = !!(lpcr & LPCR_HEIC);
-        if (!heic || !FIELD_EX64_HV(env->msr) ||
-            FIELD_EX64(env->msr, MSR, PR)) {
+        if (!heic || !FIELD_EX64_HV(target_ulong_val(&env->msr)) ||
+            FIELD_EX64(target_ulong_val(&env->msr), MSR, PR)) {
             return PPC_INTERRUPT_EXT;
         }
     }
@@ -2022,12 +2022,12 @@ static int p9_next_unmasked_interrupt(CPUPPCState *env,
     CPUState *cs = env_cpu(env);
 
     /* Ignore MSR[EE] when coming out of some power management states */
-    bool msr_ee = FIELD_EX64(env->msr, MSR, EE) || env->resume_as_sreset;
+    bool msr_ee = FIELD_EX64(target_ulong_val(&env->msr), MSR, EE) || env->resume_as_sreset;
 
     assert((pending_interrupts & P9_UNUSED_INTERRUPTS) == 0);
 
     if (cs->halted) {
-        if (env->spr[SPR_PSSCR] & PSSCR_EC) {
+        if (target_ulong_array_val(&env->spr.rec, SPR_PSSCR) & PSSCR_EC) {
             /*
              * When PSSCR[EC] is set, LPCR[PECE] controls which interrupts can
              * wakeup the processor
@@ -2051,7 +2051,7 @@ static int p9_next_unmasked_interrupt(CPUPPCState *env,
     if (pending_interrupts & PPC_INTERRUPT_HDECR) {
         /* LPCR will be clear when not supported so this will work */
         bool hdice = !!(lpcr & LPCR_HDICE);
-        if ((msr_ee || !FIELD_EX64_HV(env->msr)) && hdice) {
+        if ((msr_ee || !FIELD_EX64_HV(target_ulong_val(&env->msr))) && hdice) {
             /* HDEC clears on delivery */
             return PPC_INTERRUPT_HDECR;
         }
@@ -2061,7 +2061,7 @@ static int p9_next_unmasked_interrupt(CPUPPCState *env,
     if (pending_interrupts & PPC_INTERRUPT_HVIRT) {
         /* LPCR will be clear when not supported so this will work */
         bool hvice = !!(lpcr & LPCR_HVICE);
-        if ((msr_ee || !FIELD_EX64_HV(env->msr)) && hvice) {
+        if ((msr_ee || !FIELD_EX64_HV(target_ulong_val(&env->msr))) && hvice) {
             return PPC_INTERRUPT_HVIRT;
         }
     }
@@ -2071,9 +2071,9 @@ static int p9_next_unmasked_interrupt(CPUPPCState *env,
         bool lpes0 = !!(lpcr & LPCR_LPES0);
         bool heic = !!(lpcr & LPCR_HEIC);
         /* HEIC blocks delivery to the hypervisor */
-        if ((msr_ee && !(heic && FIELD_EX64_HV(env->msr) &&
-            !FIELD_EX64(env->msr, MSR, PR))) ||
-            (env->has_hv_mode && !FIELD_EX64_HV(env->msr) && !lpes0)) {
+        if ((msr_ee && !(heic && FIELD_EX64_HV(target_ulong_val(&env->msr)) &&
+            !FIELD_EX64(target_ulong_val(&env->msr), MSR, PR))) ||
+            (env->has_hv_mode && !FIELD_EX64_HV(target_ulong_val(&env->msr)) && !lpes0)) {
             return PPC_INTERRUPT_EXT;
         }
     }
@@ -2097,8 +2097,8 @@ static int p9_next_unmasked_interrupt(CPUPPCState *env,
              * EBB exception must be taken in problem state and
              * with BESCR_GE set.
              */
-            if (FIELD_EX64(env->msr, MSR, PR) &&
-                (env->spr[SPR_BESCR] & BESCR_GE)) {
+            if (FIELD_EX64(target_ulong_val(&env->msr), MSR, PR) &&
+                (target_ulong_array_val(&env->spr.rec, SPR_BESCR) & BESCR_GE)) {
                 return PPC_INTERRUPT_EBB;
             }
         }
@@ -2121,7 +2121,7 @@ static int ppe42_next_unmasked_interrupt(CPUPPCState *env)
         return PPC_INTERRUPT_MCK;
     }
 
-    async_deliver = FIELD_EX64(env->msr, MSR, EE);
+    async_deliver = FIELD_EX64(target_ulong_val(&env->msr), MSR, EE);
 
     if (async_deliver != 0) {
         /* Watchdog timer */
@@ -2148,7 +2148,7 @@ static int ppe42_next_unmasked_interrupt(CPUPPCState *env)
 static int ppc_next_unmasked_interrupt(CPUPPCState *env)
 {
     uint32_t pending_interrupts = env->pending_interrupts;
-    target_ulong lpcr = env->spr[SPR_LPCR];
+    target_ulong lpcr = target_ulong_array_val(&env->spr.rec, SPR_LPCR);
     bool async_deliver;
 
     if (unlikely(env->quiesced)) {
@@ -2195,13 +2195,13 @@ static int ppc_next_unmasked_interrupt(CPUPPCState *env)
      * clear when coming out of some power management states (in order
      * for them to become a 0x100).
      */
-    async_deliver = FIELD_EX64(env->msr, MSR, EE) || env->resume_as_sreset;
+    async_deliver = FIELD_EX64(target_ulong_val(&env->msr), MSR, EE) || env->resume_as_sreset;
 
     /* Hypervisor decrementer exception */
     if (pending_interrupts & PPC_INTERRUPT_HDECR) {
         /* LPCR will be clear when not supported so this will work */
         bool hdice = !!(lpcr & LPCR_HDICE);
-        if ((async_deliver || !FIELD_EX64_HV(env->msr)) && hdice) {
+        if ((async_deliver || !FIELD_EX64_HV(target_ulong_val(&env->msr))) && hdice) {
             /* HDEC clears on delivery */
             return PPC_INTERRUPT_HDECR;
         }
@@ -2211,7 +2211,7 @@ static int ppc_next_unmasked_interrupt(CPUPPCState *env)
     if (pending_interrupts & PPC_INTERRUPT_HVIRT) {
         /* LPCR will be clear when not supported so this will work */
         bool hvice = !!(lpcr & LPCR_HVICE);
-        if ((async_deliver || !FIELD_EX64_HV(env->msr)) && hvice) {
+        if ((async_deliver || !FIELD_EX64_HV(target_ulong_val(&env->msr))) && hvice) {
             return PPC_INTERRUPT_HVIRT;
         }
     }
@@ -2221,13 +2221,13 @@ static int ppc_next_unmasked_interrupt(CPUPPCState *env)
         bool lpes0 = !!(lpcr & LPCR_LPES0);
         bool heic = !!(lpcr & LPCR_HEIC);
         /* HEIC blocks delivery to the hypervisor */
-        if ((async_deliver && !(heic && FIELD_EX64_HV(env->msr) &&
-            !FIELD_EX64(env->msr, MSR, PR))) ||
-            (env->has_hv_mode && !FIELD_EX64_HV(env->msr) && !lpes0)) {
+        if ((async_deliver && !(heic && FIELD_EX64_HV(target_ulong_val(&env->msr)) &&
+            !FIELD_EX64(target_ulong_val(&env->msr), MSR, PR))) ||
+            (env->has_hv_mode && !FIELD_EX64_HV(target_ulong_val(&env->msr)) && !lpes0)) {
             return PPC_INTERRUPT_EXT;
         }
     }
-    if (FIELD_EX64(env->msr, MSR, CE)) {
+    if (FIELD_EX64(target_ulong_val(&env->msr), MSR, CE)) {
         /* External critical interrupt */
         if (pending_interrupts & PPC_INTERRUPT_CEXT) {
             return PPC_INTERRUPT_CEXT;
@@ -2272,8 +2272,8 @@ static int ppc_next_unmasked_interrupt(CPUPPCState *env)
              * EBB exception must be taken in problem state and
              * with BESCR_GE set.
              */
-            if (FIELD_EX64(env->msr, MSR, PR) &&
-                (env->spr[SPR_BESCR] & BESCR_GE)) {
+            if (FIELD_EX64(target_ulong_val(&env->msr), MSR, PR) &&
+                (target_ulong_array_val(&env->spr.rec, SPR_BESCR) & BESCR_GE)) {
                 return PPC_INTERRUPT_EBB;
             }
         }
@@ -2406,9 +2406,9 @@ static void p8_deliver_interrupt(CPUPPCState *env, int interrupt)
         break;
     case PPC_INTERRUPT_EBB: /* EBB exception */
         env->pending_interrupts &= ~PPC_INTERRUPT_EBB;
-        if (env->spr[SPR_BESCR] & BESCR_PMEO) {
+        if (target_ulong_array_val(&env->spr.rec, SPR_BESCR) & BESCR_PMEO) {
             powerpc_excp(cpu, POWERPC_EXCP_PERFM_EBB);
-        } else if (env->spr[SPR_BESCR] & BESCR_EEO) {
+        } else if (target_ulong_array_val(&env->spr.rec, SPR_BESCR) & BESCR_EEO) {
             powerpc_excp(cpu, POWERPC_EXCP_EXTERNAL_EBB);
         }
         break;
@@ -2437,8 +2437,8 @@ static void p9_deliver_interrupt(CPUPPCState *env, int interrupt)
     PowerPCCPU *cpu = env_archcpu(env);
     CPUState *cs = env_cpu(env);
 
-    if (cs->halted && !(env->spr[SPR_PSSCR] & PSSCR_EC) &&
-        !FIELD_EX64(env->msr, MSR, EE)) {
+    if (cs->halted && !(target_ulong_array_val(&env->spr.rec, SPR_PSSCR) & PSSCR_EC) &&
+        !FIELD_EX64(target_ulong_val(&env->msr), MSR, EE)) {
         /*
          * A pending interrupt took us out of power-saving, but MSR[EE] says
          * that we should return to NIP+4 instead of delivering it.
@@ -2490,9 +2490,9 @@ static void p9_deliver_interrupt(CPUPPCState *env, int interrupt)
         break;
     case PPC_INTERRUPT_EBB: /* EBB exception */
         env->pending_interrupts &= ~PPC_INTERRUPT_EBB;
-        if (env->spr[SPR_BESCR] & BESCR_PMEO) {
+        if (target_ulong_array_val(&env->spr.rec, SPR_BESCR) & BESCR_PMEO) {
             powerpc_excp(cpu, POWERPC_EXCP_PERFM_EBB);
-        } else if (env->spr[SPR_BESCR] & BESCR_EEO) {
+        } else if (target_ulong_array_val(&env->spr.rec, SPR_BESCR) & BESCR_EEO) {
             powerpc_excp(cpu, POWERPC_EXCP_EXTERNAL_EBB);
         }
         break;
@@ -2608,9 +2608,9 @@ static void ppc_deliver_interrupt(CPUPPCState *env, int interrupt)
         break;
     case PPC_INTERRUPT_EBB: /* EBB exception */
         env->pending_interrupts &= ~PPC_INTERRUPT_EBB;
-        if (env->spr[SPR_BESCR] & BESCR_PMEO) {
+        if (target_ulong_array_val(&env->spr.rec, SPR_BESCR) & BESCR_PMEO) {
             powerpc_excp(cpu, POWERPC_EXCP_PERFM_EBB);
-        } else if (env->spr[SPR_BESCR] & BESCR_EEO) {
+        } else if (target_ulong_array_val(&env->spr.rec, SPR_BESCR) & BESCR_EEO) {
             powerpc_excp(cpu, POWERPC_EXCP_EXTERNAL_EBB);
         }
         break;
@@ -2658,7 +2658,7 @@ void ppc_cpu_do_fwnmi_machine_check(CPUState *cs, target_ulong vector)
      * been set by KVM.
      */
     msr = (1ULL << MSR_ME);
-    msr |= env->msr & (1ULL << MSR_SF);
+    msr |= target_ulong_val(&env->msr) & (1ULL << MSR_SF);
     if (ppc_interrupts_little_endian(cpu, false)) {
         msr |= (1ULL << MSR_LE);
     }

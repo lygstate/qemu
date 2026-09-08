@@ -33,14 +33,14 @@
 /* SPR accesses */
 void helper_load_dump_spr(CPUPPCState *env, uint32_t sprn)
 {
-    qemu_log("Read SPR %d %03x => " TARGET_FMT_lx "\n", sprn, sprn,
-             env->spr[sprn]);
+    qemu_log("Read SPR %d %03x => " "%016" PRIx64 "\n", sprn, sprn,
+             target_ulong_array_val(&env->spr.rec, sprn));
 }
 
 void helper_store_dump_spr(CPUPPCState *env, uint32_t sprn)
 {
-    qemu_log("Write SPR %d %03x <= " TARGET_FMT_lx "\n", sprn, sprn,
-             env->spr[sprn]);
+    qemu_log("Write SPR %d %03x <= " "%016" PRIx64 "\n", sprn, sprn,
+             target_ulong_array_val(&env->spr.rec, sprn));
 }
 
 void helper_spr_core_write_generic(CPUPPCState *env, uint32_t sprn,
@@ -50,13 +50,13 @@ void helper_spr_core_write_generic(CPUPPCState *env, uint32_t sprn,
     CPUState *ccs;
 
     if (ppc_cpu_core_single_threaded(cs)) {
-        env->spr[sprn] = val;
+        target_ulong_array_set(&env->spr.rec, sprn, val);
         return;
     }
 
     THREAD_SIBLING_FOREACH(cs, ccs) {
         CPUPPCState *cenv = &POWERPC_CPU(ccs)->env;
-        cenv->spr[sprn] = val;
+        target_ulong_array_set(&cenv->spr.rec, sprn, val);
     }
 }
 
@@ -70,17 +70,17 @@ void helper_spr_write_CTRL(CPUPPCState *env, uint32_t sprn,
 
     assert(sprn == SPR_CTRL);
 
-    env->spr[sprn] &= ~1U;
-    env->spr[sprn] |= run;
+    target_ulong_array_set(&env->spr.rec, sprn, target_ulong_array_val(&env->spr.rec, sprn) & (~1U));
+    target_ulong_array_set(&env->spr.rec, sprn, target_ulong_array_val(&env->spr.rec, sprn) | (run));
 
-    ts_mask = ~(1U << (8 + env->spr[SPR_TIR]));
-    ts = run << (8 + env->spr[SPR_TIR]);
+    ts_mask = ~(1U << (8 + target_ulong_array_val(&env->spr.rec, SPR_TIR)));
+    ts = run << (8 + target_ulong_array_val(&env->spr.rec, SPR_TIR));
 
     THREAD_SIBLING_FOREACH(cs, ccs) {
         CPUPPCState *cenv = &POWERPC_CPU(ccs)->env;
 
-        cenv->spr[sprn] &= ts_mask;
-        cenv->spr[sprn] |= ts;
+        target_ulong_array_set(&cenv->spr.rec, sprn, target_ulong_array_val(&cenv->spr.rec, sprn) & (ts_mask));
+        target_ulong_array_set(&cenv->spr.rec, sprn, target_ulong_array_val(&cenv->spr.rec, sprn) | (ts));
     }
 }
 
@@ -93,7 +93,7 @@ static void raise_hv_fu_exception(CPUPPCState *env, uint32_t bit,
     qemu_log_mask(CPU_LOG_INT, "HV Facility %d is unavailable (%s)\n",
                   bit, caller);
 
-    env->spr[SPR_HFSCR] &= ~((target_ulong)FSCR_IC_MASK << FSCR_IC_POS);
+    target_ulong_array_set(&env->spr.rec, SPR_HFSCR, target_ulong_array_val(&env->spr.rec, SPR_HFSCR) & (~((target_ulong)FSCR_IC_MASK << FSCR_IC_POS)));
 
     raise_exception_err_ra(env, POWERPC_EXCP_HV_FU, cause, raddr);
 }
@@ -104,9 +104,9 @@ static void raise_fu_exception(CPUPPCState *env, uint32_t bit,
 {
     qemu_log("Facility SPR %d is unavailable (SPR FSCR:%d)\n", sprn, bit);
 
-    env->spr[SPR_FSCR] &= ~((target_ulong)FSCR_IC_MASK << FSCR_IC_POS);
+    target_ulong_array_set(&env->spr.rec, SPR_FSCR, target_ulong_array_val(&env->spr.rec, SPR_FSCR) & (~((target_ulong)FSCR_IC_MASK << FSCR_IC_POS)));
     cause &= FSCR_IC_MASK;
-    env->spr[SPR_FSCR] |= (target_ulong)cause << FSCR_IC_POS;
+    target_ulong_array_set(&env->spr.rec, SPR_FSCR, target_ulong_array_val(&env->spr.rec, SPR_FSCR) | ((target_ulong)cause << FSCR_IC_POS));
 
     raise_exception_err_ra(env, POWERPC_EXCP_FU, 0, raddr);
 }
@@ -116,8 +116,8 @@ void helper_hfscr_facility_check(CPUPPCState *env, uint32_t bit,
                                  const char *caller, uint32_t cause)
 {
 #ifdef TARGET_PPC64
-    if ((env->msr_mask & MSR_HVB) && !FIELD_EX64(env->msr, MSR, HV) &&
-                                     !(env->spr[SPR_HFSCR] & (1UL << bit))) {
+    if ((env->msr_mask & MSR_HVB) && !FIELD_EX64(target_ulong_val(&env->msr), MSR, HV) &&
+                                     !(target_ulong_array_val(&env->spr.rec, SPR_HFSCR) & (1UL << bit))) {
         raise_hv_fu_exception(env, bit, caller, cause, GETPC());
     }
 #endif
@@ -127,7 +127,7 @@ void helper_fscr_facility_check(CPUPPCState *env, uint32_t bit,
                                 uint32_t sprn, uint32_t cause)
 {
 #ifdef TARGET_PPC64
-    if (env->spr[SPR_FSCR] & (1ULL << bit)) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_FSCR) & (1ULL << bit)) {
         /* Facility is enabled, continue */
         return;
     }
@@ -139,7 +139,7 @@ void helper_msr_facility_check(CPUPPCState *env, uint32_t bit,
                                uint32_t sprn, uint32_t cause)
 {
 #ifdef TARGET_PPC64
-    if (env->msr & (1ULL << bit)) {
+    if (target_ulong_val(&env->msr) & (1ULL << bit)) {
         /* Facility is enabled, continue */
         return;
     }
@@ -153,8 +153,8 @@ void helper_msr_facility_check(CPUPPCState *env, uint32_t bit,
 static void helper_mmcr0_facility_check(CPUPPCState *env, uint32_t bit,
                                  uint32_t sprn, uint32_t cause)
 {
-    if (FIELD_EX64(env->msr, MSR, PR) &&
-        !(env->spr[SPR_POWER_MMCR0] & (1ULL << bit))) {
+    if (FIELD_EX64(target_ulong_val(&env->msr), MSR, PR) &&
+        !(target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR0) & (1ULL << bit))) {
         raise_fu_exception(env, bit, sprn, cause, GETPC());
     }
 }
@@ -162,7 +162,7 @@ static void helper_mmcr0_facility_check(CPUPPCState *env, uint32_t bit,
 
 void helper_store_sdr1(CPUPPCState *env, target_ulong val)
 {
-    if (env->spr[SPR_SDR1] != val) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_SDR1) != val) {
         ppc_store_sdr1(env, val);
         tlb_flush(env_cpu(env));
     }
@@ -171,7 +171,7 @@ void helper_store_sdr1(CPUPPCState *env, target_ulong val)
 #if defined(TARGET_PPC64)
 void helper_store_ptcr(CPUPPCState *env, target_ulong val)
 {
-    if (env->spr[SPR_PTCR] != val) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_PTCR) != val) {
         CPUState *cs = env_cpu(env);
         PowerPCCPU *cpu = env_archcpu(env);
         target_ulong ptcr_mask = PTCR_PATB | PTCR_PATS;
@@ -195,7 +195,7 @@ void helper_store_ptcr(CPUPPCState *env, target_ulong val)
         }
 
         if (ppc_cpu_lpar_single_threaded(cs)) {
-            env->spr[SPR_PTCR] = val;
+            target_ulong_array_set(&env->spr.rec, SPR_PTCR, val);
             tlb_flush(cs);
         } else {
             CPUState *ccs;
@@ -203,7 +203,7 @@ void helper_store_ptcr(CPUPPCState *env, target_ulong val)
             THREAD_SIBLING_FOREACH(cs, ccs) {
                 PowerPCCPU *ccpu = POWERPC_CPU(ccs);
                 CPUPPCState *cenv = &ccpu->env;
-                cenv->spr[SPR_PTCR] = val;
+                target_ulong_array_set(&cenv->spr.rec, SPR_PTCR, val);
                 tlb_flush(ccs);
             }
         }
@@ -215,7 +215,7 @@ void helper_store_pcr(CPUPPCState *env, target_ulong value)
     PowerPCCPU *cpu = env_archcpu(env);
     PowerPCCPUClass *pcc = POWERPC_CPU_GET_CLASS(cpu);
 
-    env->spr[SPR_PCR] = value & pcc->pcr_mask;
+    target_ulong_array_set(&env->spr.rec, SPR_PCR, value & pcc->pcr_mask);
 }
 
 void helper_store_ciabr(CPUPPCState *env, target_ulong value)
@@ -318,7 +318,7 @@ void helper_store_sprc(CPUPPCState *env, target_ulong val)
                       TARGET_FMT_lx"\n", val);
         return;
     }
-    env->spr[SPR_POWER_SPRC] = val;
+    target_ulong_array_set(&env->spr.rec, SPR_POWER_SPRC, val);
 }
 
 target_ulong helper_load_sprd(CPUPPCState *env)
@@ -349,7 +349,7 @@ void helper_store_sprd(CPUPPCState *env, target_ulong val)
 
 target_ulong helper_load_pmsr(CPUPPCState *env)
 {
-    target_ulong lowerps = extract64(env->spr[SPR_PMCR], PPC_BIT_NR(15), 8);
+    target_ulong lowerps = extract64(target_ulong_array_val(&env->spr.rec, SPR_PMCR), PPC_BIT_NR(15), 8);
     target_ulong val = 0;
 
     val |= PPC_BIT(63); /* verion 0x1 (POWER9/10) */
@@ -364,7 +364,7 @@ target_ulong helper_load_pmsr(CPUPPCState *env)
 
 static void ppc_set_pmcr(PowerPCCPU *cpu, target_ulong val)
 {
-    cpu->env.spr[SPR_PMCR] = val;
+    target_ulong_array_set(&cpu->env.spr.rec, SPR_PMCR, val);
 }
 
 void helper_store_pmcr(CPUPPCState *env, target_ulong val)
@@ -403,13 +403,13 @@ void helper_store_pmcr(CPUPPCState *env, target_ulong val)
 
 void helper_store_pidr(CPUPPCState *env, target_ulong val)
 {
-    env->spr[SPR_BOOKS_PID] = (uint32_t)val;
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKS_PID, (uint32_t)val);
     tlb_flush(env_cpu(env));
 }
 
 void helper_store_lpidr(CPUPPCState *env, target_ulong val)
 {
-    env->spr[SPR_LPIDR] = (uint32_t)val;
+    target_ulong_array_set(&env->spr.rec, SPR_LPIDR, (uint32_t)val);
 
     /*
      * We need to flush the TLB on LPID changes as we only tag HV vs
@@ -456,13 +456,13 @@ void helper_fixup_thrm(CPUPPCState *env)
 #define THRM1_V         (1 << 0)
 #define THRM3_E         (1 << 0)
 
-    if (!(env->spr[SPR_THRM3] & THRM3_E)) {
+    if (!(target_ulong_array_val(&env->spr.rec, SPR_THRM3) & THRM3_E)) {
         return;
     }
 
     /* Note: Thermal interrupts are unimplemented */
     for (i = SPR_THRM1; i <= SPR_THRM2; i++) {
-        v = env->spr[i];
+        v = target_ulong_array_val(&env->spr.rec, i);
         if (!(v & THRM1_V)) {
             continue;
         }
@@ -475,7 +475,7 @@ void helper_fixup_thrm(CPUPPCState *env)
         if (!(v & THRM1_TID) && t > THRM1_THRES(24)) {
             v |= THRM1_TIN;
         }
-        env->spr[i] = v;
+        target_ulong_array_set(&env->spr.rec, i, v);
     }
 }
 
@@ -502,7 +502,7 @@ uint64_t helper_mfbhrbe(CPUPPCState *env, uint32_t bhrbe)
 
     if (!(env->flags & POWERPC_FLAG_BHRB) ||
          (bhrbe >= env->bhrb_num_entries) ||
-         (env->spr[SPR_POWER_MMCR0] & MMCR0_PMAE)) {
+         (target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR0) & MMCR0_PMAE)) {
         return 0;
     }
 
@@ -511,7 +511,7 @@ uint64_t helper_mfbhrbe(CPUPPCState *env, uint32_t bhrbe)
      * next entry (over the oldest entry), which is why we
      * must offset bhrbe by 1 to get to the 0th entry.
      */
-    index = ((env->bhrb_offset / sizeof(uint64_t)) - (bhrbe + 1)) %
+    index = ((target_ulong_val(&env->bhrb_offset) / sizeof(uint64_t)) - (bhrbe + 1)) %
             env->bhrb_num_entries;
     return env->bhrb[index];
 }

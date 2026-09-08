@@ -75,7 +75,7 @@ void ppc_store_sdr1(CPUPPCState *env, target_ulong value)
             return;
         }
     }
-    env->spr[SPR_SDR1] = value;
+    target_ulong_array_set(&env->spr.rec, SPR_SDR1, value);
 }
 
 /*****************************************************************************/
@@ -105,7 +105,7 @@ static int ppc6xx_tlb_check(CPUPPCState *env, hwaddr *raddr, int *prot,
                             target_ulong ptem, bool key, bool nx)
 {
     ppc6xx_tlb_t *tlb;
-    target_ulong *pte1p;
+    target_ulong_t *pte1p;
     int nr, best, way, ret;
     bool is_code = (access_type == MMU_INST_FETCH);
 
@@ -117,37 +117,37 @@ static int ppc6xx_tlb_check(CPUPPCState *env, hwaddr *raddr, int *prot,
         nr = ppc6xx_tlb_getnum(env, eaddr, way, is_code);
         tlb = &env->tlb.tlb6[nr];
         /* This test "emulates" the PTE index match for hardware TLBs */
-        if ((eaddr & TARGET_PAGE_MASK) != tlb->EPN) {
-            qemu_log_mask(CPU_LOG_MMU, "TLB %d/%d %s [" TARGET_FMT_lx
-                          " " TARGET_FMT_lx "] <> " TARGET_FMT_lx "\n",
+        if ((eaddr & TARGET_PAGE_MASK) != target_ulong_val(&tlb->EPN)) {
+            qemu_log_mask(CPU_LOG_MMU, "TLB %d/%d %s [" "%016" PRIx64
+                          " " "%016" PRIx64 "] <> " TARGET_FMT_lx "\n",
                           nr, env->nb_tlb,
-                          pte_is_valid(tlb->pte0) ? "valid" : "inval",
-                          tlb->EPN, tlb->EPN + TARGET_PAGE_SIZE, eaddr);
+                          pte_is_valid(target_ulong_val(&tlb->pte0)) ? "valid" : "inval",
+                          target_ulong_val(&tlb->EPN), target_ulong_val(&tlb->EPN) + TARGET_PAGE_SIZE, eaddr);
             continue;
         }
-        qemu_log_mask(CPU_LOG_MMU, "TLB %d/%d %s " TARGET_FMT_lx " <> "
-                      TARGET_FMT_lx " " TARGET_FMT_lx " %c %c\n",
+        qemu_log_mask(CPU_LOG_MMU, "TLB %d/%d %s " "%016" PRIx64 " <> "
+                      TARGET_FMT_lx " " "%016" PRIx64 " %c %c\n",
                       nr, env->nb_tlb,
-                      pte_is_valid(tlb->pte0) ? "valid" : "inval",
-                      tlb->EPN, eaddr, tlb->pte1,
+                      pte_is_valid(target_ulong_val(&tlb->pte0)) ? "valid" : "inval",
+                      target_ulong_val(&tlb->EPN), eaddr, target_ulong_val(&tlb->pte1),
                       access_type == MMU_DATA_STORE ? 'S' : 'L',
                       access_type == MMU_INST_FETCH ? 'I' : 'D');
         /* Check validity and table match */
-        if (!pte_is_valid(tlb->pte0) || ((tlb->pte0 >> 6) & 1) != 0 ||
-            (tlb->pte0 & PTE_PTEM_MASK) != ptem) {
+        if (!pte_is_valid(target_ulong_val(&tlb->pte0)) || ((target_ulong_val(&tlb->pte0) >> 6) & 1) != 0 ||
+            (target_ulong_val(&tlb->pte0) & PTE_PTEM_MASK) != ptem) {
             continue;
         }
         /* all matches should have equal RPN, WIMG & PP */
         if (*raddr != (hwaddr)-1ULL &&
-            (*raddr & PTE_CHECK_MASK) != (tlb->pte1 & PTE_CHECK_MASK)) {
+            (*raddr & PTE_CHECK_MASK) != (target_ulong_val(&tlb->pte1) & PTE_CHECK_MASK)) {
             qemu_log_mask(CPU_LOG_MMU, "Bad RPN/WIMG/PP\n");
             /* TLB inconsistency */
             continue;
         }
         /* Keep the matching PTE information */
         best = nr;
-        *raddr = tlb->pte1;
-        *prot = ppc_hash32_prot(key, tlb->pte1 & HPTE32_R_PP, nx);
+        *raddr = target_ulong_val(&tlb->pte1);
+        *prot = ppc_hash32_prot(key, target_ulong_val(&tlb->pte1) & HPTE32_R_PP, nx);
         if (check_prot_access_type(*prot, access_type)) {
             qemu_log_mask(CPU_LOG_MMU, "PTE access granted !\n");
             ret = 0;
@@ -163,11 +163,11 @@ static int ppc6xx_tlb_check(CPUPPCState *env, hwaddr *raddr, int *prot,
                       *raddr & TARGET_PAGE_MASK, *prot, ret);
         /* Update page flags */
         pte1p = &env->tlb.tlb6[best].pte1;
-        *pte1p |= 0x00000100; /* Update accessed flag */
-        if (!(*pte1p & 0x00000080)) {
+        target_ulong_set(pte1p, target_ulong_val(pte1p) | 0x00000100); /* Update accessed flag */
+        if (!(target_ulong_val(pte1p) & 0x00000080)) {
             if (access_type == MMU_DATA_STORE && ret == 0) {
                 /* Update changed flag */
-                *pte1p |= 0x00000080;
+                target_ulong_set(pte1p, target_ulong_val(pte1p) | 0x00000080);
             } else {
                 /* Force page fault for first write access */
                 *prot &= ~PAGE_WRITE;
@@ -176,7 +176,7 @@ static int ppc6xx_tlb_check(CPUPPCState *env, hwaddr *raddr, int *prot,
     }
     if (ret == -1) {
         int r = is_code ? SPR_ICMP : SPR_DCMP;
-        env->spr[r] = ptem;
+        target_ulong_array_set(&env->spr.rec, r, ptem);
     }
 #if defined(DUMP_PAGE_TABLES)
     if (qemu_loglevel_mask(CPU_LOG_MMU)) {
@@ -282,7 +282,7 @@ static int mmu6xx_get_physical_address(CPUPPCState *env, hwaddr *raddr,
     hwaddr hash;
     target_ulong vsid, sr, pgidx, ptem;
     bool key, ds, nx;
-    bool pr = FIELD_EX64(env->msr, MSR, PR);
+    bool pr = FIELD_EX64(target_ulong_val(&env->msr), MSR, PR);
 
     /* First try to find a BAT entry if there are any */
     if (env->nb_BATs &&
@@ -291,7 +291,7 @@ static int mmu6xx_get_physical_address(CPUPPCState *env, hwaddr *raddr,
     }
 
     /* Perform segment based translation when no BATs matched */
-    sr = env->sr[eaddr >> 28];
+    sr = target_ulong_array_val(&env->sr.rec, eaddr >> 28);
     key = ppc_hash32_key(pr, sr);
     *keyp = key;
     ds = sr & SR32_T;
@@ -299,11 +299,11 @@ static int mmu6xx_get_physical_address(CPUPPCState *env, hwaddr *raddr,
     vsid = sr & SR32_VSID;
     qemu_log_mask(CPU_LOG_MMU,
                   "Check segment v=" TARGET_FMT_lx " %d " TARGET_FMT_lx
-                  " nip=" TARGET_FMT_lx " lr=" TARGET_FMT_lx
+                  " nip=" "%016" PRIx64 " lr=" TARGET_FMT_lx
                   " ir=%d dr=%d pr=%d %d t=%d\n",
-                  eaddr, (int)(eaddr >> 28), sr, env->nip, env->lr,
-                  (int)FIELD_EX64(env->msr, MSR, IR),
-                  (int)FIELD_EX64(env->msr, MSR, DR), pr ? 1 : 0,
+                  eaddr, (int)(eaddr >> 28), sr, target_ulong_val(&env->nip), env->lr,
+                  (int)FIELD_EX64(target_ulong_val(&env->msr), MSR, IR),
+                  (int)FIELD_EX64(target_ulong_val(&env->msr), MSR, DR), pr ? 1 : 0,
                   access_type == MMU_DATA_STORE, type);
     pgidx = (eaddr & ~SEGMENT_MASK_256M) >> TARGET_PAGE_BITS;
     hash = vsid ^ pgidx;
@@ -384,7 +384,7 @@ static void mmubooke_dump_mmu(CPUPPCState *env)
     for (i = 0; i < env->nb_tlb; i++, entry++) {
         hwaddr ea, pa;
         target_ulong mask;
-        uint64_t size = (uint64_t)entry->size;
+        uint64_t size = (uint64_t)target_ulong_val(&entry->size);
         char size_buf[20];
 
         /* Check valid flag */
@@ -392,8 +392,8 @@ static void mmubooke_dump_mmu(CPUPPCState *env)
             continue;
         }
 
-        mask = ~(entry->size - 1);
-        ea = entry->EPN & mask;
+        mask = ~(target_ulong_val(&entry->size) - 1);
+        ea = target_ulong_val(&entry->EPN) & mask;
         pa = entry->RPN & mask;
         /* Extend the physical address to 36 bits */
         pa |= (hwaddr)(entry->RPN & 0xF) << 32;
@@ -403,7 +403,7 @@ static void mmubooke_dump_mmu(CPUPPCState *env)
             snprintf(size_buf, sizeof(size_buf), "%3" PRId64 "k", size / KiB);
         }
         qemu_printf("0x%016" PRIx64 " 0x%016" PRIx64 " %s %-5u %08x %08x\n",
-                    (uint64_t)ea, (uint64_t)pa, size_buf, (uint32_t)entry->PID,
+                    (uint64_t)ea, (uint64_t)pa, size_buf, (uint32_t)target_ulong_val(&entry->PID),
                     entry->prot, entry->attr);
     }
 
@@ -524,7 +524,7 @@ static void mmu6xx_dump_mmu(CPUPPCState *env)
 
     qemu_printf("\nSegment registers:\n");
     for (i = 0; i < 32; i++) {
-        sr = env->sr[i];
+        sr = target_ulong_array_val(&env->sr.rec, i);
         if (sr & 0x80000000) {
             qemu_printf("%02d T=%d Ks=%d Kp=%d BUID=0x%03x "
                         "CNTLR_SPEC=0x%05x\n", i,
@@ -552,11 +552,11 @@ static void mmu6xx_dump_mmu(CPUPPCState *env)
 
                 tlb = &env->tlb.tlb6[entry];
                 qemu_printf("%s TLB %02d/%02d way:%d %s ["
-                            TARGET_FMT_lx " " TARGET_FMT_lx "]\n",
+                            "%016" PRIx64 " " "%016" PRIx64 "]\n",
                             type ? "code" : "data", entry % env->nb_tlb,
                             env->nb_tlb, way,
-                            pte_is_valid(tlb->pte0) ? "valid" : "inval",
-                            tlb->EPN, tlb->EPN + TARGET_PAGE_SIZE);
+                            pte_is_valid(target_ulong_val(&tlb->pte0)) ? "valid" : "inval",
+                            target_ulong_val(&tlb->EPN), target_ulong_val(&tlb->EPN) + TARGET_PAGE_SIZE);
             }
         }
     }
@@ -602,8 +602,8 @@ static bool ppc_real_mode_xlate(PowerPCCPU *cpu, vaddr eaddr,
 {
     CPUPPCState *env = &cpu->env;
 
-    if (access_type == MMU_INST_FETCH ? !FIELD_EX64(env->msr, MSR, IR)
-                                      : !FIELD_EX64(env->msr, MSR, DR)) {
+    if (access_type == MMU_INST_FETCH ? !FIELD_EX64(target_ulong_val(&env->msr), MSR, IR)
+                                      : !FIELD_EX64(target_ulong_val(&env->msr), MSR, DR)) {
         *raddrp = eaddr;
         *protp = PAGE_RWX;
         *psizep = TARGET_PAGE_BITS;
@@ -642,8 +642,8 @@ static bool ppc_40x_xlate(PowerPCCPU *cpu, vaddr eaddr,
             /* No matches in page tables or TLB */
             cs->exception_index = POWERPC_EXCP_ITLB;
             env->error_code = 0;
-            env->spr[SPR_40x_DEAR] = eaddr;
-            env->spr[SPR_40x_ESR] = 0x00000000;
+            target_ulong_array_set(&env->spr.rec, SPR_40x_DEAR, eaddr);
+            target_ulong_array_set(&env->spr.rec, SPR_40x_ESR, 0x00000000);
             break;
         case -2:
             /* Access rights violation */
@@ -659,20 +659,20 @@ static bool ppc_40x_xlate(PowerPCCPU *cpu, vaddr eaddr,
             /* No matches in page tables or TLB */
             cs->exception_index = POWERPC_EXCP_DTLB;
             env->error_code = 0;
-            env->spr[SPR_40x_DEAR] = eaddr;
+            target_ulong_array_set(&env->spr.rec, SPR_40x_DEAR, eaddr);
             if (access_type == MMU_DATA_STORE) {
-                env->spr[SPR_40x_ESR] = 0x00800000;
+                target_ulong_array_set(&env->spr.rec, SPR_40x_ESR, 0x00800000);
             } else {
-                env->spr[SPR_40x_ESR] = 0x00000000;
+                target_ulong_array_set(&env->spr.rec, SPR_40x_ESR, 0x00000000);
             }
             break;
         case -2:
             /* Access rights violation */
             cs->exception_index = POWERPC_EXCP_DSI;
             env->error_code = 0;
-            env->spr[SPR_40x_DEAR] = eaddr;
+            target_ulong_array_set(&env->spr.rec, SPR_40x_DEAR, eaddr);
             if (access_type == MMU_DATA_STORE) {
-                env->spr[SPR_40x_ESR] |= 0x00800000;
+                target_ulong_array_set(&env->spr.rec, SPR_40x_ESR, target_ulong_array_val(&env->spr.rec, SPR_40x_ESR) | (0x00800000));
             }
             break;
         default:
@@ -723,8 +723,8 @@ static bool ppc_6xx_xlate(PowerPCCPU *cpu, vaddr eaddr,
             /* No matches in page tables or TLB */
             cs->exception_index = POWERPC_EXCP_IFTLB;
             env->error_code = 1 << 18;
-            env->spr[SPR_IMISS] = eaddr;
-            env->spr[SPR_ICMP] |= 0x80000000;
+            target_ulong_array_set(&env->spr.rec, SPR_IMISS, eaddr);
+            target_ulong_array_set(&env->spr.rec, SPR_ICMP, target_ulong_array_val(&env->spr.rec, SPR_ICMP) | (0x80000000));
             goto tlb_miss;
         case -2:
             /* Access rights violation */
@@ -754,24 +754,24 @@ static bool ppc_6xx_xlate(PowerPCCPU *cpu, vaddr eaddr,
                 cs->exception_index = POWERPC_EXCP_DLTLB;
                 env->error_code = 0;
             }
-            env->spr[SPR_DMISS] = eaddr;
-            env->spr[SPR_DCMP] |= 0x80000000;
+            target_ulong_array_set(&env->spr.rec, SPR_DMISS, eaddr);
+            target_ulong_array_set(&env->spr.rec, SPR_DCMP, target_ulong_array_val(&env->spr.rec, SPR_DCMP) | (0x80000000));
 tlb_miss:
             env->error_code |= key << 19;
-            env->spr[SPR_HASH1] = ppc_hash32_hpt_base(cpu) +
-                                  get_pteg_offset32(cpu, hash);
-            env->spr[SPR_HASH2] = ppc_hash32_hpt_base(cpu) +
-                                  get_pteg_offset32(cpu, ~hash);
+            target_ulong_array_set(&env->spr.rec, SPR_HASH1, ppc_hash32_hpt_base(cpu) +
+                                  get_pteg_offset32(cpu, hash));
+            target_ulong_array_set(&env->spr.rec, SPR_HASH2, ppc_hash32_hpt_base(cpu) +
+                                  get_pteg_offset32(cpu, ~hash));
             break;
         case -2:
             /* Access rights violation */
             cs->exception_index = POWERPC_EXCP_DSI;
             env->error_code = 0;
-            env->spr[SPR_DAR] = eaddr;
+            target_ulong_array_set(&env->spr.rec, SPR_DAR, eaddr);
             if (access_type == MMU_DATA_STORE) {
-                env->spr[SPR_DSISR] = 0x0A000000;
+                target_ulong_array_set(&env->spr.rec, SPR_DSISR, 0x0A000000);
             } else {
-                env->spr[SPR_DSISR] = 0x08000000;
+                target_ulong_array_set(&env->spr.rec, SPR_DSISR, 0x08000000);
             }
             break;
         case -4:
@@ -781,35 +781,35 @@ tlb_miss:
                 /* Floating point load/store */
                 cs->exception_index = POWERPC_EXCP_ALIGN;
                 env->error_code = POWERPC_EXCP_ALIGN_FP;
-                env->spr[SPR_DAR] = eaddr;
+                target_ulong_array_set(&env->spr.rec, SPR_DAR, eaddr);
                 break;
             case ACCESS_RES:
                 /* lwarx, ldarx or stwcx. */
                 cs->exception_index = POWERPC_EXCP_DSI;
                 env->error_code = 0;
-                env->spr[SPR_DAR] = eaddr;
+                target_ulong_array_set(&env->spr.rec, SPR_DAR, eaddr);
                 if (access_type == MMU_DATA_STORE) {
-                    env->spr[SPR_DSISR] = 0x06000000;
+                    target_ulong_array_set(&env->spr.rec, SPR_DSISR, 0x06000000);
                 } else {
-                    env->spr[SPR_DSISR] = 0x04000000;
+                    target_ulong_array_set(&env->spr.rec, SPR_DSISR, 0x04000000);
                 }
                 break;
             case ACCESS_EXT:
                 /* eciwx or ecowx */
                 cs->exception_index = POWERPC_EXCP_DSI;
                 env->error_code = 0;
-                env->spr[SPR_DAR] = eaddr;
+                target_ulong_array_set(&env->spr.rec, SPR_DAR, eaddr);
                 if (access_type == MMU_DATA_STORE) {
-                    env->spr[SPR_DSISR] = 0x06100000;
+                    target_ulong_array_set(&env->spr.rec, SPR_DSISR, 0x06100000);
                 } else {
-                    env->spr[SPR_DSISR] = 0x04100000;
+                    target_ulong_array_set(&env->spr.rec, SPR_DSISR, 0x04100000);
                 }
                 break;
             default:
                 printf("DSI: invalid exception (%d)\n", ret);
                 cs->exception_index = POWERPC_EXCP_PROGRAM;
                 env->error_code = POWERPC_EXCP_INVAL | POWERPC_EXCP_INVAL_INVAL;
-                env->spr[SPR_DAR] = eaddr;
+                target_ulong_array_set(&env->spr.rec, SPR_DAR, eaddr);
                 break;
             }
             break;

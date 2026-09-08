@@ -101,12 +101,12 @@ void ppc_translate_init(void)
     for (i = 0; i < 32; i++) {
         snprintf(p, cpu_reg_names_size, "r%d", i);
         cpu_gpr[i] = tcg_global_mem_new(tcg_env,
-                                        offsetof(CPUPPCState, gpr[i]), p);
+                                        offsetof(CPUPPCState, gpr) + (i) * TARGET_LONG_SIZE, p);
         p += (i < 10) ? 3 : 4;
         cpu_reg_names_size -= (i < 10) ? 3 : 4;
         snprintf(p, cpu_reg_names_size, "r%dH", i);
         cpu_gprh[i] = tcg_global_mem_new(tcg_env,
-                                         offsetof(CPUPPCState, gprh[i]), p);
+                                         offsetof(CPUPPCState, gprh) + (i) * TARGET_LONG_SIZE, p);
         p += (i < 10) ? 4 : 5;
         cpu_reg_names_size -= (i < 10) ? 4 : 5;
     }
@@ -281,12 +281,12 @@ static inline bool gen_serialize_core_lpar(DisasContext *ctx)
 /* SPR load/store helpers */
 static inline void gen_load_spr(TCGv t, int reg)
 {
-    tcg_gen_ld_tl(t, tcg_env, offsetof(CPUPPCState, spr[reg]));
+    tcg_gen_ld_tl(t, tcg_env, offsetof(CPUPPCState, spr) + (reg) * TARGET_LONG_SIZE);
 }
 
 static inline void gen_store_spr(int reg, TCGv t)
 {
-    tcg_gen_st_tl(t, tcg_env, offsetof(CPUPPCState, spr[reg]));
+    tcg_gen_st_tl(t, tcg_env, offsetof(CPUPPCState, spr) + (reg) * TARGET_LONG_SIZE);
 }
 
 static inline void gen_set_access_type(DisasContext *ctx, int access_type)

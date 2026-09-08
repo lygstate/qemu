@@ -25,6 +25,7 @@
 #include "exec/cpu-common.h"
 #include "exec/cpu-interrupt.h"
 #include "exec/target_long.h"
+#include "exec/target-long-types.h"
 #include "cpu-qom.h"
 #include "qom/object.h"
 #include "hw/core/registerfields.h"
@@ -360,17 +361,17 @@ typedef ppc_vsr_t ppc_acc_t;
 /* Software TLB cache */
 typedef struct ppc6xx_tlb_t ppc6xx_tlb_t;
 struct ppc6xx_tlb_t {
-    target_ulong pte0;
-    target_ulong pte1;
-    target_ulong EPN;
+    target_ulong_t pte0;
+    target_ulong_t pte1;
+    target_ulong_t EPN;
 };
 
 typedef struct ppcemb_tlb_t ppcemb_tlb_t;
 struct ppcemb_tlb_t {
     uint64_t RPN;
-    target_ulong EPN;
-    target_ulong PID;
-    target_ulong size;
+    target_ulong_t EPN;
+    target_ulong_t PID;
+    target_ulong_t size;
     uint32_t prot;
     uint32_t attr; /* Storage attributes */
 };
@@ -1279,8 +1280,8 @@ DEXCR_ASPECT(PHIE, 6)
 
 struct CPUArchState {
     /* Most commonly used resources during translated code execution first */
-    target_ulong gpr[32];  /* general purpose registers */
-    target_ulong gprh[32]; /* storage for GPR MSB, used by the SPE extension */
+    TARGET_ULONG_ARRAY(32) gpr;  /* general purpose registers */
+    TARGET_ULONG_ARRAY(32) gprh; /* storage for GPR MSB, used by the SPE extension */
     target_ulong lr;
     target_ulong ctr;
     uint32_t crf[8];       /* condition register */
@@ -1294,19 +1295,19 @@ struct CPUArchState {
     target_ulong ov32;
     target_ulong ca32;
 
-    target_ulong reserve_addr;   /* Reservation address */
-    target_ulong reserve_length; /* Reservation larx op size (bytes) */
-    target_ulong reserve_val;    /* Reservation value */
+    target_ulong_t reserve_addr;   /* Reservation address */
+    target_ulong_t reserve_length; /* Reservation larx op size (bytes) */
+    target_ulong_t reserve_val;    /* Reservation value */
 #if defined(TARGET_PPC64)
-    target_ulong reserve_val2;
+    target_ulong_t reserve_val2;
 #endif
 
     /* These are used in supervisor mode only */
-    target_ulong msr;      /* machine state register */
-    target_ulong tgpr[4];  /* temporary general purpose registers, */
+    target_ulong_t msr;      /* machine state register */
+    TARGET_ULONG_ARRAY(4) tgpr;  /* temporary general purpose registers, */
                            /* used to speed-up TLB assist handlers */
 
-    target_ulong nip;      /* next instruction pointer */
+    target_ulong_t nip;      /* next instruction pointer */
 
     /* when a memory exception occurs, the access type is stored here */
     int access_type;
@@ -1323,7 +1324,7 @@ struct CPUArchState {
     struct CPUBreakpoint *ciabr_breakpoint;
     struct CPUWatchpoint *dawr_watchpoint[2];
 #endif
-    target_ulong sr[32];   /* segment registers */
+    TARGET_ULONG_ARRAY(32) sr;   /* segment registers */
     uint32_t nb_BATs;      /* number of BATs */
     target_ulong DBAT[2][8];
     target_ulong IBAT[2][8];
@@ -1345,7 +1346,7 @@ struct CPUArchState {
 #endif
 
     /* Other registers */
-    target_ulong spr[1024]; /* special purpose registers */
+    TARGET_ULONG_ARRAY(1024) spr; /* special purpose registers */
     ppc_spr_t spr_cb[1024];
     /* Composite status for PMC[1-6] enabled and counting insns or cycles. */
     uint8_t pmc_ins_cnt;
@@ -1362,7 +1363,7 @@ struct CPUArchState {
     /* SPE and Altivec share status as they'll never be used simultaneously */
     float_status vec_status;
     float_status fp_status; /* Floating point execution context */
-    target_ulong fpscr;     /* Floating point status and control register */
+    target_ulong_t fpscr;     /* Floating point status and control register */
 
     /* Internal devices resources */
     ppc_tb_t *tb_env;      /* Time base and decrementer */
@@ -1376,7 +1377,7 @@ struct CPUArchState {
     target_ulong bhrb_num_entries;
     intptr_t     bhrb_base;
     target_ulong bhrb_filter;
-    target_ulong bhrb_offset;
+    target_ulong_t bhrb_offset;
     target_ulong bhrb_offset_mask;
     uint64_t bhrb[BHRB_MAX_NUM_ENTRIES];
 #endif
@@ -1433,7 +1434,7 @@ struct CPUArchState {
 
     /* These resources are used only in TCG */
     uint32_t hflags;
-    target_ulong hflags_compat_nmsr; /* for migration compatibility */
+    target_ulong_t hflags_compat_nmsr; /* for migration compatibility */
 
     /* Power management */
     int (*check_pow)(CPUPPCState *env);
@@ -1457,7 +1458,7 @@ struct CPUArchState {
     uint8_t wdt_period[4];
 
     /* Transactional memory state */
-    target_ulong tm_gpr[32];
+    TARGET_ULONG_ARRAY(32) tm_gpr;
     ppc_avr_t tm_vsr[64];
     uint64_t tm_cr;
     uint64_t tm_lr;
@@ -1717,14 +1718,14 @@ static inline uint64_t ppc_dump_gpr(CPUPPCState *env, int gprn)
 {
     uint64_t gprv;
 
-    gprv = env->gpr[gprn];
+    gprv = target_ulong_array_val(&env->gpr.rec, gprn);
     if (env->flags & POWERPC_FLAG_SPE) {
         /*
          * If the CPU implements the SPE extension, we have to get the
          * high bits of the GPR from the gprh storage area
          */
         gprv &= 0xFFFFFFFFULL;
-        gprv |= (uint64_t)env->gprh[gprn] << 32;
+        gprv |= (uint64_t)target_ulong_array_val(&env->gprh.rec, gprn) << 32;
     }
 
     return gprv;
@@ -2838,14 +2839,14 @@ static inline int booke206_tlbm_id(CPUPPCState *env, ppcmas_tlb_t *tlbm)
 
 static inline int booke206_tlb_size(CPUPPCState *env, int tlbn)
 {
-    uint32_t tlbncfg = env->spr[SPR_BOOKE_TLB0CFG + tlbn];
+    uint32_t tlbncfg = target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TLB0CFG + tlbn);
     int r = tlbncfg & TLBnCFG_N_ENTRY;
     return r;
 }
 
 static inline int booke206_tlb_ways(CPUPPCState *env, int tlbn)
 {
-    uint32_t tlbncfg = env->spr[SPR_BOOKE_TLB0CFG + tlbn];
+    uint32_t tlbncfg = target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TLB0CFG + tlbn);
     int r = tlbncfg >> TLBnCFG_ASSOC_SHIFT;
     return r;
 }
@@ -2905,11 +2906,11 @@ static inline uint32_t booke206_tlbnps(CPUPPCState *env, const int tlbn)
 {
     uint32_t ret = 0;
 
-    if ((env->spr[SPR_MMUCFG] & MMUCFG_MAVN) == MMUCFG_MAVN_V2) {
+    if ((target_ulong_array_val(&env->spr.rec, SPR_MMUCFG) & MMUCFG_MAVN) == MMUCFG_MAVN_V2) {
         /* MAV2 */
-        ret = env->spr[SPR_BOOKE_TLB0PS + tlbn];
+        ret = target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TLB0PS + tlbn);
     } else {
-        uint32_t tlbncfg = env->spr[SPR_BOOKE_TLB0CFG + tlbn];
+        uint32_t tlbncfg = target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TLB0CFG + tlbn);
         uint32_t min = (tlbncfg & TLBnCFG_MINSIZE) >> TLBnCFG_MINSIZE_SHIFT;
         uint32_t max = (tlbncfg & TLBnCFG_MAXSIZE) >> TLBnCFG_MAXSIZE_SHIFT;
         int i;
@@ -2928,7 +2929,7 @@ static inline void booke206_fixed_size_tlbn(CPUPPCState *env, const int tlbn,
     int32_t tsize = -1;
 
     for (i = 0; i < 32; i++) {
-        if ((env->spr[SPR_BOOKE_TLB0PS + tlbn]) & (1ULL << i)) {
+        if ((target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TLB0PS + tlbn)) & (1ULL << i)) {
             if (tsize == -1) {
                 tsize = i;
             } else {
@@ -3056,15 +3057,15 @@ static inline bool ppc_interrupts_little_endian(PowerPCCPU *cpu, bool hv)
 
     if (hv && env->has_hv_mode) {
         if (is_isa300(pcc)) {
-            ile = !!(env->spr[SPR_HID0] & HID0_POWER9_HILE);
+            ile = !!(target_ulong_array_val(&env->spr.rec, SPR_HID0) & HID0_POWER9_HILE);
         } else {
-            ile = !!(env->spr[SPR_HID0] & HID0_HILE);
+            ile = !!(target_ulong_array_val(&env->spr.rec, SPR_HID0) & HID0_HILE);
         }
 
     } else if (pcc->lpcr_mask & LPCR_ILE) {
-        ile = !!(env->spr[SPR_LPCR] & LPCR_ILE);
+        ile = !!(target_ulong_array_val(&env->spr.rec, SPR_LPCR) & LPCR_ILE);
     } else {
-        ile = FIELD_EX64(env->msr, MSR, ILE);
+        ile = FIELD_EX64(target_ulong_val(&env->msr), MSR, ILE);
     }
 
     return ile;

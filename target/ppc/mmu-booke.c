@@ -36,17 +36,17 @@ static bool ppcemb_tlb_check(CPUPPCState *env, ppcemb_tlb_t *tlb,
     if (!(tlb->prot & PAGE_VALID)) {
         return false;
     }
-    mask = ~(tlb->size - 1);
+    mask = ~(target_ulong_val(&tlb->size) - 1);
     qemu_log_mask(CPU_LOG_MMU, "%s: TLB %d address " TARGET_FMT_lx
-                  " PID %u <=> " TARGET_FMT_lx " " TARGET_FMT_lx " %u %x\n",
-                  __func__, i, address, pid, tlb->EPN,
-                  mask, (uint32_t)tlb->PID, tlb->prot);
+                  " PID %u <=> " "%016" PRIx64 " " TARGET_FMT_lx " %u %x\n",
+                  __func__, i, address, pid, target_ulong_val(&tlb->EPN),
+                  mask, (uint32_t)target_ulong_val(&tlb->PID), tlb->prot);
     /* Check PID */
-    if (tlb->PID != 0 && tlb->PID != pid) {
+    if (target_ulong_val(&tlb->PID) != 0 && target_ulong_val(&tlb->PID) != pid) {
         return false;
     }
     /* Check effective address */
-    if ((address & mask) != tlb->EPN) {
+    if ((address & mask) != target_ulong_val(&tlb->EPN)) {
         return false;
     }
     *raddrp = (tlb->RPN & mask) | (address & ~mask);
@@ -77,15 +77,15 @@ int mmu40x_get_physical_address(CPUPPCState *env, hwaddr *raddr, int *prot,
     int i, ret, zsel, zpr, pr;
 
     ret = -1;
-    pr = FIELD_EX64(env->msr, MSR, PR);
+    pr = FIELD_EX64(target_ulong_val(&env->msr), MSR, PR);
     for (i = 0; i < env->nb_tlb; i++) {
         tlb = &env->tlb.tlbe[i];
         if (!ppcemb_tlb_check(env, tlb, raddr, address,
-                              env->spr[SPR_40x_PID], i)) {
+                              target_ulong_array_val(&env->spr.rec, SPR_40x_PID), i)) {
             continue;
         }
         zsel = (tlb->attr >> 4) & 0xF;
-        zpr = (env->spr[SPR_40x_ZPR] >> (30 - (2 * zsel))) & 0x3;
+        zpr = (target_ulong_array_val(&env->spr.rec, SPR_40x_ZPR) >> (30 - (2 * zsel))) & 0x3;
         qemu_log_mask(CPU_LOG_MMU,
                       "%s: TLB %d zsel %d zpr %d ty %d attr %08x\n",
                       __func__, i, zsel, zpr, access_type, tlb->attr);
@@ -105,7 +105,7 @@ int mmu40x_get_physical_address(CPUPPCState *env, hwaddr *raddr, int *prot,
         case 0x0:
             if (pr != 0) {
                 /* Raise Zone protection fault.  */
-                env->spr[SPR_40x_ESR] = 1 << 22;
+                target_ulong_array_set(&env->spr.rec, SPR_40x_ESR, 1 << 22);
                 *prot = 0;
                 ret = -2;
                 break;
@@ -118,7 +118,7 @@ check_perms:
             if (check_prot_access_type(*prot, access_type)) {
                 ret = 0;
             } else {
-                env->spr[SPR_40x_ESR] = 0;
+                target_ulong_array_set(&env->spr.rec, SPR_40x_ESR, 0);
                 ret = -2;
             }
             break;
@@ -135,7 +135,7 @@ check_perms:
 static bool mmubooke_check_pid(CPUPPCState *env, ppcemb_tlb_t *tlb,
                                hwaddr *raddr, target_ulong addr, int i)
 {
-    if (ppcemb_tlb_check(env, tlb, raddr, addr, env->spr[SPR_BOOKE_PID], i)) {
+    if (ppcemb_tlb_check(env, tlb, raddr, addr, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID), i)) {
         if (!env->nb_pids) {
             /* Extend the physical address to 36 bits */
             *raddr |= (uint64_t)(tlb->RPN & 0xF) << 32;
@@ -144,12 +144,12 @@ static bool mmubooke_check_pid(CPUPPCState *env, ppcemb_tlb_t *tlb,
     } else if (!env->nb_pids) {
         return false;
     }
-    if (env->spr[SPR_BOOKE_PID1] &&
-        ppcemb_tlb_check(env, tlb, raddr, addr, env->spr[SPR_BOOKE_PID1], i)) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID1) &&
+        ppcemb_tlb_check(env, tlb, raddr, addr, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID1), i)) {
         return true;
     }
-    if (env->spr[SPR_BOOKE_PID2] &&
-        ppcemb_tlb_check(env, tlb, raddr, addr, env->spr[SPR_BOOKE_PID2], i)) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID2) &&
+        ppcemb_tlb_check(env, tlb, raddr, addr, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID2), i)) {
         return true;
     }
     return false;
@@ -166,13 +166,13 @@ static int mmubooke_check_tlb(CPUPPCState *env, ppcemb_tlb_t *tlb,
 
     /* Check the address space */
     if ((access_type == MMU_INST_FETCH ?
-        FIELD_EX64(env->msr, MSR, IR) :
-        FIELD_EX64(env->msr, MSR, DR)) != (tlb->attr & 1)) {
+        FIELD_EX64(target_ulong_val(&env->msr), MSR, IR) :
+        FIELD_EX64(target_ulong_val(&env->msr), MSR, DR)) != (tlb->attr & 1)) {
         qemu_log_mask(CPU_LOG_MMU, "%s: AS doesn't match\n", __func__);
         return -1;
     }
 
-    if (FIELD_EX64(env->msr, MSR, PR)) {
+    if (FIELD_EX64(target_ulong_val(&env->msr), MSR, PR)) {
         *prot = tlb->prot & 0xF;
     } else {
         *prot = (tlb->prot >> 4) & 0xF;
@@ -224,7 +224,7 @@ int ppcmas_tlb_check(CPUPPCState *env, ppcmas_tlb_t *tlb, hwaddr *raddrp,
     hwaddr mask;
     uint32_t tlb_pid;
 
-    if (!FIELD_EX64(env->msr, MSR, CM)) {
+    if (!FIELD_EX64(target_ulong_val(&env->msr), MSR, CM)) {
         /* In 32bit mode we can only address 32bit EAs */
         address = (uint32_t)address;
     }
@@ -291,17 +291,17 @@ static bool mmubooke206_get_as(CPUPPCState *env,
     if (is_epid_mmu(mmu_idx)) {
         uint32_t epidr;
         if (mmu_idx == PPC_TLB_EPID_STORE) {
-            epidr = env->spr[SPR_BOOKE_EPSC];
+            epidr = target_ulong_array_val(&env->spr.rec, SPR_BOOKE_EPSC);
         } else {
-            epidr = env->spr[SPR_BOOKE_EPLC];
+            epidr = target_ulong_array_val(&env->spr.rec, SPR_BOOKE_EPLC);
         }
         *epid_out = (epidr & EPID_EPID) >> EPID_EPID_SHIFT;
         *as_out = !!(epidr & EPID_EAS);
         *pr_out = !!(epidr & EPID_EPR);
         return true;
     } else {
-        *as_out = FIELD_EX64(env->msr, MSR, DS);
-        *pr_out = FIELD_EX64(env->msr, MSR, PR);
+        *as_out = FIELD_EX64(target_ulong_val(&env->msr), MSR, DS);
+        *pr_out = FIELD_EX64(target_ulong_val(&env->msr), MSR, PR);
         return false;
     }
 }
@@ -318,19 +318,19 @@ static int mmubooke206_check_tlb(CPUPPCState *env, ppcmas_tlb_t *tlb,
 
     if (!use_epid) {
         if (ppcmas_tlb_check(env, tlb, raddr, address,
-                             env->spr[SPR_BOOKE_PID]) >= 0) {
+                             target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID)) >= 0) {
             goto found_tlb;
         }
 
-        if (env->spr[SPR_BOOKE_PID1] &&
+        if (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID1) &&
             ppcmas_tlb_check(env, tlb, raddr, address,
-                             env->spr[SPR_BOOKE_PID1]) >= 0) {
+                             target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID1)) >= 0) {
             goto found_tlb;
         }
 
-        if (env->spr[SPR_BOOKE_PID2] &&
+        if (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID2) &&
             ppcmas_tlb_check(env, tlb, raddr, address,
-                             env->spr[SPR_BOOKE_PID2]) >= 0) {
+                             target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID2)) >= 0) {
             goto found_tlb;
         }
     } else {
@@ -349,7 +349,7 @@ found_tlb:
     if (access_type == MMU_INST_FETCH) {
         /* There is no way to fetch code using epid load */
         assert(!use_epid);
-        as = FIELD_EX64(env->msr, MSR, IR);
+        as = FIELD_EX64(target_ulong_val(&env->msr), MSR, IR);
     }
 
     if (as != ((tlb->mas1 & MAS1_TS) >> MAS1_TS_SHIFT)) {
@@ -429,49 +429,49 @@ static void booke206_update_mas_tlb_miss(CPUPPCState *env, target_ulong address,
     bool use_epid = mmubooke206_get_as(env, mmu_idx, &epid, &as, &pr);
 
     if (access_type == MMU_INST_FETCH) {
-        as = FIELD_EX64(env->msr, MSR, IR);
+        as = FIELD_EX64(target_ulong_val(&env->msr), MSR, IR);
     }
-    env->spr[SPR_BOOKE_MAS0] = env->spr[SPR_BOOKE_MAS4] & MAS4_TLBSELD_MASK;
-    env->spr[SPR_BOOKE_MAS1] = env->spr[SPR_BOOKE_MAS4] & MAS4_TSIZED_MASK;
-    env->spr[SPR_BOOKE_MAS2] = env->spr[SPR_BOOKE_MAS4] & MAS4_WIMGED_MASK;
-    env->spr[SPR_BOOKE_MAS3] = 0;
-    env->spr[SPR_BOOKE_MAS6] = 0;
-    env->spr[SPR_BOOKE_MAS7] = 0;
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS0, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS4) & MAS4_TLBSELD_MASK);
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS1, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS4) & MAS4_TSIZED_MASK);
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS2, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS4) & MAS4_WIMGED_MASK);
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS3, 0);
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS6, 0);
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS7, 0);
 
     /* AS */
     if (as) {
-        env->spr[SPR_BOOKE_MAS1] |= MAS1_TS;
-        env->spr[SPR_BOOKE_MAS6] |= MAS6_SAS;
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS1, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS1) | (MAS1_TS));
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS6, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS6) | (MAS6_SAS));
     }
 
-    env->spr[SPR_BOOKE_MAS1] |= MAS1_VALID;
-    env->spr[SPR_BOOKE_MAS2] |= address & MAS2_EPN_MASK;
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS1, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS1) | (MAS1_VALID));
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS2, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS2) | (address & MAS2_EPN_MASK));
 
     if (!use_epid) {
-        switch (env->spr[SPR_BOOKE_MAS4] & MAS4_TIDSELD_PIDZ) {
+        switch (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS4) & MAS4_TIDSELD_PIDZ) {
         case MAS4_TIDSELD_PID0:
-            missed_tid = env->spr[SPR_BOOKE_PID];
+            missed_tid = target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID);
             break;
         case MAS4_TIDSELD_PID1:
-            missed_tid = env->spr[SPR_BOOKE_PID1];
+            missed_tid = target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID1);
             break;
         case MAS4_TIDSELD_PID2:
-            missed_tid = env->spr[SPR_BOOKE_PID2];
+            missed_tid = target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID2);
             break;
         }
-        env->spr[SPR_BOOKE_MAS6] |= env->spr[SPR_BOOKE_PID] << 16;
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS6, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS6) | (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID) << 16));
     } else {
         missed_tid = epid;
-        env->spr[SPR_BOOKE_MAS6] |= missed_tid << 16;
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS6, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS6) | (missed_tid << 16));
     }
-    env->spr[SPR_BOOKE_MAS1] |= (missed_tid << MAS1_TID_SHIFT);
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS1, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS1) | ((missed_tid << MAS1_TID_SHIFT)));
 
 
     /* next victim logic */
-    env->spr[SPR_BOOKE_MAS0] |= env->last_way << MAS0_ESEL_SHIFT;
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS0, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS0) | (env->last_way << MAS0_ESEL_SHIFT));
     env->last_way++;
     env->last_way &= booke206_tlb_ways(env, 0) - 1;
-    env->spr[SPR_BOOKE_MAS0] |= env->last_way << MAS0_NV_SHIFT;
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS0, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS0) | (env->last_way << MAS0_NV_SHIFT));
 }
 
 bool ppc_booke_xlate(PowerPCCPU *cpu, vaddr eaddr, MMUAccessType access_type,
@@ -509,22 +509,22 @@ bool ppc_booke_xlate(PowerPCCPU *cpu, vaddr eaddr, MMUAccessType access_type,
         }
         cs->exception_index = (access_type == MMU_INST_FETCH) ?
                               POWERPC_EXCP_ITLB : POWERPC_EXCP_DTLB;
-        env->spr[SPR_BOOKE_DEAR] = eaddr;
-        env->spr[SPR_BOOKE_ESR] = mmubooke206_esr(mmu_idx, access_type);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_DEAR, eaddr);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_ESR, mmubooke206_esr(mmu_idx, access_type));
         break;
     case -2:
         /* Access rights violation */
         cs->exception_index = (access_type == MMU_INST_FETCH) ?
                               POWERPC_EXCP_ISI : POWERPC_EXCP_DSI;
         if (access_type != MMU_INST_FETCH) {
-            env->spr[SPR_BOOKE_DEAR] = eaddr;
-            env->spr[SPR_BOOKE_ESR] = mmubooke206_esr(mmu_idx, access_type);
+            target_ulong_array_set(&env->spr.rec, SPR_BOOKE_DEAR, eaddr);
+            target_ulong_array_set(&env->spr.rec, SPR_BOOKE_ESR, mmubooke206_esr(mmu_idx, access_type));
         }
         break;
     case -3:
         /* No execute protection violation */
         cs->exception_index = POWERPC_EXCP_ISI;
-        env->spr[SPR_BOOKE_ESR] = 0;
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_ESR, 0);
         break;
     }
 

@@ -27,8 +27,8 @@
 
 bool ppc64_v3_get_pate(PowerPCCPU *cpu, target_ulong lpid, ppc_v3_pate_t *entry)
 {
-    uint64_t patb = cpu->env.spr[SPR_PTCR] & PTCR_PATB;
-    uint64_t pats = cpu->env.spr[SPR_PTCR] & PTCR_PATS;
+    uint64_t patb = target_ulong_array_val(&cpu->env.spr.rec, SPR_PTCR) & PTCR_PATB;
+    uint64_t pats = target_ulong_array_val(&cpu->env.spr.rec, SPR_PTCR) & PTCR_PATS;
     uint64_t table_size;
     uint64_t entries;
 

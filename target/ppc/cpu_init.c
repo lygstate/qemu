@@ -1714,7 +1714,7 @@ static void init_excp_ppe42(CPUPPCState *env)
 {
 #if !defined(CONFIG_USER_ONLY)
     /* Machine Check vector changed after version 0 */
-    if (((env->spr[SPR_PVR] & 0xf00000ul) >> 20) == 0) {
+    if (((target_ulong_array_val(&env->spr.rec, SPR_PVR) & 0xf00000ul) >> 20) == 0) {
         env->excp_vectors[POWERPC_EXCP_MCHECK]   = 0x00000000;
     } else {
         env->excp_vectors[POWERPC_EXCP_MCHECK]   = 0x00000020;
@@ -2159,7 +2159,7 @@ static void init_excp_POWER10(CPUPPCState *env)
 
 static int check_pow_hid0(CPUPPCState *env)
 {
-    if (env->spr[SPR_HID0] & 0x00E00000) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_HID0) & 0x00E00000) {
         return 1;
     }
 
@@ -2168,7 +2168,7 @@ static int check_pow_hid0(CPUPPCState *env)
 
 static int check_pow_hid0_74xx(CPUPPCState *env)
 {
-    if (env->spr[SPR_HID0] & 0x00600000) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_HID0) & 0x00600000) {
         return 1;
     }
 
@@ -2178,7 +2178,7 @@ static int check_pow_hid0_74xx(CPUPPCState *env)
 #if defined(TARGET_PPC64)
 static int check_attn_hid0(CPUPPCState *env)
 {
-    if (env->spr[SPR_HID0] & HID0_ENABLE_ATTN) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_HID0) & HID0_ENABLE_ATTN) {
         return 1;
     }
 
@@ -2187,7 +2187,7 @@ static int check_attn_hid0(CPUPPCState *env)
 
 static int check_attn_hid0_power9(CPUPPCState *env)
 {
-    if (env->spr[SPR_HID0] & HID0_POWER9_ENABLE_ATTN) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_HID0) & HID0_POWER9_ENABLE_ATTN) {
         return 1;
     }
 
@@ -2869,8 +2869,8 @@ static void init_proc_e500(CPUPPCState *env, int version)
         tlbncfg[1] = 0x40028040;
         break;
     default:
-        cpu_abort(env_cpu(env), "Unknown CPU: " TARGET_FMT_lx "\n",
-                  env->spr[SPR_PVR]);
+        cpu_abort(env_cpu(env), "Unknown CPU: " "%016" PRIx64 "\n",
+                  target_ulong_array_val(&env->spr.rec, SPR_PVR));
     }
 #endif
     /* Cache sizes */
@@ -2894,8 +2894,8 @@ static void init_proc_e500(CPUPPCState *env, int version)
         l1cfg1 |= 0x0B83820;
         break;
     default:
-        cpu_abort(env_cpu(env), "Unknown CPU: " TARGET_FMT_lx "\n",
-                  env->spr[SPR_PVR]);
+        cpu_abort(env_cpu(env), "Unknown CPU: " "%016" PRIx64 "\n",
+                  target_ulong_array_val(&env->spr.rec, SPR_PVR));
     }
     register_BookE206_sprs(env, 0x000000DF, tlbncfg, mmucfg);
     register_usprgh_sprs(env);
@@ -5071,7 +5071,7 @@ POWERPC_FAMILY(e600)(ObjectClass *oc, const void *data)
 
 static int check_pow_970(CPUPPCState *env)
 {
-    if (env->spr[SPR_HID0] & (HID0_DEEPNAP | HID0_DOZE | HID0_NAP)) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_HID0) & (HID0_DEEPNAP | HID0_DOZE | HID0_NAP)) {
         return 1;
     }
 
@@ -6246,7 +6246,7 @@ static void bhrb_init_state(CPUPPCState *env, target_long num_entries_log2)
 static void bhrb_reset_state(CPUPPCState *env)
 {
     if (env->flags & POWERPC_FLAG_BHRB) {
-        env->bhrb_offset = 0;
+        target_ulong_set(&env->bhrb_offset, 0);
         env->bhrb_filter = 0;
         memset(env->bhrb, 0, sizeof(env->bhrb));
     }
@@ -7195,14 +7195,14 @@ static void ppc_cpu_set_pc(CPUState *cs, vaddr value)
 {
     PowerPCCPU *cpu = POWERPC_CPU(cs);
 
-    cpu->env.nip = value;
+    target_ulong_set(&cpu->env.nip, value);
 }
 
 static vaddr ppc_cpu_get_pc(CPUState *cs)
 {
     PowerPCCPU *cpu = POWERPC_CPU(cs);
 
-    return cpu->env.nip;
+    return target_ulong_val(&cpu->env.nip);
 }
 
 #ifdef CONFIG_TCG
@@ -7212,7 +7212,7 @@ static void ppc_restore_state_to_opc(CPUState *cs,
 {
     PowerPCCPU *cpu = POWERPC_CPU(cs);
 
-    cpu->env.nip = data[0];
+    target_ulong_set(&cpu->env.nip, data[0]);
 }
 
 static int ppc_cpu_mmu_index(CPUState *cs, bool ifetch)
@@ -7279,7 +7279,7 @@ static void ppc_cpu_reset_hold(Object *obj, ResetType type)
     hreg_store_msr(env, msr, 1);
 
 #if !defined(CONFIG_USER_ONLY)
-    env->nip = env->hreset_vector | env->excp_prefix;
+    target_ulong_set(&env->nip, env->hreset_vector | env->excp_prefix);
 
     if (tcg_enabled()) {
         cpu_breakpoint_remove_all(cs, BP_CPU);
@@ -7294,7 +7294,7 @@ static void ppc_cpu_reset_hold(Object *obj, ResetType type)
     env->resume_as_sreset = 0;
 #endif
     hreg_compute_hflags(env);
-    env->reserve_addr = (target_ulong)-1ULL;
+    target_ulong_set(&env->reserve_addr, (target_ulong)-1ULL);
     /* Be sure no exception or interrupt is pending */
     env->pending_interrupts = 0;
     cs->exception_index = POWERPC_EXCP_NONE;
@@ -7341,7 +7341,7 @@ static void ppc_cpu_reset_hold(Object *obj, ResetType type)
         if (!spr->name) {
             continue;
         }
-        env->spr[i] = spr->default_value;
+        target_ulong_array_set(&env->spr.rec, i, spr->default_value);
     }
 
 #if defined(TARGET_PPC64)
@@ -7601,13 +7601,13 @@ void ppc_cpu_dump_state(CPUState *cs, FILE *f, int flags)
     CPUPPCState *env = cpu_env(cs);
     int i;
 
-    qemu_fprintf(f, "NIP " TARGET_FMT_lx "   LR " TARGET_FMT_lx " CTR "
+    qemu_fprintf(f, "NIP " "%016" PRIx64 "   LR " TARGET_FMT_lx " CTR "
                  TARGET_FMT_lx " XER " TARGET_FMT_lx " CPU#%d\n",
-                 env->nip, env->lr, env->ctr, cpu_read_xer(env),
+                 target_ulong_val(&env->nip), env->lr, env->ctr, cpu_read_xer(env),
                  cs->cpu_index);
-    qemu_fprintf(f, "MSR " TARGET_FMT_lx " HID0 " TARGET_FMT_lx "  HF "
+    qemu_fprintf(f, "MSR " "%016" PRIx64 " HID0 " "%016" PRIx64 "  HF "
                  "%08x iidx %d didx %d\n",
-                 env->msr, env->spr[SPR_HID0], env->hflags,
+                 target_ulong_val(&env->msr), target_ulong_array_val(&env->spr.rec, SPR_HID0), env->hflags,
                  ppc_env_mmu_index(env, true), ppc_env_mmu_index(env, false));
 #if !defined(CONFIG_USER_ONLY)
     if (env->tb_env) {
@@ -7644,8 +7644,8 @@ void ppc_cpu_dump_state(CPUState *cs, FILE *f, int flags)
         }
         qemu_fprintf(f, " %c%c", a, env->crf[i] & 0x01 ? 'O' : ' ');
     }
-    qemu_fprintf(f, " ]     RES %03x@" TARGET_FMT_lx "\n",
-                 (int)env->reserve_length, env->reserve_addr);
+    qemu_fprintf(f, " ]     RES %03x@" "%016" PRIx64 "\n",
+                 (int)target_ulong_val(&env->reserve_length), target_ulong_val(&env->reserve_addr));
 
     if (flags & CPU_DUMP_FPU) {
         for (i = 0; i < 32; i++) {
@@ -7657,24 +7657,24 @@ void ppc_cpu_dump_state(CPUState *cs, FILE *f, int flags)
                 qemu_fprintf(f, "\n");
             }
         }
-        qemu_fprintf(f, "FPSCR " TARGET_FMT_lx "\n", env->fpscr);
+        qemu_fprintf(f, "FPSCR " "%016" PRIx64 "\n", target_ulong_val(&env->fpscr));
     }
 
 #if !defined(CONFIG_USER_ONLY)
-    qemu_fprintf(f, " SRR0 " TARGET_FMT_lx "  SRR1 " TARGET_FMT_lx
-                 "    PVR " TARGET_FMT_lx " VRSAVE " TARGET_FMT_lx "\n",
-                 env->spr[SPR_SRR0], env->spr[SPR_SRR1],
-                 env->spr[SPR_PVR], env->spr[SPR_VRSAVE]);
+    qemu_fprintf(f, " SRR0 " "%016" PRIx64 "  SRR1 " "%016" PRIx64
+                 "    PVR " "%016" PRIx64 " VRSAVE " "%016" PRIx64 "\n",
+                 target_ulong_array_val(&env->spr.rec, SPR_SRR0), target_ulong_array_val(&env->spr.rec, SPR_SRR1),
+                 target_ulong_array_val(&env->spr.rec, SPR_PVR), target_ulong_array_val(&env->spr.rec, SPR_VRSAVE));
 
-    qemu_fprintf(f, "SPRG0 " TARGET_FMT_lx " SPRG1 " TARGET_FMT_lx
-                 "  SPRG2 " TARGET_FMT_lx "  SPRG3 " TARGET_FMT_lx "\n",
-                 env->spr[SPR_SPRG0], env->spr[SPR_SPRG1],
-                 env->spr[SPR_SPRG2], env->spr[SPR_SPRG3]);
+    qemu_fprintf(f, "SPRG0 " "%016" PRIx64 " SPRG1 " "%016" PRIx64
+                 "  SPRG2 " "%016" PRIx64 "  SPRG3 " "%016" PRIx64 "\n",
+                 target_ulong_array_val(&env->spr.rec, SPR_SPRG0), target_ulong_array_val(&env->spr.rec, SPR_SPRG1),
+                 target_ulong_array_val(&env->spr.rec, SPR_SPRG2), target_ulong_array_val(&env->spr.rec, SPR_SPRG3));
 
-    qemu_fprintf(f, "SPRG4 " TARGET_FMT_lx " SPRG5 " TARGET_FMT_lx
-                 "  SPRG6 " TARGET_FMT_lx "  SPRG7 " TARGET_FMT_lx "\n",
-                 env->spr[SPR_SPRG4], env->spr[SPR_SPRG5],
-                 env->spr[SPR_SPRG6], env->spr[SPR_SPRG7]);
+    qemu_fprintf(f, "SPRG4 " "%016" PRIx64 " SPRG5 " "%016" PRIx64
+                 "  SPRG6 " "%016" PRIx64 "  SPRG7 " "%016" PRIx64 "\n",
+                 target_ulong_array_val(&env->spr.rec, SPR_SPRG4), target_ulong_array_val(&env->spr.rec, SPR_SPRG5),
+                 target_ulong_array_val(&env->spr.rec, SPR_SPRG6), target_ulong_array_val(&env->spr.rec, SPR_SPRG7));
 
     switch (env->excp_model) {
 #if defined(TARGET_PPC64)
@@ -7682,36 +7682,36 @@ void ppc_cpu_dump_state(CPUState *cs, FILE *f, int flags)
     case POWERPC_EXCP_POWER8:
     case POWERPC_EXCP_POWER9:
     case POWERPC_EXCP_POWER10:
-        qemu_fprintf(f, "HSRR0 " TARGET_FMT_lx " HSRR1 " TARGET_FMT_lx "\n",
-                     env->spr[SPR_HSRR0], env->spr[SPR_HSRR1]);
+        qemu_fprintf(f, "HSRR0 " "%016" PRIx64 " HSRR1 " "%016" PRIx64 "\n",
+                     target_ulong_array_val(&env->spr.rec, SPR_HSRR0), target_ulong_array_val(&env->spr.rec, SPR_HSRR1));
         break;
 #endif
     case POWERPC_EXCP_BOOKE:
-        qemu_fprintf(f, "CSRR0 " TARGET_FMT_lx " CSRR1 " TARGET_FMT_lx
-                     " MCSRR0 " TARGET_FMT_lx " MCSRR1 " TARGET_FMT_lx "\n",
-                     env->spr[SPR_BOOKE_CSRR0], env->spr[SPR_BOOKE_CSRR1],
-                     env->spr[SPR_BOOKE_MCSRR0], env->spr[SPR_BOOKE_MCSRR1]);
+        qemu_fprintf(f, "CSRR0 " "%016" PRIx64 " CSRR1 " "%016" PRIx64
+                     " MCSRR0 " "%016" PRIx64 " MCSRR1 " "%016" PRIx64 "\n",
+                     target_ulong_array_val(&env->spr.rec, SPR_BOOKE_CSRR0), target_ulong_array_val(&env->spr.rec, SPR_BOOKE_CSRR1),
+                     target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MCSRR0), target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MCSRR1));
 
-        qemu_fprintf(f, "  TCR " TARGET_FMT_lx "   TSR " TARGET_FMT_lx
-                     "    ESR " TARGET_FMT_lx "   DEAR " TARGET_FMT_lx "\n",
-                     env->spr[SPR_BOOKE_TCR], env->spr[SPR_BOOKE_TSR],
-                     env->spr[SPR_BOOKE_ESR], env->spr[SPR_BOOKE_DEAR]);
+        qemu_fprintf(f, "  TCR " "%016" PRIx64 "   TSR " "%016" PRIx64
+                     "    ESR " "%016" PRIx64 "   DEAR " "%016" PRIx64 "\n",
+                     target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TCR), target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TSR),
+                     target_ulong_array_val(&env->spr.rec, SPR_BOOKE_ESR), target_ulong_array_val(&env->spr.rec, SPR_BOOKE_DEAR));
 
-        qemu_fprintf(f, "  PIR " TARGET_FMT_lx " DECAR " TARGET_FMT_lx
-                     "   IVPR " TARGET_FMT_lx "   EPCR " TARGET_FMT_lx "\n",
-                     env->spr[SPR_BOOKE_PIR], env->spr[SPR_BOOKE_DECAR],
-                     env->spr[SPR_BOOKE_IVPR], env->spr[SPR_BOOKE_EPCR]);
+        qemu_fprintf(f, "  PIR " "%016" PRIx64 " DECAR " "%016" PRIx64
+                     "   IVPR " "%016" PRIx64 "   EPCR " "%016" PRIx64 "\n",
+                     target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PIR), target_ulong_array_val(&env->spr.rec, SPR_BOOKE_DECAR),
+                     target_ulong_array_val(&env->spr.rec, SPR_BOOKE_IVPR), target_ulong_array_val(&env->spr.rec, SPR_BOOKE_EPCR));
 
-        qemu_fprintf(f, " MCSR " TARGET_FMT_lx " SPRG8 " TARGET_FMT_lx
-                     "    EPR " TARGET_FMT_lx "\n",
-                     env->spr[SPR_BOOKE_MCSR], env->spr[SPR_BOOKE_SPRG8],
-                     env->spr[SPR_BOOKE_EPR]);
+        qemu_fprintf(f, " MCSR " "%016" PRIx64 " SPRG8 " "%016" PRIx64
+                     "    EPR " "%016" PRIx64 "\n",
+                     target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MCSR), target_ulong_array_val(&env->spr.rec, SPR_BOOKE_SPRG8),
+                     target_ulong_array_val(&env->spr.rec, SPR_BOOKE_EPR));
 
         /* FSL-specific */
-        qemu_fprintf(f, " MCAR " TARGET_FMT_lx "  PID1 " TARGET_FMT_lx
-                     "   PID2 " TARGET_FMT_lx "    SVR " TARGET_FMT_lx "\n",
-                     env->spr[SPR_Exxx_MCAR], env->spr[SPR_BOOKE_PID1],
-                     env->spr[SPR_BOOKE_PID2], env->spr[SPR_E500_SVR]);
+        qemu_fprintf(f, " MCAR " "%016" PRIx64 "  PID1 " "%016" PRIx64
+                     "   PID2 " "%016" PRIx64 "    SVR " "%016" PRIx64 "\n",
+                     target_ulong_array_val(&env->spr.rec, SPR_Exxx_MCAR), target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID1),
+                     target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID2), target_ulong_array_val(&env->spr.rec, SPR_E500_SVR));
 
         /*
          * IVORs are left out as they are large and do not change often --
@@ -7719,27 +7719,27 @@ void ppc_cpu_dump_state(CPUState *cs, FILE *f, int flags)
          */
         break;
     case POWERPC_EXCP_PPE42:
-        qemu_fprintf(f, "SRR0 " TARGET_FMT_lx " SRR1 " TARGET_FMT_lx "\n",
-                     env->spr[SPR_SRR0], env->spr[SPR_SRR1]);
+        qemu_fprintf(f, "SRR0 " "%016" PRIx64 " SRR1 " "%016" PRIx64 "\n",
+                     target_ulong_array_val(&env->spr.rec, SPR_SRR0), target_ulong_array_val(&env->spr.rec, SPR_SRR1));
 
-        qemu_fprintf(f, "  TCR " TARGET_FMT_lx "   TSR " TARGET_FMT_lx
-                     "    ISR " TARGET_FMT_lx "   EDR " TARGET_FMT_lx "\n",
-                     env->spr[SPR_PPE42_TCR], env->spr[SPR_PPE42_TSR],
-                     env->spr[SPR_PPE42_ISR], env->spr[SPR_PPE42_EDR]);
+        qemu_fprintf(f, "  TCR " "%016" PRIx64 "   TSR " "%016" PRIx64
+                     "    ISR " "%016" PRIx64 "   EDR " "%016" PRIx64 "\n",
+                     target_ulong_array_val(&env->spr.rec, SPR_PPE42_TCR), target_ulong_array_val(&env->spr.rec, SPR_PPE42_TSR),
+                     target_ulong_array_val(&env->spr.rec, SPR_PPE42_ISR), target_ulong_array_val(&env->spr.rec, SPR_PPE42_EDR));
 
-        qemu_fprintf(f, "  PIR " TARGET_FMT_lx "   IVPR " TARGET_FMT_lx "\n",
-                     env->spr[SPR_PPE42_PIR], env->spr[SPR_PPE42_IVPR]);
+        qemu_fprintf(f, "  PIR " "%016" PRIx64 "   IVPR " "%016" PRIx64 "\n",
+                     target_ulong_array_val(&env->spr.rec, SPR_PPE42_PIR), target_ulong_array_val(&env->spr.rec, SPR_PPE42_IVPR));
         break;
     case POWERPC_EXCP_40x:
-        qemu_fprintf(f, "  TCR " TARGET_FMT_lx "   TSR " TARGET_FMT_lx
-                     "    ESR " TARGET_FMT_lx "   DEAR " TARGET_FMT_lx "\n",
-                     env->spr[SPR_40x_TCR], env->spr[SPR_40x_TSR],
-                     env->spr[SPR_40x_ESR], env->spr[SPR_40x_DEAR]);
+        qemu_fprintf(f, "  TCR " "%016" PRIx64 "   TSR " "%016" PRIx64
+                     "    ESR " "%016" PRIx64 "   DEAR " "%016" PRIx64 "\n",
+                     target_ulong_array_val(&env->spr.rec, SPR_40x_TCR), target_ulong_array_val(&env->spr.rec, SPR_40x_TSR),
+                     target_ulong_array_val(&env->spr.rec, SPR_40x_ESR), target_ulong_array_val(&env->spr.rec, SPR_40x_DEAR));
 
-        qemu_fprintf(f, " EVPR " TARGET_FMT_lx "  SRR2 " TARGET_FMT_lx
-                     "   SRR3 " TARGET_FMT_lx  "   PID " TARGET_FMT_lx "\n",
-                     env->spr[SPR_40x_EVPR], env->spr[SPR_40x_SRR2],
-                     env->spr[SPR_40x_SRR3], env->spr[SPR_40x_PID]);
+        qemu_fprintf(f, " EVPR " "%016" PRIx64 "  SRR2 " "%016" PRIx64
+                     "   SRR3 " "%016" PRIx64  "   PID " "%016" PRIx64 "\n",
+                     target_ulong_array_val(&env->spr.rec, SPR_40x_EVPR), target_ulong_array_val(&env->spr.rec, SPR_40x_SRR2),
+                     target_ulong_array_val(&env->spr.rec, SPR_40x_SRR3), target_ulong_array_val(&env->spr.rec, SPR_40x_PID));
         break;
     default:
         break;
@@ -7752,7 +7752,7 @@ void ppc_cpu_dump_state(CPUState *cs, FILE *f, int flags)
 #endif
 
     if (env->spr_cb[SPR_LPCR].name) {
-        qemu_fprintf(f, " LPCR " TARGET_FMT_lx "\n", env->spr[SPR_LPCR]);
+        qemu_fprintf(f, " LPCR " "%016" PRIx64 "\n", target_ulong_array_val(&env->spr.rec, SPR_LPCR));
     }
 
     switch (env->mmu_model) {
@@ -7766,29 +7766,29 @@ void ppc_cpu_dump_state(CPUState *cs, FILE *f, int flags)
     case POWERPC_MMU_3_00:
 #endif
         if (env->spr_cb[SPR_SDR1].name) { /* SDR1 Exists */
-            qemu_fprintf(f, " SDR1 " TARGET_FMT_lx " ", env->spr[SPR_SDR1]);
+            qemu_fprintf(f, " SDR1 " "%016" PRIx64 " ", target_ulong_array_val(&env->spr.rec, SPR_SDR1));
         }
         if (env->spr_cb[SPR_PTCR].name) { /* PTCR Exists */
-            qemu_fprintf(f, " PTCR " TARGET_FMT_lx " ", env->spr[SPR_PTCR]);
+            qemu_fprintf(f, " PTCR " "%016" PRIx64 " ", target_ulong_array_val(&env->spr.rec, SPR_PTCR));
         }
-        qemu_fprintf(f, "  DAR " TARGET_FMT_lx "  DSISR " TARGET_FMT_lx "\n",
-                     env->spr[SPR_DAR], env->spr[SPR_DSISR]);
+        qemu_fprintf(f, "  DAR " "%016" PRIx64 "  DSISR " "%016" PRIx64 "\n",
+                     target_ulong_array_val(&env->spr.rec, SPR_DAR), target_ulong_array_val(&env->spr.rec, SPR_DSISR));
         break;
     case POWERPC_MMU_BOOKE206:
-        qemu_fprintf(f, " MAS0 " TARGET_FMT_lx "  MAS1 " TARGET_FMT_lx
-                     "   MAS2 " TARGET_FMT_lx "   MAS3 " TARGET_FMT_lx "\n",
-                     env->spr[SPR_BOOKE_MAS0], env->spr[SPR_BOOKE_MAS1],
-                     env->spr[SPR_BOOKE_MAS2], env->spr[SPR_BOOKE_MAS3]);
+        qemu_fprintf(f, " MAS0 " "%016" PRIx64 "  MAS1 " "%016" PRIx64
+                     "   MAS2 " "%016" PRIx64 "   MAS3 " "%016" PRIx64 "\n",
+                     target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS0), target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS1),
+                     target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS2), target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS3));
 
-        qemu_fprintf(f, " MAS4 " TARGET_FMT_lx "  MAS6 " TARGET_FMT_lx
-                     "   MAS7 " TARGET_FMT_lx "    PID " TARGET_FMT_lx "\n",
-                     env->spr[SPR_BOOKE_MAS4], env->spr[SPR_BOOKE_MAS6],
-                     env->spr[SPR_BOOKE_MAS7], env->spr[SPR_BOOKE_PID]);
+        qemu_fprintf(f, " MAS4 " "%016" PRIx64 "  MAS6 " "%016" PRIx64
+                     "   MAS7 " "%016" PRIx64 "    PID " "%016" PRIx64 "\n",
+                     target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS4), target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS6),
+                     target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS7), target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID));
 
-        qemu_fprintf(f, "MMUCFG " TARGET_FMT_lx " TLB0CFG " TARGET_FMT_lx
-                     " TLB1CFG " TARGET_FMT_lx "\n",
-                     env->spr[SPR_MMUCFG], env->spr[SPR_BOOKE_TLB0CFG],
-                     env->spr[SPR_BOOKE_TLB1CFG]);
+        qemu_fprintf(f, "MMUCFG " "%016" PRIx64 " TLB0CFG " "%016" PRIx64
+                     " TLB1CFG " "%016" PRIx64 "\n",
+                     target_ulong_array_val(&env->spr.rec, SPR_MMUCFG), target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TLB0CFG),
+                     target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TLB1CFG));
         break;
     default:
         break;

@@ -184,16 +184,16 @@ static void do_hash(CPUPPCState *env, target_ulong ea, target_ulong ra,
 void helper_##op(CPUPPCState *env, target_ulong ea, target_ulong ra,          \
                  target_ulong rb)                                             \
 {                                                                             \
-    if (env->msr & R_MSR_PR_MASK) {                                           \
-        if (!(env->spr[SPR_DEXCR] & R_DEXCR_PRO_##dexcr_aspect##_MASK ||      \
-            env->spr[SPR_HDEXCR] & R_HDEXCR_ENF_##dexcr_aspect##_MASK))       \
+    if (target_ulong_val(&env->msr) & R_MSR_PR_MASK) {                                           \
+        if (!(target_ulong_array_val(&env->spr.rec, SPR_DEXCR) & R_DEXCR_PRO_##dexcr_aspect##_MASK ||      \
+            target_ulong_array_val(&env->spr.rec, SPR_HDEXCR) & R_HDEXCR_ENF_##dexcr_aspect##_MASK))       \
             return;                                                           \
-    } else if (!(env->msr & R_MSR_HV_MASK)) {                                 \
-        if (!(env->spr[SPR_DEXCR] & R_DEXCR_PNH_##dexcr_aspect##_MASK ||      \
-            env->spr[SPR_HDEXCR] & R_HDEXCR_ENF_##dexcr_aspect##_MASK))       \
+    } else if (!(target_ulong_val(&env->msr) & R_MSR_HV_MASK)) {                                 \
+        if (!(target_ulong_array_val(&env->spr.rec, SPR_DEXCR) & R_DEXCR_PNH_##dexcr_aspect##_MASK ||      \
+            target_ulong_array_val(&env->spr.rec, SPR_HDEXCR) & R_HDEXCR_ENF_##dexcr_aspect##_MASK))       \
             return;                                                           \
-    } else if (!(env->msr & R_MSR_S_MASK)) {                                  \
-        if (!(env->spr[SPR_HDEXCR] & R_HDEXCR_HNU_##dexcr_aspect##_MASK))     \
+    } else if (!(target_ulong_val(&env->msr) & R_MSR_S_MASK)) {                                  \
+        if (!(target_ulong_array_val(&env->spr.rec, SPR_HDEXCR) & R_HDEXCR_HNU_##dexcr_aspect##_MASK))     \
             return;                                                           \
     }                                                                         \
                                                                               \
@@ -208,10 +208,10 @@ void helper_##op(CPUPPCState *env, target_ulong ea, target_ulong ra,          \
 }
 #endif /* TARGET_PPC64 */
 
-HELPER_HASH(HASHST, env->spr[SPR_HASHKEYR], true, NPHIE)
-HELPER_HASH(HASHCHK, env->spr[SPR_HASHKEYR], false, NPHIE)
-HELPER_HASH(HASHSTP, env->spr[SPR_HASHPKEYR], true, PHIE)
-HELPER_HASH(HASHCHKP, env->spr[SPR_HASHPKEYR], false, PHIE)
+HELPER_HASH(HASHST, target_ulong_array_val(&env->spr.rec, SPR_HASHKEYR), true, NPHIE)
+HELPER_HASH(HASHCHK, target_ulong_array_val(&env->spr.rec, SPR_HASHKEYR), false, NPHIE)
+HELPER_HASH(HASHSTP, target_ulong_array_val(&env->spr.rec, SPR_HASHPKEYR), true, PHIE)
+HELPER_HASH(HASHCHKP, target_ulong_array_val(&env->spr.rec, SPR_HASHPKEYR), false, PHIE)
 
 #ifndef CONFIG_USER_ONLY
 
@@ -224,30 +224,30 @@ void ppc_cpu_do_unaligned_access(CPUState *cs, vaddr vaddr,
 
     /* Restore state and reload the insn we executed, for filling in DSISR.  */
     cpu_restore_state(cs, retaddr);
-    insn = ppc_ldl_code(env, env->nip);
+    insn = ppc_ldl_code(env, target_ulong_val(&env->nip));
 
     switch (env->mmu_model) {
     case POWERPC_MMU_SOFT_4xx:
-        env->spr[SPR_40x_DEAR] = vaddr;
+        target_ulong_array_set(&env->spr.rec, SPR_40x_DEAR, vaddr);
         break;
     case POWERPC_MMU_BOOKE:
     case POWERPC_MMU_BOOKE206:
-        env->spr[SPR_BOOKE_DEAR] = vaddr;
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_DEAR, vaddr);
         break;
     case POWERPC_MMU_REAL:
         if (env->flags & POWERPC_FLAG_PPE42) {
-            env->spr[SPR_PPE42_EDR] = vaddr;
+            target_ulong_array_set(&env->spr.rec, SPR_PPE42_EDR, vaddr);
             if (access_type == MMU_DATA_STORE) {
-                env->spr[SPR_PPE42_ISR] |= PPE42_ISR_ST;
+                target_ulong_array_set(&env->spr.rec, SPR_PPE42_ISR, target_ulong_array_val(&env->spr.rec, SPR_PPE42_ISR) | (PPE42_ISR_ST));
             } else {
-                env->spr[SPR_PPE42_ISR] &= ~PPE42_ISR_ST;
+                target_ulong_array_set(&env->spr.rec, SPR_PPE42_ISR, target_ulong_array_val(&env->spr.rec, SPR_PPE42_ISR) & (~PPE42_ISR_ST));
             }
         } else {
-            env->spr[SPR_DAR] = vaddr;
+            target_ulong_array_set(&env->spr.rec, SPR_DAR, vaddr);
         }
         break;
     default:
-        env->spr[SPR_DAR] = vaddr;
+        target_ulong_array_set(&env->spr.rec, SPR_DAR, vaddr);
         break;
     }
 
@@ -275,8 +275,8 @@ void ppc_cpu_do_transaction_failed(CPUState *cs, hwaddr physaddr,
          * Linux or skiboot source.
          */
         if (access_type == MMU_DATA_LOAD) {
-            env->spr[SPR_DAR] = vaddr;
-            env->spr[SPR_DSISR] = PPC_BIT(57);
+            target_ulong_array_set(&env->spr.rec, SPR_DAR, vaddr);
+            target_ulong_array_set(&env->spr.rec, SPR_DSISR, PPC_BIT(57));
             env->error_code = PPC_BIT(42);
 
         } else if (access_type == MMU_DATA_STORE) {
@@ -284,7 +284,7 @@ void ppc_cpu_do_transaction_failed(CPUState *cs, hwaddr physaddr,
              * MCE for stores in POWER is asynchronous so hardware does
              * not set DAR, but QEMU can do better.
              */
-            env->spr[SPR_DAR] = vaddr;
+            target_ulong_array_set(&env->spr.rec, SPR_DAR, vaddr);
             env->error_code = PPC_BIT(36) | PPC_BIT(43) | PPC_BIT(45);
             env->error_code |= PPC_BIT(42);
 
@@ -317,13 +317,13 @@ void ppc_cpu_debug_excp_handler(CPUState *cs)
     if (env->insns_flags2 & PPC2_ISA207) {
         if (cs->watchpoint_hit) {
             if (cs->watchpoint_hit->flags & BP_CPU) {
-                env->spr[SPR_DAR] = cs->watchpoint_hit->hitaddr;
-                env->spr[SPR_DSISR] = PPC_BIT(41);
+                target_ulong_array_set(&env->spr.rec, SPR_DAR, cs->watchpoint_hit->hitaddr);
+                target_ulong_array_set(&env->spr.rec, SPR_DSISR, PPC_BIT(41));
                 cs->watchpoint_hit = NULL;
                 raise_exception(env, POWERPC_EXCP_DSI);
             }
             cs->watchpoint_hit = NULL;
-        } else if (cpu_breakpoint_test(cs, env->nip, BP_CPU)) {
+        } else if (cpu_breakpoint_test(cs, target_ulong_val(&env->nip), BP_CPU)) {
             raise_exception_err(env, POWERPC_EXCP_TRACE,
                                 PPC_BIT(33) | PPC_BIT(43));
         }
@@ -339,16 +339,16 @@ bool ppc_cpu_debug_check_breakpoint(CPUState *cs)
     if (env->insns_flags2 & PPC2_ISA207) {
         target_ulong priv;
 
-        priv = env->spr[SPR_CIABR] & PPC_BITMASK(62, 63);
+        priv = target_ulong_array_val(&env->spr.rec, SPR_CIABR) & PPC_BITMASK(62, 63);
         switch (priv) {
         case 0x1: /* problem */
-            return env->msr & ((target_ulong)1 << MSR_PR);
+            return target_ulong_val(&env->msr) & ((target_ulong)1 << MSR_PR);
         case 0x2: /* supervisor */
-            return (!(env->msr & ((target_ulong)1 << MSR_PR)) &&
-                    !(env->msr & ((target_ulong)1 << MSR_HV)));
+            return (!(target_ulong_val(&env->msr) & ((target_ulong)1 << MSR_PR)) &&
+                    !(target_ulong_val(&env->msr) & ((target_ulong)1 << MSR_HV)));
         case 0x3: /* hypervisor */
-            return (!(env->msr & ((target_ulong)1 << MSR_PR)) &&
-                     (env->msr & ((target_ulong)1 << MSR_HV)));
+            return (!(target_ulong_val(&env->msr) & ((target_ulong)1 << MSR_PR)) &&
+                     (target_ulong_val(&env->msr) & ((target_ulong)1 << MSR_HV)));
         default:
             g_assert_not_reached();
         }
@@ -367,10 +367,10 @@ bool ppc_cpu_debug_check_watchpoint(CPUState *cs, CPUWatchpoint *wp)
 
     if ((env->insns_flags2 & PPC2_ISA207) &&
         (wp == env->dawr_watchpoint[0])) {
-        dawrx = env->spr[SPR_DAWRX0];
+        dawrx = target_ulong_array_val(&env->spr.rec, SPR_DAWRX0);
     } else if ((env->insns_flags2 & PPC2_ISA310) &&
                (wp == env->dawr_watchpoint[1])) {
-        dawrx = env->spr[SPR_DAWRX1];
+        dawrx = target_ulong_array_val(&env->spr.rec, SPR_DAWRX1);
     } else {
         return false;
     }
@@ -381,16 +381,16 @@ bool ppc_cpu_debug_check_watchpoint(CPUState *cs, CPUWatchpoint *wp)
     sv = extract32(dawrx, PPC_BIT_NR(62), 1);
     pr = extract32(dawrx, PPC_BIT_NR(62), 1);
 
-    if ((env->msr & ((target_ulong)1 << MSR_PR)) && !pr) {
+    if ((target_ulong_val(&env->msr) & ((target_ulong)1 << MSR_PR)) && !pr) {
         return false;
-    } else if ((env->msr & ((target_ulong)1 << MSR_HV)) && !hv) {
+    } else if ((target_ulong_val(&env->msr) & ((target_ulong)1 << MSR_HV)) && !hv) {
         return false;
     } else if (!sv) {
         return false;
     }
 
     if (!wti) {
-        if (env->msr & ((target_ulong)1 << MSR_DR)) {
+        if (target_ulong_val(&env->msr) & ((target_ulong)1 << MSR_DR)) {
             return wt;
         } else {
             return !wt;
@@ -452,7 +452,7 @@ void helper_attn(CPUPPCState *env)
 
 void helper_scv(CPUPPCState *env, uint32_t lev)
 {
-    if (env->spr[SPR_FSCR] & (1ull << FSCR_SCV)) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_FSCR) & (1ull << FSCR_SCV)) {
         raise_exception_err(env, POWERPC_EXCP_SYSCALL_VECTORED, lev);
     } else {
         raise_exception_err(env, POWERPC_EXCP_FU, FSCR_IC_SCV);
@@ -467,7 +467,7 @@ void helper_PMINSN(CPUPPCState *env, uint32_t insn)
 
     /* Condition for waking up at 0x100 */
     env->resume_as_sreset = (insn != PPC_PM_STOP) ||
-        (env->spr[SPR_PSSCR] & PSSCR_EC);
+        (target_ulong_array_val(&env->spr.rec, SPR_PSSCR) & PSSCR_EC);
 
     /* HDECR is not to wake from PM state, it may have already fired */
     if (env->resume_as_sreset) {
@@ -513,16 +513,16 @@ static void do_rfi(CPUPPCState *env, target_ulong nip, target_ulong msr)
     nip = (uint32_t)nip;
 #endif
     /* XXX: beware: this is false if VLE is supported */
-    env->nip = nip & ~((target_ulong)0x00000003);
+    target_ulong_set(&env->nip, nip & ~((target_ulong)0x00000003));
     hreg_store_msr(env, msr, 1);
-    trace_ppc_excp_rfi(env->nip, env->msr);
+    trace_ppc_excp_rfi(target_ulong_val(&env->nip), target_ulong_val(&env->msr));
     /*
      * No need to raise an exception here, as rfi is always the last
      * insn of a TB
      */
     cpu_interrupt_exittb(env_cpu(env));
     /* Reset the reservation */
-    env->reserve_addr = -1;
+    target_ulong_set(&env->reserve_addr, -1);
 
     /* Context synchronizing: check if TCG TLB needs flush */
     check_tlb_flush(env, false);
@@ -530,7 +530,7 @@ static void do_rfi(CPUPPCState *env, target_ulong nip, target_ulong msr)
 
 void helper_RFI(CPUPPCState *env)
 {
-    do_rfi(env, env->spr[SPR_SRR0], env->spr[SPR_SRR1] & 0xfffffffful);
+    do_rfi(env, target_ulong_array_val(&env->spr.rec, SPR_SRR0), target_ulong_array_val(&env->spr.rec, SPR_SRR1) & 0xfffffffful);
 }
 
 #ifdef TARGET_PPC64
@@ -542,7 +542,7 @@ void helper_RFID(CPUPPCState *env)
      * which will be called by do_rfi(), so there is no need to filter
      * here
      */
-    do_rfi(env, env->spr[SPR_SRR0], env->spr[SPR_SRR1]);
+    do_rfi(env, target_ulong_array_val(&env->spr.rec, SPR_SRR0), target_ulong_array_val(&env->spr.rec, SPR_SRR1));
 }
 
 void helper_RFSCV(CPUPPCState *env)
@@ -552,12 +552,12 @@ void helper_RFSCV(CPUPPCState *env)
 
 void helper_HRFID(CPUPPCState *env)
 {
-    do_rfi(env, env->spr[SPR_HSRR0], env->spr[SPR_HSRR1]);
+    do_rfi(env, target_ulong_array_val(&env->spr.rec, SPR_HSRR0), target_ulong_array_val(&env->spr.rec, SPR_HSRR1));
 }
 
 void helper_rfebb(CPUPPCState *env, target_ulong s)
 {
-    target_ulong msr = env->msr;
+    target_ulong msr = target_ulong_val(&env->msr);
 
     /*
      * Handling of BESCR bits 32:33 according to PowerISA v3.1:
@@ -565,22 +565,22 @@ void helper_rfebb(CPUPPCState *env, target_ulong s)
      * "If BESCR 32:33 != 0b00 the instruction is treated as if
      *  the instruction form were invalid."
      */
-    if (env->spr[SPR_BESCR] & BESCR_INVALID) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_BESCR) & BESCR_INVALID) {
         raise_exception_err(env, POWERPC_EXCP_PROGRAM,
                             POWERPC_EXCP_INVAL | POWERPC_EXCP_INVAL_INVAL);
     }
 
-    env->nip = env->spr[SPR_EBBRR];
+    target_ulong_set(&env->nip, target_ulong_array_val(&env->spr.rec, SPR_EBBRR));
 
     /* Switching to 32-bit ? Crop the nip */
     if (!msr_is_64bit(env, msr)) {
-        env->nip = (uint32_t)env->spr[SPR_EBBRR];
+        target_ulong_set(&env->nip, (uint32_t)target_ulong_array_val(&env->spr.rec, SPR_EBBRR));
     }
 
     if (s) {
-        env->spr[SPR_BESCR] |= BESCR_GE;
+        target_ulong_array_set(&env->spr.rec, SPR_BESCR, target_ulong_array_val(&env->spr.rec, SPR_BESCR) | (BESCR_GE));
     } else {
-        env->spr[SPR_BESCR] &= ~BESCR_GE;
+        target_ulong_array_set(&env->spr.rec, SPR_BESCR, target_ulong_array_val(&env->spr.rec, SPR_BESCR) & (~BESCR_GE));
     }
 }
 
@@ -605,12 +605,12 @@ static void do_ebb(CPUPPCState *env, int ebb_excp)
     helper_hfscr_facility_check(env, FSCR_EBB, "EBB", FSCR_IC_EBB);
 
     if (ebb_excp == POWERPC_EXCP_PERFM_EBB) {
-        env->spr[SPR_BESCR] |= BESCR_PMEO;
+        target_ulong_array_set(&env->spr.rec, SPR_BESCR, target_ulong_array_val(&env->spr.rec, SPR_BESCR) | (BESCR_PMEO));
     } else if (ebb_excp == POWERPC_EXCP_EXTERNAL_EBB) {
-        env->spr[SPR_BESCR] |= BESCR_EEO;
+        target_ulong_array_set(&env->spr.rec, SPR_BESCR, target_ulong_array_val(&env->spr.rec, SPR_BESCR) | (BESCR_EEO));
     }
 
-    if (FIELD_EX64(env->msr, MSR, PR)) {
+    if (FIELD_EX64(target_ulong_val(&env->msr), MSR, PR)) {
         powerpc_excp(cpu, ebb_excp);
     } else {
         ppc_set_irq(cpu, PPC_INTERRUPT_EBB, 1);
@@ -619,9 +619,9 @@ static void do_ebb(CPUPPCState *env, int ebb_excp)
 
 void raise_ebb_perfm_exception(CPUPPCState *env)
 {
-    bool perfm_ebb_enabled = env->spr[SPR_POWER_MMCR0] & MMCR0_EBE &&
-                             env->spr[SPR_BESCR] & BESCR_PME &&
-                             env->spr[SPR_BESCR] & BESCR_GE;
+    bool perfm_ebb_enabled = target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR0) & MMCR0_EBE &&
+                             target_ulong_array_val(&env->spr.rec, SPR_BESCR) & BESCR_PME &&
+                             target_ulong_array_val(&env->spr.rec, SPR_BESCR) & BESCR_GE;
 
     if (!perfm_ebb_enabled) {
         return;
@@ -635,24 +635,24 @@ void raise_ebb_perfm_exception(CPUPPCState *env)
 /* Embedded PowerPC specific helpers */
 void helper_40x_rfci(CPUPPCState *env)
 {
-    do_rfi(env, env->spr[SPR_40x_SRR2], env->spr[SPR_40x_SRR3]);
+    do_rfi(env, target_ulong_array_val(&env->spr.rec, SPR_40x_SRR2), target_ulong_array_val(&env->spr.rec, SPR_40x_SRR3));
 }
 
 void helper_rfci(CPUPPCState *env)
 {
-    do_rfi(env, env->spr[SPR_BOOKE_CSRR0], env->spr[SPR_BOOKE_CSRR1]);
+    do_rfi(env, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_CSRR0), target_ulong_array_val(&env->spr.rec, SPR_BOOKE_CSRR1));
 }
 
 void helper_rfdi(CPUPPCState *env)
 {
     /* FIXME: choose CSRR1 or DSRR1 based on cpu type */
-    do_rfi(env, env->spr[SPR_BOOKE_DSRR0], env->spr[SPR_BOOKE_DSRR1]);
+    do_rfi(env, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_DSRR0), target_ulong_array_val(&env->spr.rec, SPR_BOOKE_DSRR1));
 }
 
 void helper_rfmci(CPUPPCState *env)
 {
     /* FIXME: choose CSRR1 or MCSRR1 based on cpu type */
-    do_rfi(env, env->spr[SPR_BOOKE_MCSRR0], env->spr[SPR_BOOKE_MCSRR1]);
+    do_rfi(env, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MCSRR0), target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MCSRR1));
 }
 
 /* Embedded.Processor Control */
@@ -705,7 +705,7 @@ void helper_msgsnd(target_ulong rb)
         PowerPCCPU *cpu = POWERPC_CPU(cs);
         CPUPPCState *cenv = &cpu->env;
 
-        if ((rb & DBELL_BRDCAST_MASK) || (cenv->spr[SPR_BOOKE_PIR] == pir)) {
+        if ((rb & DBELL_BRDCAST_MASK) || (target_ulong_array_val(&cenv->spr.rec, SPR_BOOKE_PIR) == pir)) {
             ppc_set_irq(cpu, irq, 1);
         }
     }
@@ -851,7 +851,7 @@ void helper_book3s_trace(CPUPPCState *env, target_ulong prev_ip)
     uint32_t error_code = 0;
     if (env->insns_flags2 & PPC2_ISA207) {
         /* Load/store reporting, SRR1[35, 36] and SDAR, are not implemented. */
-        env->spr[SPR_POWER_SIAR] = prev_ip;
+        target_ulong_array_set(&env->spr.rec, SPR_POWER_SIAR, prev_ip);
         error_code = PPC_BIT(33);
     }
     raise_exception_err(env, POWERPC_EXCP_TRACE, error_code);

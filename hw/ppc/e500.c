@@ -789,15 +789,15 @@ static void ppce500_cpu_reset(void *opaque)
 
     /* Set initial guest state. */
     cs->halted = 0;
-    env->gpr[1] = (16 * MiB) - 8;
-    env->gpr[3] = bi->dt_base;
-    env->gpr[4] = 0;
-    env->gpr[5] = 0;
-    env->gpr[6] = EPAPR_MAGIC;
-    env->gpr[7] = map_size;
-    env->gpr[8] = 0;
-    env->gpr[9] = 0;
-    env->nip = bi->entry;
+    target_ulong_array_set(&env->gpr.rec, 1, (16 * MiB) - 8);
+    target_ulong_array_set(&env->gpr.rec, 3, bi->dt_base);
+    target_ulong_array_set(&env->gpr.rec, 4, 0);
+    target_ulong_array_set(&env->gpr.rec, 5, 0);
+    target_ulong_array_set(&env->gpr.rec, 6, EPAPR_MAGIC);
+    target_ulong_array_set(&env->gpr.rec, 7, map_size);
+    target_ulong_array_set(&env->gpr.rec, 8, 0);
+    target_ulong_array_set(&env->gpr.rec, 9, 0);
+    target_ulong_set(&env->nip, bi->entry);
     /* create initial mapping */
     booke206_set_tlb(tlb, 0, 0, map_size);
 #ifdef CONFIG_KVM

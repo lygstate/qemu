@@ -49,7 +49,7 @@ static void xscom_complete(CPUState *cs, uint64_t hmer_bits)
          * of HMIs
          */
         cpu_synchronize_state(cs);
-        cpu_env(cs)->spr[SPR_HMER] |= hmer_bits;
+        target_ulong_array_set(&cpu_env(cs)->spr.rec, SPR_HMER, target_ulong_array_val(&cpu_env(cs)->spr.rec, SPR_HMER) | (hmer_bits));
     }
 }
 

@@ -64,12 +64,12 @@ bool ppc_hash32_xlate(PowerPCCPU *cpu, vaddr eaddr, MMUAccessType access_type,
 
 static inline hwaddr ppc_hash32_hpt_base(PowerPCCPU *cpu)
 {
-    return cpu->env.spr[SPR_SDR1] & SDR_32_HTABORG;
+    return target_ulong_array_val(&cpu->env.spr.rec, SPR_SDR1) & SDR_32_HTABORG;
 }
 
 static inline hwaddr ppc_hash32_hpt_mask(PowerPCCPU *cpu)
 {
-    return ((cpu->env.spr[SPR_SDR1] & SDR_32_HTABMASK) << 16) | 0xFFFF;
+    return ((target_ulong_array_val(&cpu->env.spr.rec, SPR_SDR1) & SDR_32_HTABMASK) << 16) | 0xFFFF;
 }
 
 static inline hwaddr get_pteg_offset32(PowerPCCPU *cpu, hwaddr hash)

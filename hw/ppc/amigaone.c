@@ -244,14 +244,14 @@ static void amigaone_cpu_reset(void *opaque)
     if (env->load_info) {
         struct boot_info *bi = env->load_info;
 
-        env->gpr[1] = bi->stack;
-        env->gpr[2] = 1024;
-        env->gpr[3] = bi->bd_info;
-        env->gpr[4] = bi->initrd_start;
-        env->gpr[5] = bi->initrd_end;
-        env->gpr[6] = bi->cmdline_start;
-        env->gpr[7] = bi->cmdline_end;
-        env->nip = bi->entry;
+        target_ulong_array_set(&env->gpr.rec, 1, bi->stack);
+        target_ulong_array_set(&env->gpr.rec, 2, 1024);
+        target_ulong_array_set(&env->gpr.rec, 3, bi->bd_info);
+        target_ulong_array_set(&env->gpr.rec, 4, bi->initrd_start);
+        target_ulong_array_set(&env->gpr.rec, 5, bi->initrd_end);
+        target_ulong_array_set(&env->gpr.rec, 6, bi->cmdline_start);
+        target_ulong_array_set(&env->gpr.rec, 7, bi->cmdline_end);
+        target_ulong_set(&env->nip, bi->entry);
     }
     cpu_ppc_tb_reset(env);
 }

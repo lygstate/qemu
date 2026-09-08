@@ -34,39 +34,39 @@ void hreg_swap_gpr_tgpr(CPUPPCState *env)
 {
     target_ulong tmp;
 
-    tmp = env->gpr[0];
-    env->gpr[0] = env->tgpr[0];
-    env->tgpr[0] = tmp;
-    tmp = env->gpr[1];
-    env->gpr[1] = env->tgpr[1];
-    env->tgpr[1] = tmp;
-    tmp = env->gpr[2];
-    env->gpr[2] = env->tgpr[2];
-    env->tgpr[2] = tmp;
-    tmp = env->gpr[3];
-    env->gpr[3] = env->tgpr[3];
-    env->tgpr[3] = tmp;
+    tmp = target_ulong_array_val(&env->gpr.rec, 0);
+    target_ulong_array_set(&env->gpr.rec, 0, target_ulong_array_val(&env->tgpr.rec, 0));
+    target_ulong_array_set(&env->tgpr.rec, 0, tmp);
+    tmp = target_ulong_array_val(&env->gpr.rec, 1);
+    target_ulong_array_set(&env->gpr.rec, 1, target_ulong_array_val(&env->tgpr.rec, 1));
+    target_ulong_array_set(&env->tgpr.rec, 1, tmp);
+    tmp = target_ulong_array_val(&env->gpr.rec, 2);
+    target_ulong_array_set(&env->gpr.rec, 2, target_ulong_array_val(&env->tgpr.rec, 2));
+    target_ulong_array_set(&env->tgpr.rec, 2, tmp);
+    tmp = target_ulong_array_val(&env->gpr.rec, 3);
+    target_ulong_array_set(&env->gpr.rec, 3, target_ulong_array_val(&env->tgpr.rec, 3));
+    target_ulong_array_set(&env->tgpr.rec, 3, tmp);
 }
 
 #if defined(TARGET_PPC64)
 static bool hreg_check_bhrb_enable(CPUPPCState *env)
 {
-    bool pr = !!(env->msr & (1 << MSR_PR));
+    bool pr = !!(target_ulong_val(&env->msr) & (1 << MSR_PR));
     target_long mmcr0;
     bool fcp;
     bool hv;
 
     /* ISA 3.1 adds the PMCRA[BRHBRD] and problem state checks */
     if ((env->insns_flags2 & PPC2_ISA310) &&
-        ((env->spr[SPR_POWER_MMCRA] & MMCRA_BHRBRD) || !pr)) {
+        ((target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCRA) & MMCRA_BHRBRD) || !pr)) {
         return false;
     }
 
     /* Check for BHRB "frozen" conditions */
-    mmcr0 = env->spr[SPR_POWER_MMCR0];
+    mmcr0 = target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR0);
     fcp = !!(mmcr0 & MMCR0_FCP);
     if (mmcr0 & MMCR0_FCPC) {
-        hv = !!(env->msr & (1ull << MSR_HV));
+        hv = !!(target_ulong_val(&env->msr) & (1ull << MSR_HV));
         if (fcp) {
             if (hv && pr) {
                 return false;
@@ -85,7 +85,7 @@ static uint32_t hreg_compute_pmu_hflags_value(CPUPPCState *env)
 {
     uint32_t hflags = 0;
 #if defined(TARGET_PPC64)
-    target_ulong mmcr0 = env->spr[SPR_POWER_MMCR0];
+    target_ulong mmcr0 = target_ulong_array_val(&env->spr.rec, SPR_POWER_MMCR0);
 
     if (mmcr0 & MMCR0_PMCC0) {
         hflags |= 1 << HFLAGS_PMCC0;
@@ -130,7 +130,7 @@ static uint32_t hreg_compute_pmu_hflags_mask(CPUPPCState *env)
 
 static uint32_t hreg_compute_hflags_value(CPUPPCState *env)
 {
-    target_ulong msr = env->msr;
+    target_ulong msr = target_ulong_val(&env->msr);
     uint32_t ppc_flags = env->flags;
     uint32_t hflags = 0;
     uint32_t msr_mask;
@@ -144,7 +144,7 @@ static uint32_t hreg_compute_hflags_value(CPUPPCState *env)
                 (1 << MSR_DR) | (1 << MSR_FP));
 
     if (ppc_flags & POWERPC_FLAG_DE) {
-        target_ulong dbcr0 = env->spr[SPR_BOOKE_DBCR0];
+        target_ulong dbcr0 = target_ulong_array_val(&env->spr.rec, SPR_BOOKE_DBCR0);
         if ((dbcr0 & DBCR0_ICMP) && FIELD_EX64(msr, MSR, DE)) {
             hflags |= 1 << HFLAGS_SE;
         }
@@ -179,10 +179,10 @@ static uint32_t hreg_compute_hflags_value(CPUPPCState *env)
     if ((ppc_flags & POWERPC_FLAG_TM) && (msr & (1ull << MSR_TM))) {
         hflags |= 1 << HFLAGS_TM;
     }
-    if (env->spr[SPR_LPCR] & LPCR_GTSE) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_LPCR) & LPCR_GTSE) {
         hflags |= 1 << HFLAGS_GTSE;
     }
-    if (env->spr[SPR_LPCR] & LPCR_HR) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_LPCR) & LPCR_HR) {
         hflags |= 1 << HFLAGS_HR;
     }
     if (unlikely(ppc_flags & POWERPC_FLAG_PPE42)) {
@@ -275,7 +275,7 @@ TCGTBCPUState ppc_get_tb_cpu_state(CPUState *cs)
     }
 #endif
 
-    return (TCGTBCPUState){ .pc = env->nip, .flags = hflags_current };
+    return (TCGTBCPUState){ .pc = target_ulong_val(&env->nip), .flags = hflags_current };
 }
 #endif /* CONFIG_TCG */
 
@@ -304,31 +304,31 @@ int hreg_store_msr(CPUPPCState *env, target_ulong value, int alter_hv)
     value &= env->msr_mask;
 #if !defined(CONFIG_USER_ONLY)
     /* Neither mtmsr nor guest state can alter HV */
-    if (!alter_hv || !(env->msr & MSR_HVB)) {
+    if (!alter_hv || !(target_ulong_val(&env->msr) & MSR_HVB)) {
         value &= ~MSR_HVB;
-        value |= env->msr & MSR_HVB;
+        value |= target_ulong_val(&env->msr) & MSR_HVB;
     }
     /* Attempt to modify MSR[ME] in guest state is ignored */
-    if (is_book3s_arch2x(env) && !(env->msr & MSR_HVB)) {
+    if (is_book3s_arch2x(env) && !(target_ulong_val(&env->msr) & MSR_HVB)) {
         value &= ~(1 << MSR_ME);
-        value |= env->msr & (1 << MSR_ME);
+        value |= target_ulong_val(&env->msr) & (1 << MSR_ME);
     }
     if ((env->mmu_model == POWERPC_MMU_BOOKE ||
          env->mmu_model == POWERPC_MMU_BOOKE206) &&
-        ((value ^ env->msr) & R_MSR_GS_MASK)) {
+        ((value ^ target_ulong_val(&env->msr)) & R_MSR_GS_MASK)) {
         cpu_interrupt_exittb(cs);
     }
     if (unlikely((env->flags & POWERPC_FLAG_TGPR) &&
-                 ((value ^ env->msr) & (1 << MSR_TGPR)))) {
+                 ((value ^ target_ulong_val(&env->msr)) & (1 << MSR_TGPR)))) {
         /* Swap temporary saved registers with GPRs */
         hreg_swap_gpr_tgpr(env);
     }
     /* PPE42 uses IR, DR and EP MSR bits for other purposes */
     if (likely(!(env->flags & POWERPC_FLAG_PPE42))) {
-        if ((value ^ env->msr) & (R_MSR_IR_MASK | R_MSR_DR_MASK)) {
+        if ((value ^ target_ulong_val(&env->msr)) & (R_MSR_IR_MASK | R_MSR_DR_MASK)) {
             cpu_interrupt_exittb(cs);
         }
-        if (unlikely((value ^ env->msr) & R_MSR_EP_MASK)) {
+        if (unlikely((value ^ target_ulong_val(&env->msr)) & R_MSR_EP_MASK)) {
             env->excp_prefix = FIELD_EX64(value, MSR, EP) * 0xFFF00000;
         }
     }
@@ -346,12 +346,12 @@ int hreg_store_msr(CPUPPCState *env, target_ulong value, int alter_hv)
         value |= (1 << MSR_EE) | (1 << MSR_DR) | (1 << MSR_IR);
     }
 #endif
-    env->msr = value;
+    target_ulong_set(&env->msr, value);
     hreg_compute_hflags(env);
 #if !defined(CONFIG_USER_ONLY)
     ppc_maybe_interrupt(env);
 
-    if (unlikely(FIELD_EX64(env->msr, MSR, POW))) {
+    if (unlikely(FIELD_EX64(target_ulong_val(&env->msr), MSR, POW))) {
         if (!env->pending_interrupts && (*env->check_pow)(env)) {
             cs->halted = 1;
             excp = EXCP_HALTED;
@@ -370,7 +370,7 @@ void store_40x_sler(CPUPPCState *env, uint32_t val)
         cpu_abort(env_cpu(env),
                   "Little-endian regions are not supported by now\n");
     }
-    env->spr[SPR_405_SLER] = val;
+    target_ulong_array_set(&env->spr.rec, SPR_405_SLER, val);
 }
 
 void check_tlb_flush(CPUPPCState *env, bool global)
@@ -421,7 +421,7 @@ void _spr_register(CPUPPCState *env, int num, const char *name,
 
     spr->name = name;
     spr->default_value = initial_value;
-    env->spr[num] = initial_value;
+    target_ulong_array_set(&env->spr.rec, num, initial_value);
 
 #ifdef CONFIG_TCG
     spr->uea_read = uea_read;

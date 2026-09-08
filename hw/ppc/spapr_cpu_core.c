@@ -46,12 +46,12 @@ static void spapr_reset_vcpu(PowerPCCPU *cpu)
      * Register Values". This can also be found in "LoPAPR 1.1" "C.9.2.1
      * Initial Register Values".
      */
-    env->msr &= ~(1ULL << MSR_SF);
-    env->msr |= (1ULL << MSR_ME) | (1ULL << MSR_FP);
+    target_ulong_set(&env->msr, target_ulong_val(&env->msr) & ~(1ULL << MSR_SF));
+    target_ulong_set(&env->msr, target_ulong_val(&env->msr) | (1ULL << MSR_ME) | (1ULL << MSR_FP));
 
-    env->spr[SPR_HIOR] = 0;
+    target_ulong_array_set(&env->spr.rec, SPR_HIOR, 0);
 
-    lpcr = env->spr[SPR_LPCR];
+    lpcr = target_ulong_array_val(&env->spr.rec, SPR_LPCR);
 
     /* Set emulated LPCR to not send interrupts to hypervisor. Note that
      * under KVM, the actual HW LPCR will be set differently by KVM itself,
@@ -64,12 +64,12 @@ static void spapr_reset_vcpu(PowerPCCPU *cpu)
      */
     lpcr &= ~(LPCR_VPM1 | LPCR_ISL | LPCR_KBV | pcc->lpcr_pm);
     lpcr |= LPCR_LPES0 | LPCR_LPES1;
-    env->spr[SPR_PSSCR] |= PSSCR_EC;
+    target_ulong_array_set(&env->spr.rec, SPR_PSSCR, target_ulong_array_val(&env->spr.rec, SPR_PSSCR) | (PSSCR_EC));
 
     ppc_store_lpcr(cpu, lpcr);
 
     /* Set a full AMOR so guest can use the AMR as it sees fit */
-    env->spr[SPR_AMOR] = 0xffffffffffffffffull;
+    target_ulong_array_set(&env->spr.rec, SPR_AMOR, 0xffffffffffffffffull);
 
     spapr_cpu->vpa_addr = 0;
     spapr_cpu->slb_shadow_addr = 0;
@@ -93,14 +93,14 @@ void spapr_cpu_set_entry_state(PowerPCCPU *cpu, target_ulong nip,
     PowerPCCPUClass *pcc = POWERPC_CPU_GET_CLASS(cpu);
     CPUPPCState *env = &cpu->env;
 
-    env->nip = nip;
-    env->gpr[1] = r1;
-    env->gpr[3] = r3;
-    env->gpr[4] = r4;
+    target_ulong_set(&env->nip, nip);
+    target_ulong_array_set(&env->gpr.rec, 1, r1);
+    target_ulong_array_set(&env->gpr.rec, 3, r3);
+    target_ulong_array_set(&env->gpr.rec, 4, r4);
     kvmppc_set_reg_ppc_online(cpu, 1);
     CPU(cpu)->halted = 0;
     /* Enable Power-saving mode Exit Cause exceptions */
-    ppc_store_lpcr(cpu, env->spr[SPR_LPCR] | pcc->lpcr_pm);
+    ppc_store_lpcr(cpu, target_ulong_array_val(&env->spr.rec, SPR_LPCR) | pcc->lpcr_pm);
 
     env->quiesced = false; /* clear "RTAS stopped" state. */
     ppc_maybe_interrupt(env);

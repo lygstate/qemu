@@ -209,7 +209,7 @@ static target_ulong h_set_sprg0(PowerPCCPU *cpu, SpaprMachineState *spapr,
                                 target_ulong opcode, target_ulong *args)
 {
     cpu_synchronize_state(CPU(cpu));
-    cpu->env.spr[SPR_SPRG0] = args[0];
+    target_ulong_array_set(&cpu->env.spr.rec, SPR_SPRG0, args[0]);
 
     return H_SUCCESS;
 }
@@ -223,12 +223,12 @@ static target_ulong h_set_dabr(PowerPCCPU *cpu, SpaprMachineState *spapr,
     cpu_synchronize_state(CPU(cpu));
 
     if (ppc_has_spr(cpu, SPR_DABRX)) {
-        cpu->env.spr[SPR_DABRX] = 0x3;  /* Use Problem and Privileged state */
+        target_ulong_array_set(&cpu->env.spr.rec, SPR_DABRX, 0x3);  /* Use Problem and Privileged state */
     } else if (!(args[0] & 0x4)) {      /* Breakpoint Translation set? */
         return H_RESERVED_DABR;
     }
 
-    cpu->env.spr[SPR_DABR] = args[0];
+    target_ulong_array_set(&cpu->env.spr.rec, SPR_DABR, args[0]);
     return H_SUCCESS;
 }
 
@@ -247,8 +247,8 @@ static target_ulong h_set_xdabr(PowerPCCPU *cpu, SpaprMachineState *spapr,
     }
 
     cpu_synchronize_state(CPU(cpu));
-    cpu->env.spr[SPR_DABRX] = dabrx;
-    cpu->env.spr[SPR_DABR] = args[0];
+    target_ulong_array_set(&cpu->env.spr.rec, SPR_DABRX, dabrx);
+    target_ulong_array_set(&cpu->env.spr.rec, SPR_DABR, args[0]);
 
     return H_SUCCESS;
 }
@@ -499,7 +499,7 @@ static target_ulong h_cede(PowerPCCPU *cpu, SpaprMachineState *spapr,
     CPUState *cs = CPU(cpu);
     SpaprCpuState *spapr_cpu = spapr_cpu_state(cpu);
 
-    env->msr |= (1ULL << MSR_EE);
+    target_ulong_set(&env->msr, target_ulong_val(&env->msr) | (1ULL << MSR_EE));
     hreg_compute_hflags(env);
     ppc_maybe_interrupt(env);
 
@@ -546,7 +546,7 @@ static target_ulong h_join(PowerPCCPU *cpu, SpaprMachineState *spapr,
     CPUState *cs;
     bool last_unjoined = true;
 
-    if (env->msr & (1ULL << MSR_EE)) {
+    if (target_ulong_val(&env->msr) & (1ULL << MSR_EE)) {
         return H_BAD_MODE;
     }
 
@@ -563,7 +563,7 @@ static target_ulong h_join(PowerPCCPU *cpu, SpaprMachineState *spapr,
         }
 
         /* Don't have a way to indicate joined, so use halted && MSR[EE]=0 */
-        if (!cs->halted || (e->msr & (1ULL << MSR_EE))) {
+        if (!cs->halted || (target_ulong_val(&e->msr) & (1ULL << MSR_EE))) {
             last_unjoined = false;
             break;
         }
@@ -1155,7 +1155,7 @@ static uint32_t cas_check_pvr(PowerPCCPU *cpu, uint32_t max_compat,
             break; /* Terminator record */
         }
 
-        if ((cpu->env.spr[SPR_PVR] & pvr_mask) == (pvr & pvr_mask)) {
+        if ((target_ulong_array_val(&cpu->env.spr.rec, SPR_PVR) & pvr_mask) == (pvr & pvr_mask)) {
             explicit_match = true;
         } else {
             if (ppc_check_compat(cpu, pvr, best_compat, max_compat)) {

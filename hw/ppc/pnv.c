@@ -178,7 +178,7 @@ static int pnv_dt_core(PnvChip *chip, PnvCore *pc, void *fdt)
     _FDT((fdt_setprop_cell(fdt, offset, "ibm,pir", pir)));
     _FDT((fdt_setprop_string(fdt, offset, "device_type", "cpu")));
 
-    _FDT((fdt_setprop_cell(fdt, offset, "cpu-version", env->spr[SPR_PVR])));
+    _FDT((fdt_setprop_cell(fdt, offset, "cpu-version", target_ulong_array_val(&env->spr.rec, SPR_PVR))));
     _FDT((fdt_setprop_cell(fdt, offset, "d-cache-block-size",
                             env->dcache_line_size)));
     _FDT((fdt_setprop_cell(fdt, offset, "d-cache-line-size",
@@ -1948,7 +1948,7 @@ static uint64_t pnv_handle_sprd_load(CPUPPCState *env)
 {
     PowerPCCPU *cpu = env_archcpu(env);
     PnvCore *pc = pnv_cpu_state(cpu)->pnv_core;
-    uint64_t sprc = env->spr[SPR_POWER_SPRC];
+    uint64_t sprc = target_ulong_array_val(&env->spr.rec, SPR_POWER_SPRC);
 
     if (pc->big_core) {
         pc = pnv_chip_find_core(pc->chip, CPU_CORE(pc)->core_id & ~0x1);
@@ -1977,7 +1977,7 @@ static uint64_t pnv_handle_sprd_load(CPUPPCState *env)
 
     default:
         qemu_log_mask(LOG_UNIMP, "mfSPRD: Unimplemented SPRC:0x"
-                                  TARGET_FMT_lx"\n", sprc);
+                                  "%016" PRIx64 "\n", sprc);
         break;
     }
     return 0;
@@ -1986,7 +1986,7 @@ static uint64_t pnv_handle_sprd_load(CPUPPCState *env)
 static void pnv_handle_sprd_store(CPUPPCState *env, uint64_t val)
 {
     PowerPCCPU *cpu = env_archcpu(env);
-    uint64_t sprc = env->spr[SPR_POWER_SPRC];
+    uint64_t sprc = target_ulong_array_val(&env->spr.rec, SPR_POWER_SPRC);
     PnvCore *pc = pnv_cpu_state(cpu)->pnv_core;
     int nr;
 
@@ -2008,7 +2008,7 @@ static void pnv_handle_sprd_store(CPUPPCState *env, uint64_t val)
         break;
     default:
         qemu_log_mask(LOG_UNIMP, "mtSPRD: Unimplemented SPRC:0x"
-                                  TARGET_FMT_lx"\n", sprc);
+                                  "%016" PRIx64 "\n", sprc);
         break;
     }
 }
@@ -3513,15 +3513,15 @@ static void pnv_cpu_do_nmi_on_cpu(CPUState *cs, run_on_cpu_data arg)
 
     cpu_synchronize_state(cs);
     ppc_cpu_do_system_reset(cs);
-    if (env->spr[SPR_SRR1] & SRR1_WAKESTATE) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_SRR1) & SRR1_WAKESTATE) {
         /*
          * Power-save wakeups, as indicated by non-zero SRR1[46:47] put the
          * wakeup reason in SRR1[42:45], system reset is indicated with 0b0100
          * (PPC_BIT(43)).
          */
-        if (!(env->spr[SPR_SRR1] & SRR1_WAKERESET)) {
+        if (!(target_ulong_array_val(&env->spr.rec, SPR_SRR1) & SRR1_WAKERESET)) {
             warn_report("ppc_cpu_do_system_reset does not set system reset wakeup reason");
-            env->spr[SPR_SRR1] |= SRR1_WAKERESET;
+            target_ulong_array_set(&env->spr.rec, SPR_SRR1, target_ulong_array_val(&env->spr.rec, SPR_SRR1) | (SRR1_WAKERESET));
         }
     } else {
         /*
@@ -3531,7 +3531,7 @@ static void pnv_cpu_do_nmi_on_cpu(CPUState *cs, run_on_cpu_data arg)
          * another CPU requesting a NMI IPI) system reset exception should be
          * 0b0010 (PPC_BIT(44)).
          */
-        env->spr[SPR_SRR1] |= SRR1_WAKESCOM;
+        target_ulong_array_set(&env->spr.rec, SPR_SRR1, target_ulong_array_val(&env->spr.rec, SPR_SRR1) | (SRR1_WAKESCOM));
     }
     if (arg.host_int == 1) {
         cpu_resume(cs);

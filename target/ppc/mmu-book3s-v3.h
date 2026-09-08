@@ -64,7 +64,7 @@ struct prtb_entry {
 
 static inline bool ppc64_use_proc_tbl(PowerPCCPU *cpu)
 {
-    return !!(cpu->env.spr[SPR_LPCR] & LPCR_UPRT);
+    return !!(target_ulong_array_val(&cpu->env.spr.rec, SPR_LPCR) & LPCR_UPRT);
 }
 
 bool ppc64_v3_get_pate(PowerPCCPU *cpu, target_ulong lpid,
@@ -77,7 +77,7 @@ bool ppc64_v3_get_pate(PowerPCCPU *cpu, target_ulong lpid,
  */
 static inline bool ppc64_v3_radix(PowerPCCPU *cpu)
 {
-    return !!(cpu->env.spr[SPR_LPCR] & LPCR_HR);
+    return !!(target_ulong_array_val(&cpu->env.spr.rec, SPR_LPCR) & LPCR_HR);
 }
 
 #endif /* TARGET_PPC64 */
