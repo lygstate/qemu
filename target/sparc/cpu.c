@@ -48,7 +48,7 @@ static void sparc_cpu_reset_hold(Object *obj, ResetType type)
 #ifndef TARGET_SPARC64
     env->wim = 1;
 #endif
-    env->regwptr = env->regbase + (env->cwp * 16);
+    env->regwptr = target_ulong_array_elem(&env->regbase.rec, (env->cwp * 16));
 #if defined(CONFIG_USER_ONLY)
 #ifdef TARGET_SPARC64
     env->cleanwin = env->nwindows - 2;
@@ -76,8 +76,8 @@ static void sparc_cpu_reset_hold(Object *obj, ResetType type)
     env->mmuregs[0] &= ~(MMU_E | MMU_NF);
     env->mmuregs[0] |= env->def.mmu_bm;
 #endif
-    env->pc = 0;
-    env->npc = env->pc + 4;
+    target_ulong_set(&env->pc, 0);
+    target_ulong_set(&env->npc, target_ulong_val(&env->pc) + 4);
 #endif
     env->cache_control = 0;
     cpu_put_fsr(env, 0);
@@ -626,14 +626,14 @@ static void sparc_cpu_dump_state(CPUState *cs, FILE *f, int flags)
     CPUSPARCState *env = cpu_env(cs);
     int i, x;
 
-    qemu_fprintf(f, "pc: " TARGET_FMT_lx "  npc: " TARGET_FMT_lx "\n", env->pc,
-                 env->npc);
+    qemu_fprintf(f, "pc: " "%016" PRIx64 "  npc: " "%016" PRIx64 "\n", target_ulong_val(&env->pc),
+                 target_ulong_val(&env->npc));
 
     for (i = 0; i < 8; i++) {
         if (i % REGS_PER_LINE == 0) {
             qemu_fprintf(f, "%%g%d-%d:", i, i + REGS_PER_LINE - 1);
         }
-        qemu_fprintf(f, " " TARGET_FMT_lx, env->gregs[i]);
+        qemu_fprintf(f, " " "%016" PRIx64, target_ulong_array_val(&env->gregs.rec, i));
         if (i % REGS_PER_LINE == REGS_PER_LINE - 1) {
             qemu_fprintf(f, "\n");
         }
@@ -672,14 +672,14 @@ static void sparc_cpu_dump_state(CPUState *cs, FILE *f, int flags)
     cpu_print_cc(f, cpu_get_ccr(env) << (PSR_CARRY_SHIFT - 4));
     qemu_fprintf(f, ") asi: %02x tl: %d pil: %x gl: %d\n", env->asi, env->tl,
                  env->psrpil, env->gl);
-    qemu_fprintf(f, "tbr: " TARGET_FMT_lx " hpstate: " TARGET_FMT_lx " htba: "
-                 TARGET_FMT_lx "\n", env->tbr, env->hpstate, env->htba);
+    qemu_fprintf(f, "tbr: " "%016" PRIx64 " hpstate: " TARGET_FMT_lx " htba: "
+                 TARGET_FMT_lx "\n", target_ulong_val(&env->tbr), env->hpstate, env->htba);
     qemu_fprintf(f, "cansave: %d canrestore: %d otherwin: %d wstate: %d "
                  "cleanwin: %d cwp: %d\n",
                  env->cansave, env->canrestore, env->otherwin, env->wstate,
                  env->cleanwin, env->nwindows - 1 - env->cwp);
-    qemu_fprintf(f, "fsr: " TARGET_FMT_lx " y: " TARGET_FMT_lx " fprs: %016x\n",
-                 cpu_get_fsr(env), env->y, env->fprs);
+    qemu_fprintf(f, "fsr: " TARGET_FMT_lx " y: " "%016" PRIx64 " fprs: %016x\n",
+                 cpu_get_fsr(env), target_ulong_val(&env->y), env->fprs);
 
 #else
     qemu_fprintf(f, "psr: %08x (icc: ", cpu_get_psr(env));
@@ -687,8 +687,8 @@ static void sparc_cpu_dump_state(CPUState *cs, FILE *f, int flags)
     qemu_fprintf(f, " SPE: %c%c%c) wim: %08x\n", env->psrs ? 'S' : '-',
                  env->psrps ? 'P' : '-', env->psret ? 'E' : '-',
                  env->wim);
-    qemu_fprintf(f, "fsr: " TARGET_FMT_lx " y: " TARGET_FMT_lx "\n",
-                 cpu_get_fsr(env), env->y);
+    qemu_fprintf(f, "fsr: " TARGET_FMT_lx " y: " "%016" PRIx64 "\n",
+                 cpu_get_fsr(env), target_ulong_val(&env->y));
 #endif
     qemu_fprintf(f, "\n");
 }
@@ -697,15 +697,15 @@ static void sparc_cpu_set_pc(CPUState *cs, vaddr value)
 {
     SPARCCPU *cpu = SPARC_CPU(cs);
 
-    cpu->env.pc = value;
-    cpu->env.npc = value + 4;
+    target_ulong_set(&cpu->env.pc, value);
+    target_ulong_set(&cpu->env.npc, value + 4);
 }
 
 static vaddr sparc_cpu_get_pc(CPUState *cs)
 {
     SPARCCPU *cpu = SPARC_CPU(cs);
 
-    return cpu->env.pc;
+    return target_ulong_val(&cpu->env.pc);
 }
 
 static void sparc_cpu_synchronize_from_tb(CPUState *cs,
@@ -714,8 +714,8 @@ static void sparc_cpu_synchronize_from_tb(CPUState *cs,
     SPARCCPU *cpu = SPARC_CPU(cs);
 
     tcg_debug_assert(!tcg_cflags_has(cs, CF_PCREL));
-    cpu->env.pc = tb->pc;
-    cpu->env.npc = tb->cs_base;
+    target_ulong_set(&cpu->env.pc, tb->pc);
+    target_ulong_set(&cpu->env.npc, tb->cs_base);
 }
 
 static TCGTBCPUState sparc_get_tb_cpu_state(CPUState *cs)
@@ -753,9 +753,9 @@ static TCGTBCPUState sparc_get_tb_cpu_state(CPUState *cs)
 #endif /* TARGET_SPARC64 */
 
     return (TCGTBCPUState){
-        .pc = env->pc,
+        .pc = target_ulong_val(&env->pc),
         .flags = flags,
-        .cs_base = env->npc,
+        .cs_base = target_ulong_val(&env->npc),
     };
 }
 
@@ -767,18 +767,18 @@ static void sparc_restore_state_to_opc(CPUState *cs,
     target_ulong pc = data[0];
     target_ulong npc = data[1];
 
-    env->pc = pc;
+    target_ulong_set(&env->pc, pc);
     if (npc == DYNAMIC_PC) {
         /* dynamic NPC: already stored */
     } else if (npc & JUMP_PC) {
         /* jump PC: use 'cond' and the jump targets of the translation */
         if (env->cond) {
-            env->npc = npc & ~3;
+            target_ulong_set(&env->npc, npc & ~3);
         } else {
-            env->npc = pc + 4;
+            target_ulong_set(&env->npc, pc + 4);
         }
     } else {
-        env->npc = npc;
+        target_ulong_set(&env->npc, npc);
     }
 }
 

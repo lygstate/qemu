@@ -70,7 +70,7 @@ void helper_tick_set_limit(void *opaque, uint64_t limit)
 
 uint64_t helper_udiv(CPUSPARCState *env, target_ulong a, target_ulong b)
 {
-    uint64_t a64 = (uint32_t)a | ((uint64_t)env->y << 32);
+    uint64_t a64 = (uint32_t)a | ((uint64_t)target_ulong_val(&env->y) << 32);
     uint32_t b32 = b;
     uint32_t r;
 
@@ -88,7 +88,7 @@ uint64_t helper_udiv(CPUSPARCState *env, target_ulong a, target_ulong b)
 
 uint64_t helper_sdiv(CPUSPARCState *env, target_ulong a, target_ulong b)
 {
-    int64_t a64 = (uint32_t)a | ((uint64_t)env->y << 32);
+    int64_t a64 = (uint32_t)a | ((uint64_t)target_ulong_val(&env->y) << 32);
     int32_t b32 = b;
     int32_t r;
 
@@ -194,8 +194,8 @@ void helper_power_down(CPUSPARCState *env)
     CPUState *cs = env_cpu(env);
 
     cs->halted = 1;
-    env->pc = env->npc;
-    env->npc = env->pc + 4;
+    target_ulong_set(&env->pc, target_ulong_val(&env->npc));
+    target_ulong_set(&env->npc, target_ulong_val(&env->pc) + 4);
     cpu_loop_exit_excp(cs, EXCP_HLT, 0);
 }
 

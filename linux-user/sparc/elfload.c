@@ -26,15 +26,15 @@ void elf_core_copy_regs(target_elf_gregset_t *r, const CPUArchState *env)
      *   [35]     Y
      */
     for (i = 0; i < 8; i++) {
-        r->regs[i]      = tswap64(env->gregs[i]);
+        r->regs[i]      = tswap64(target_ulong_array_val(&env->gregs.rec, i));
         r->regs[8 + i]  = tswap64(env->regwptr[WREG_O0 + i]);
         r->regs[16 + i] = tswap64(env->regwptr[WREG_L0 + i]);
         r->regs[24 + i] = tswap64(env->regwptr[WREG_I0 + i]);
     }
     r->regs[32] = tswap64(sparc64_tstate(e));
-    r->regs[33] = tswap64(env->pc);
-    r->regs[34] = tswap64(env->npc);
-    r->regs[35] = tswap64(env->y);
+    r->regs[33] = tswap64(target_ulong_val(&env->pc));
+    r->regs[34] = tswap64(target_ulong_val(&env->npc));
+    r->regs[35] = tswap64(target_ulong_val(&env->y));
 #else
     /* Linux kernel layout for sparc32 (arch/sparc/include/asm/elf_32.h):
      *   [0]      PSR
@@ -48,11 +48,11 @@ void elf_core_copy_regs(target_elf_gregset_t *r, const CPUArchState *env)
      *   [36..37] reserved (stack_check)
      */
     r->regs[0] = tswap32(cpu_get_psr(e));
-    r->regs[1] = tswap32(env->pc);
-    r->regs[2] = tswap32(env->npc);
-    r->regs[3] = tswap32(env->y);
+    r->regs[1] = tswap32(target_ulong_val(&env->pc));
+    r->regs[2] = tswap32(target_ulong_val(&env->npc));
+    r->regs[3] = tswap32(target_ulong_val(&env->y));
     for (i = 0; i < 8; i++) {
-        r->regs[4 + i]  = tswap32(env->gregs[i]);
+        r->regs[4 + i]  = tswap32(target_ulong_array_val(&env->gregs.rec, i));
         r->regs[12 + i] = tswap32(env->regwptr[WREG_O0 + i]);
         r->regs[20 + i] = tswap32(env->regwptr[WREG_L0 + i]);
         r->regs[28 + i] = tswap32(env->regwptr[WREG_I0 + i]);

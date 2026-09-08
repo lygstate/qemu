@@ -5,6 +5,7 @@
 #include "cpu-qom.h"
 #include "exec/cpu-interrupt.h"
 #include "exec/target_long.h"
+#include "exec/target-long-types.h"
 #include "qemu/cpu-float.h"
 
 #if !defined(TARGET_SPARC64)
@@ -403,11 +404,11 @@ typedef union {
 } SparcV9MMU;
 #endif
 struct CPUArchState {
-    target_ulong gregs[8]; /* general registers */
+    TARGET_ULONG_ARRAY(8) gregs; /* general registers */
     target_ulong *regwptr; /* pointer to current register window */
-    target_ulong pc;       /* program counter */
-    target_ulong npc;      /* next program counter */
-    target_ulong y;        /* multiply/divide register */
+    target_ulong_t pc;       /* program counter */
+    target_ulong_t npc;      /* next program counter */
+    target_ulong_t y;        /* multiply/divide register */
 
     /*
      * Bit 31 is for icc, bit 63 for xcc.
@@ -469,7 +470,7 @@ struct CPUArchState {
 #if !defined(TARGET_SPARC64) || defined(TARGET_ABI32)
     uint32_t wim;      /* window invalid mask */
 #endif
-    target_ulong tbr;  /* trap base register */
+    target_ulong_t tbr;  /* trap base register */
 #if !defined(TARGET_SPARC64)
     int      psrs;     /* supervisor mode (extracted from PSR) */
     int      psrps;    /* previous supervisor mode */
@@ -482,7 +483,7 @@ struct CPUArchState {
 #endif
     int interrupt_index;
     /* NOTE: we allow 8 more registers to handle wrapping */
-    target_ulong regbase[MAX_NWINDOWS * 16 + 8];
+    TARGET_ULONG_ARRAY(MAX_NWINDOWS * 16 + 8) regbase;
 
     /* Fields up to this point are cleared by a CPU reset */
     struct {} end_reset_fields;

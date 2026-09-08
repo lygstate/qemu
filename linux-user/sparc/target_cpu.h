@@ -44,7 +44,7 @@ static inline void cpu_clone_regs_child(CPUSPARCState *env, target_ulong newsp,
      * After cpu_copy, env->regwptr is pointing into the old env.
      * Update the new cpu to use its own register window.
      */
-    env->regwptr = env->regbase + (env->cwp * 16);
+    env->regwptr = target_ulong_array_elem(&env->regbase.rec, (env->cwp * 16));
 
     if (newsp) {
         /* When changing stacks, do it with clean register windows.  */
@@ -70,8 +70,8 @@ static inline void cpu_clone_regs_child(CPUSPARCState *env, target_ulong newsp,
          */
         env->regwptr[WREG_O0] = 0;
         set_syscall_C(env, 0);
-        env->pc = env->npc;
-        env->npc = env->npc + 4;
+        target_ulong_set(&env->pc, target_ulong_val(&env->npc));
+        target_ulong_set(&env->npc, target_ulong_val(&env->npc) + 4);
     }
 
     /* Set the second return value for the child: %o1 = 1.  */
@@ -86,7 +86,7 @@ static inline void cpu_clone_regs_parent(CPUSPARCState *env, unsigned flags)
 
 static inline void cpu_set_tls(CPUSPARCState *env, target_ulong newtls)
 {
-    env->gregs[7] = newtls;
+    target_ulong_array_set(&env->gregs.rec, 7, newtls);
 }
 
 static inline abi_ulong get_sp_from_cpustate(CPUSPARCState *state)

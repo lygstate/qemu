@@ -118,16 +118,16 @@ static void main_cpu_reset(void *opaque)
     cpu_timer_reset(env->stick);
     cpu_timer_reset(env->hstick);
 
-    env->gregs[1] = 0; /* Memory start */
-    env->gregs[2] = current_machine->ram_size; /* Memory size */
-    env->gregs[3] = 0; /* Machine description XXX */
+    target_ulong_array_set(&env->gregs.rec, 1, 0); /* Memory start */
+    target_ulong_array_set(&env->gregs.rec, 2, current_machine->ram_size); /* Memory size */
+    target_ulong_array_set(&env->gregs.rec, 3, 0); /* Machine description XXX */
     if (nr_resets++ == 0) {
         /* Power on reset */
-        env->pc = s->prom_addr + 0x20ULL;
+        target_ulong_set(&env->pc, s->prom_addr + 0x20ULL);
     } else {
-        env->pc = s->prom_addr + 0x40ULL;
+        target_ulong_set(&env->pc, s->prom_addr + 0x40ULL);
     }
-    env->npc = env->pc + 4;
+    target_ulong_set(&env->npc, target_ulong_val(&env->pc) + 4);
 }
 
 static void tick_irq(void *opaque)

@@ -168,7 +168,7 @@ void sparc_cpu_do_interrupt(CPUState *cs)
             uint8_t *ptr;
 
             qemu_log("       code=");
-            ptr = (uint8_t *)env->pc;
+            ptr = (uint8_t *)target_ulong_val(&env->pc);
             for (i = 0; i < 16; i++) {
                 qemu_log(" %02x", ldub(ptr + i));
             }
@@ -196,8 +196,8 @@ void sparc_cpu_do_interrupt(CPUState *cs)
     tsptr = cpu_tsptr(env);
 
     tsptr->tstate = sparc64_tstate(env);
-    tsptr->tpc = env->pc;
-    tsptr->tnpc = env->npc;
+    tsptr->tpc = target_ulong_val(&env->pc);
+    tsptr->tnpc = target_ulong_val(&env->npc);
     tsptr->tt = intno;
 
     if (cpu_has_hypervisor(env)) {
@@ -250,12 +250,12 @@ void sparc_cpu_do_interrupt(CPUState *cs)
     }
 
     if (cpu_hypervisor_mode(env)) {
-        env->pc = (env->htba & ~0x3fffULL) | (intno << 5);
+        target_ulong_set(&env->pc, (env->htba & ~0x3fffULL) | (intno << 5));
     } else {
-        env->pc = env->tbr  & ~0x7fffULL;
-        env->pc |= ((env->tl > 1) ? 1 << 14 : 0) | (intno << 5);
+        target_ulong_set(&env->pc, target_ulong_val(&env->tbr)  & ~0x7fffULL);
+        target_ulong_set(&env->pc, target_ulong_val(&env->pc) | (((env->tl > 1) ? 1 << 14 : 0) | (intno << 5)));
     }
-    env->npc = env->pc + 4;
+    target_ulong_set(&env->npc, target_ulong_val(&env->pc) + 4);
     cs->exception_index = -1;
 
     switch (intno) {

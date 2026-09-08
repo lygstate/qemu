@@ -429,14 +429,14 @@ static void sparc_raise_mmu_fault(CPUState *cs, hwaddr addr,
 #ifdef DEBUG_UNASSIGNED
     if (is_asi) {
         printf("Unassigned mem %s access of %d byte%s to " HWADDR_FMT_plx
-               " asi 0x%02x from " TARGET_FMT_lx "\n",
+               " asi 0x%02x from " "%016" PRIx64 "\n",
                is_exec ? "exec" : is_write ? "write" : "read", size,
-               size == 1 ? "" : "s", addr, is_asi, env->pc);
+               size == 1 ? "" : "s", addr, is_asi, target_ulong_val(&env->pc));
     } else {
         printf("Unassigned mem %s access of %d byte%s to " HWADDR_FMT_plx
-               " from " TARGET_FMT_lx "\n",
+               " from " "%016" PRIx64 "\n",
                is_exec ? "exec" : is_write ? "write" : "read", size,
-               size == 1 ? "" : "s", addr, env->pc);
+               size == 1 ? "" : "s", addr, target_ulong_val(&env->pc));
     }
 #endif
     /* Don't overwrite translation and access faults */
@@ -487,8 +487,8 @@ static void sparc_raise_mmu_fault(CPUState *cs, hwaddr addr,
     CPUSPARCState *env = cpu_env(cs);
 
 #ifdef DEBUG_UNASSIGNED
-    printf("Unassigned mem access to " HWADDR_FMT_plx " from " TARGET_FMT_lx
-           "\n", addr, env->pc);
+    printf("Unassigned mem access to " HWADDR_FMT_plx " from " "%016" PRIx64
+           "\n", addr, target_ulong_val(&env->pc));
 #endif
 
     if (is_exec) { /* XXX has_hypervisor */
