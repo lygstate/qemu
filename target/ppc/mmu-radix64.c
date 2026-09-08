@@ -71,18 +71,18 @@ static bool ppc_radix64_get_fully_qualified_addr(const CPUPPCState *env,
         return false;
     }
 
-    if (FIELD_EX64(env->msr, MSR, HV)) { /* MSR[HV] -> Hypervisor/bare metal */
+    if (FIELD_EX64(target_ulong_val(&env->msr), MSR, HV)) { /* MSR[HV] -> Hypervisor/bare metal */
         switch (eaddr & R_EADDR_QUADRANT) {
         case R_EADDR_QUADRANT0:
             *lpid = 0;
-            *pid = env->spr[SPR_BOOKS_PID];
+            *pid = target_ulong_array_val(&env->spr.rec, SPR_BOOKS_PID);
             break;
         case R_EADDR_QUADRANT1:
-            *lpid = env->spr[SPR_LPIDR];
-            *pid = env->spr[SPR_BOOKS_PID];
+            *lpid = target_ulong_array_val(&env->spr.rec, SPR_LPIDR);
+            *pid = target_ulong_array_val(&env->spr.rec, SPR_BOOKS_PID);
             break;
         case R_EADDR_QUADRANT2:
-            *lpid = env->spr[SPR_LPIDR];
+            *lpid = target_ulong_array_val(&env->spr.rec, SPR_LPIDR);
             *pid = 0;
             break;
         case R_EADDR_QUADRANT3:
@@ -95,14 +95,14 @@ static bool ppc_radix64_get_fully_qualified_addr(const CPUPPCState *env,
     } else {  /* !MSR[HV] -> Guest */
         switch (eaddr & R_EADDR_QUADRANT) {
         case R_EADDR_QUADRANT0: /* Guest application */
-            *lpid = env->spr[SPR_LPIDR];
-            *pid = env->spr[SPR_BOOKS_PID];
+            *lpid = target_ulong_array_val(&env->spr.rec, SPR_LPIDR);
+            *pid = target_ulong_array_val(&env->spr.rec, SPR_BOOKS_PID);
             break;
         case R_EADDR_QUADRANT1: /* Illegal */
         case R_EADDR_QUADRANT2:
             return false;
         case R_EADDR_QUADRANT3: /* Guest OS */
-            *lpid = env->spr[SPR_LPIDR];
+            *lpid = target_ulong_array_val(&env->spr.rec, SPR_LPIDR);
             *pid = 0; /* pid set to 0 -> addresses guest operating system */
             break;
         default:
@@ -128,7 +128,7 @@ static void ppc_radix64_raise_segi(PowerPCCPU *cpu, MMUAccessType access_type,
     case MMU_DATA_LOAD:
         /* Data Segment Interrupt */
         cs->exception_index = POWERPC_EXCP_DSEG;
-        env->spr[SPR_DAR] = eaddr;
+        target_ulong_array_set(&env->spr.rec, SPR_DAR, eaddr);
         break;
     default:
         g_assert_not_reached();
@@ -164,8 +164,8 @@ static void ppc_radix64_raise_si(PowerPCCPU *cpu, MMUAccessType access_type,
     case MMU_DATA_LOAD:
         /* Data Storage Interrupt */
         cs->exception_index = POWERPC_EXCP_DSI;
-        env->spr[SPR_DSISR] = cause;
-        env->spr[SPR_DAR] = eaddr;
+        target_ulong_array_set(&env->spr.rec, SPR_DSISR, cause);
+        target_ulong_array_set(&env->spr.rec, SPR_DAR, eaddr);
         env->error_code = 0;
         break;
     default:
@@ -195,7 +195,7 @@ static void ppc_radix64_raise_hsi(PowerPCCPU *cpu, MMUAccessType access_type,
     case MMU_INST_FETCH:
         /* H Instruction Storage Interrupt */
         cs->exception_index = POWERPC_EXCP_HISI;
-        env->spr[SPR_ASDR] = g_raddr;
+        target_ulong_array_set(&env->spr.rec, SPR_ASDR, g_raddr);
         env->error_code = cause;
         break;
     case MMU_DATA_STORE:
@@ -204,9 +204,9 @@ static void ppc_radix64_raise_hsi(PowerPCCPU *cpu, MMUAccessType access_type,
     case MMU_DATA_LOAD:
         /* H Data Storage Interrupt */
         cs->exception_index = POWERPC_EXCP_HDSI;
-        env->spr[SPR_HDSISR] = cause;
-        env->spr[SPR_HDAR] = eaddr;
-        env->spr[SPR_ASDR] = g_raddr;
+        target_ulong_array_set(&env->spr.rec, SPR_HDSISR, cause);
+        target_ulong_array_set(&env->spr.rec, SPR_HDAR, eaddr);
+        target_ulong_array_set(&env->spr.rec, SPR_ASDR, g_raddr);
         break;
     default:
         g_assert_not_reached();
@@ -223,8 +223,8 @@ static int ppc_radix64_get_prot_eaa(uint64_t pte)
 static int ppc_radix64_get_prot_amr(const PowerPCCPU *cpu)
 {
     const CPUPPCState *env = &cpu->env;
-    int amr = env->spr[SPR_AMR] >> 62; /* We only care about key0 AMR63:62 */
-    int iamr = env->spr[SPR_IAMR] >> 62; /* We only care about key0 IAMR63:62 */
+    int amr = target_ulong_array_val(&env->spr.rec, SPR_AMR) >> 62; /* We only care about key0 AMR63:62 */
+    int iamr = target_ulong_array_val(&env->spr.rec, SPR_IAMR) >> 62; /* We only care about key0 IAMR63:62 */
 
     return (amr & 0x2 ? 0 : PAGE_WRITE) | /* Access denied if bit is set */
            (amr & 0x1 ? 0 : PAGE_READ) |
@@ -249,7 +249,7 @@ static bool ppc_radix64_check_prot(PowerPCCPU *cpu, MMUAccessType access_type,
 
     /* Determine permissions allowed by Encoded Access Authority */
     if (!partition_scoped && (pte & R_PTE_EAA_PRIV) &&
-        FIELD_EX64(env->msr, MSR, PR)) {
+        FIELD_EX64(target_ulong_val(&env->msr), MSR, PR)) {
         *prot = 0;
     } else if (mmuidx_pr(mmu_idx) || (pte & R_PTE_EAA_PRIV) ||
                partition_scoped) {
@@ -413,7 +413,7 @@ static bool validate_pate(PowerPCCPU *cpu, uint64_t lpid, ppc_v3_pate_t *pate)
     if (!(pate->dw0 & PATE0_HR)) {
         return false;
     }
-    if (lpid == 0 && !FIELD_EX64(env->msr, MSR, HV)) {
+    if (lpid == 0 && !FIELD_EX64(target_ulong_val(&env->msr), MSR, HV)) {
         return false;
     }
     if ((pate->dw0 & PATE1_R_PRTS) < 5) {
@@ -590,7 +590,7 @@ static int ppc_radix64_process_scoped_xlate(PowerPCCPU *cpu,
     *g_page_size = PRTBE_R_GET_RTS(prtbe0);
     base_addr = prtbe0 & PRTBE_R_RPDB;
     nls = prtbe0 & PRTBE_R_RPDS;
-    if (FIELD_EX64(env->msr, MSR, HV) || vhyp_flat_addressing(cpu)) {
+    if (FIELD_EX64(target_ulong_val(&env->msr), MSR, HV) || vhyp_flat_addressing(cpu)) {
         /*
          * Can treat process table addresses as real addresses
          */
@@ -714,7 +714,7 @@ static bool ppc_radix64_xlate_impl(PowerPCCPU *cpu, vaddr eaddr,
         /* In HV mode, add HRMOR if top EA bit is clear */
         if (mmuidx_hv(mmu_idx) || !env->has_hv_mode) {
             if (!(eaddr >> 63)) {
-                *raddr |= env->spr[SPR_HRMOR];
+                *raddr |= target_ulong_array_val(&env->spr.rec, SPR_HRMOR);
            }
         }
         *protp = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
@@ -729,7 +729,7 @@ static bool ppc_radix64_xlate_impl(PowerPCCPU *cpu, vaddr eaddr,
     if (guest_visible && !ppc64_use_proc_tbl(cpu)) {
         qemu_log_mask(LOG_GUEST_ERROR,
                       "LPCR:UPRT not set in radix mode ! LPCR="
-                      TARGET_FMT_lx "\n", env->spr[SPR_LPCR]);
+                      "%016" PRIx64 "\n", target_ulong_array_val(&env->spr.rec, SPR_LPCR));
     }
 
     /* Virtual Mode Access - get the fully qualified address */

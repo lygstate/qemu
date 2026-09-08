@@ -755,7 +755,7 @@ static uint32_t spapr_mce_get_elog_type(PowerPCCPU *cpu, bool recovered,
     int i;
     CPUPPCState *env = &cpu->env;
     uint32_t summary;
-    uint64_t dsisr = env->spr[SPR_DSISR];
+    uint64_t dsisr = target_ulong_array_val(&env->spr.rec, SPR_DSISR);
 
     summary = RTAS_LOG_VERSION_6 | RTAS_LOG_OPTIONAL_PART_PRESENT;
     if (recovered) {
@@ -764,7 +764,7 @@ static uint32_t spapr_mce_get_elog_type(PowerPCCPU *cpu, bool recovered,
         summary |= RTAS_LOG_DISPOSITION_NOT_RECOVERED;
     }
 
-    if (SRR1_MC_LOADSTORE(env->spr[SPR_SRR1])) {
+    if (SRR1_MC_LOADSTORE(target_ulong_array_val(&env->spr.rec, SPR_SRR1))) {
         for (i = 0; i < ARRAY_SIZE(mc_derror_table); i++) {
             if (!(dsisr & mc_derror_table[i].dsisr_value)) {
                 continue;
@@ -773,7 +773,7 @@ static uint32_t spapr_mce_get_elog_type(PowerPCCPU *cpu, bool recovered,
             ext_elog->mc.error_type = mc_derror_table[i].error_type;
             ext_elog->mc.sub_err_type = mc_derror_table[i].error_subtype;
             if (mc_derror_table[i].dar_valid) {
-                ext_elog->mc.effective_address = cpu_to_be64(env->spr[SPR_DAR]);
+                ext_elog->mc.effective_address = cpu_to_be64(target_ulong_array_val(&env->spr.rec, SPR_DAR));
                 spapr_mc_set_ea_provided_flag(ext_elog);
             }
 
@@ -784,7 +784,7 @@ static uint32_t spapr_mce_get_elog_type(PowerPCCPU *cpu, bool recovered,
         }
     } else {
         for (i = 0; i < ARRAY_SIZE(mc_ierror_table); i++) {
-            if ((env->spr[SPR_SRR1] & mc_ierror_table[i].srr1_mask) !=
+            if ((target_ulong_array_val(&env->spr.rec, SPR_SRR1) & mc_ierror_table[i].srr1_mask) !=
                     mc_ierror_table[i].srr1_value) {
                 continue;
             }
@@ -792,7 +792,7 @@ static uint32_t spapr_mce_get_elog_type(PowerPCCPU *cpu, bool recovered,
             ext_elog->mc.error_type = mc_ierror_table[i].error_type;
             ext_elog->mc.sub_err_type = mc_ierror_table[i].error_subtype;
             if (mc_ierror_table[i].nip_valid) {
-                ext_elog->mc.effective_address = cpu_to_be64(env->nip);
+                ext_elog->mc.effective_address = cpu_to_be64(target_ulong_val(&env->nip));
                 spapr_mc_set_ea_provided_flag(ext_elog);
             }
 
@@ -855,15 +855,15 @@ static void spapr_mce_dispatch_elog(SpaprMachineState *spapr, PowerPCCPU *cpu,
     spapr->fwnmi_machine_check_interlock = cpu->vcpu_id;
 
     stq_be_phys(&address_space_memory, rtas_addr + RTAS_ERROR_LOG_OFFSET,
-                env->gpr[3]);
+                target_ulong_array_val(&env->gpr.rec, 3));
     physical_memory_write(rtas_addr + RTAS_ERROR_LOG_OFFSET +
-                              sizeof(env->gpr[3]), &log, sizeof(log));
+                              sizeof(target_ulong_array_val(&env->gpr.rec, 3)), &log, sizeof(log));
     physical_memory_write(rtas_addr + RTAS_ERROR_LOG_OFFSET +
-                              sizeof(env->gpr[3]) + sizeof(log), ext_elog,
+                              sizeof(target_ulong_array_val(&env->gpr.rec, 3)) + sizeof(log), ext_elog,
                               sizeof(*ext_elog));
     g_free(ext_elog);
 
-    env->gpr[3] = rtas_addr + RTAS_ERROR_LOG_OFFSET;
+    target_ulong_array_set(&env->gpr.rec, 3, rtas_addr + RTAS_ERROR_LOG_OFFSET);
 
     ppc_cpu_do_fwnmi_machine_check(cs, spapr->fwnmi_machine_check_addr);
 }

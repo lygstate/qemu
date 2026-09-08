@@ -285,10 +285,10 @@ void ppc40x_core_reset(PowerPCCPU *cpu)
 
     qemu_log_mask(CPU_LOG_RESET, "Reset PowerPC core\n");
     cpu_interrupt(CPU(cpu), CPU_INTERRUPT_RESET);
-    dbsr = env->spr[SPR_40x_DBSR];
+    dbsr = target_ulong_array_val(&env->spr.rec, SPR_40x_DBSR);
     dbsr &= ~0x00000300;
     dbsr |= 0x00000100;
-    env->spr[SPR_40x_DBSR] = dbsr;
+    target_ulong_array_set(&env->spr.rec, SPR_40x_DBSR, dbsr);
 }
 
 void ppc40x_chip_reset(PowerPCCPU *cpu)
@@ -299,10 +299,10 @@ void ppc40x_chip_reset(PowerPCCPU *cpu)
     qemu_log_mask(CPU_LOG_RESET, "Reset PowerPC chip\n");
     cpu_interrupt(CPU(cpu), CPU_INTERRUPT_RESET);
     /* XXX: TODO reset all internal peripherals */
-    dbsr = env->spr[SPR_40x_DBSR];
+    dbsr = target_ulong_array_val(&env->spr.rec, SPR_40x_DBSR);
     dbsr &= ~0x00000300;
     dbsr |= 0x00000200;
-    env->spr[SPR_40x_DBSR] = dbsr;
+    target_ulong_array_set(&env->spr.rec, SPR_40x_DBSR, dbsr);
 }
 
 void ppc40x_system_reset(PowerPCCPU *cpu)
@@ -526,7 +526,7 @@ uint64_t cpu_ppc_load_tbl (CPUPPCState *env)
     uint64_t tb;
 
     if (kvm_enabled()) {
-        return env->spr[SPR_TBL];
+        return target_ulong_array_val(&env->spr.rec, SPR_TBL);
     }
 
     tb = cpu_ppc_get_tb(tb_env, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL),
@@ -551,7 +551,7 @@ static inline uint32_t _cpu_ppc_load_tbu(CPUPPCState *env)
 uint32_t cpu_ppc_load_tbu (CPUPPCState *env)
 {
     if (kvm_enabled()) {
-        return env->spr[SPR_TBU];
+        return target_ulong_array_val(&env->spr.rec, SPR_TBU);
     }
 
     return _cpu_ppc_load_tbu(env);
@@ -760,7 +760,7 @@ static target_ulong _cpu_ppc_load_decr(CPUPPCState *env, int64_t now)
      * If large decrementer is enabled then the decrementer is signed extended
      * to 64 bits, otherwise it is a 32 bit value.
      */
-    if (env->spr[SPR_LPCR] & LPCR_LD) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_LPCR) & LPCR_LD) {
         PowerPCCPU *cpu = env_archcpu(env);
         PowerPCCPUClass *pcc = POWERPC_CPU_GET_CLASS(cpu);
         return sextract64(decr, 0, pcc->lrg_decr_bits);
@@ -771,7 +771,7 @@ static target_ulong _cpu_ppc_load_decr(CPUPPCState *env, int64_t now)
 target_ulong cpu_ppc_load_decr(CPUPPCState *env)
 {
     if (kvm_enabled()) {
-        return env->spr[SPR_DECR];
+        return target_ulong_array_val(&env->spr.rec, SPR_DECR);
     } else {
         return _cpu_ppc_load_decr(env, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL));
     }
@@ -924,7 +924,7 @@ void cpu_ppc_store_decr(CPUPPCState *env, target_ulong value)
         return;
     }
 
-    if (env->spr[SPR_LPCR] & LPCR_LD) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_LPCR) & LPCR_LD) {
         nr_bits = pcc->lrg_decr_bits;
     }
 
@@ -1204,7 +1204,7 @@ static void cpu_4xx_fit_cb (void *opaque)
     tb_env = env->tb_env;
     ppc40x_timer = tb_env->opaque;
     now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-    switch ((env->spr[SPR_40x_TCR] >> 24) & 0x3) {
+    switch ((target_ulong_array_val(&env->spr.rec, SPR_40x_TCR) >> 24) & 0x3) {
     case 0:
         next = 1 << 9;
         break;
@@ -1223,12 +1223,12 @@ static void cpu_4xx_fit_cb (void *opaque)
     }
     next = now + tb_to_ns_round_up(tb_env->tb_freq, next);
     timer_mod(ppc40x_timer->fit_timer, next);
-    env->spr[SPR_40x_TSR] |= 1 << 26;
-    if ((env->spr[SPR_40x_TCR] >> 23) & 0x1) {
+    target_ulong_array_set(&env->spr.rec, SPR_40x_TSR, target_ulong_array_val(&env->spr.rec, SPR_40x_TSR) | (1 << 26));
+    if ((target_ulong_array_val(&env->spr.rec, SPR_40x_TCR) >> 23) & 0x1) {
         ppc_set_irq(cpu, PPC_INTERRUPT_FIT, 1);
     }
-    trace_ppc4xx_fit((int)((env->spr[SPR_40x_TCR] >> 23) & 0x1),
-                         env->spr[SPR_40x_TCR], env->spr[SPR_40x_TSR]);
+    trace_ppc4xx_fit((int)((target_ulong_array_val(&env->spr.rec, SPR_40x_TCR) >> 23) & 0x1),
+                         target_ulong_array_val(&env->spr.rec, SPR_40x_TCR), target_ulong_array_val(&env->spr.rec, SPR_40x_TSR));
 }
 
 /* Programmable interval timer */
@@ -1239,8 +1239,8 @@ static void start_stop_pit (CPUPPCState *env, ppc_tb_t *tb_env, int is_excp)
 
     ppc40x_timer = tb_env->opaque;
     if (ppc40x_timer->pit_reload <= 1 ||
-        !((env->spr[SPR_40x_TCR] >> 26) & 0x1) ||
-        (is_excp && !((env->spr[SPR_40x_TCR] >> 22) & 0x1))) {
+        !((target_ulong_array_val(&env->spr.rec, SPR_40x_TCR) >> 26) & 0x1) ||
+        (is_excp && !((target_ulong_array_val(&env->spr.rec, SPR_40x_TCR) >> 22) & 0x1))) {
         /* Stop PIT */
         trace_ppc4xx_pit_stop();
         timer_del(tb_env->decr_timer);
@@ -1268,14 +1268,14 @@ static void cpu_4xx_pit_cb (void *opaque)
 
     tb_env = env->tb_env;
     ppc40x_timer = tb_env->opaque;
-    env->spr[SPR_40x_TSR] |= 1 << 27;
-    if ((env->spr[SPR_40x_TCR] >> 26) & 0x1) {
+    target_ulong_array_set(&env->spr.rec, SPR_40x_TSR, target_ulong_array_val(&env->spr.rec, SPR_40x_TSR) | (1 << 27));
+    if ((target_ulong_array_val(&env->spr.rec, SPR_40x_TCR) >> 26) & 0x1) {
         ppc_set_irq(cpu, ppc40x_timer->decr_excp, 1);
     }
     start_stop_pit(env, tb_env, 1);
-    trace_ppc4xx_pit((int)((env->spr[SPR_40x_TCR] >> 22) & 0x1),
-           (int)((env->spr[SPR_40x_TCR] >> 26) & 0x1),
-           env->spr[SPR_40x_TCR], env->spr[SPR_40x_TSR],
+    trace_ppc4xx_pit((int)((target_ulong_array_val(&env->spr.rec, SPR_40x_TCR) >> 22) & 0x1),
+           (int)((target_ulong_array_val(&env->spr.rec, SPR_40x_TCR) >> 26) & 0x1),
+           target_ulong_array_val(&env->spr.rec, SPR_40x_TCR), target_ulong_array_val(&env->spr.rec, SPR_40x_TSR),
            ppc40x_timer->pit_reload);
 }
 
@@ -1291,7 +1291,7 @@ static void cpu_4xx_wdt_cb (void *opaque)
     tb_env = env->tb_env;
     ppc40x_timer = tb_env->opaque;
     now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-    switch ((env->spr[SPR_40x_TCR] >> 30) & 0x3) {
+    switch ((target_ulong_array_val(&env->spr.rec, SPR_40x_TCR) >> 30) & 0x3) {
     case 0:
         next = 1 << 17;
         break;
@@ -1309,26 +1309,26 @@ static void cpu_4xx_wdt_cb (void *opaque)
         return;
     }
     next = now + tb_to_ns_round_up(tb_env->decr_freq, next);
-    trace_ppc4xx_wdt(env->spr[SPR_40x_TCR], env->spr[SPR_40x_TSR]);
-    switch ((env->spr[SPR_40x_TSR] >> 30) & 0x3) {
+    trace_ppc4xx_wdt(target_ulong_array_val(&env->spr.rec, SPR_40x_TCR), target_ulong_array_val(&env->spr.rec, SPR_40x_TSR));
+    switch ((target_ulong_array_val(&env->spr.rec, SPR_40x_TSR) >> 30) & 0x3) {
     case 0x0:
     case 0x1:
         timer_mod(ppc40x_timer->wdt_timer, next);
         ppc40x_timer->wdt_next = next;
-        env->spr[SPR_40x_TSR] |= 1U << 31;
+        target_ulong_array_set(&env->spr.rec, SPR_40x_TSR, target_ulong_array_val(&env->spr.rec, SPR_40x_TSR) | (1U << 31));
         break;
     case 0x2:
         timer_mod(ppc40x_timer->wdt_timer, next);
         ppc40x_timer->wdt_next = next;
-        env->spr[SPR_40x_TSR] |= 1 << 30;
-        if ((env->spr[SPR_40x_TCR] >> 27) & 0x1) {
+        target_ulong_array_set(&env->spr.rec, SPR_40x_TSR, target_ulong_array_val(&env->spr.rec, SPR_40x_TSR) | (1 << 30));
+        if ((target_ulong_array_val(&env->spr.rec, SPR_40x_TCR) >> 27) & 0x1) {
             ppc_set_irq(cpu, PPC_INTERRUPT_WDT, 1);
         }
         break;
     case 0x3:
-        env->spr[SPR_40x_TSR] &= ~0x30000000;
-        env->spr[SPR_40x_TSR] |= env->spr[SPR_40x_TCR] & 0x30000000;
-        switch ((env->spr[SPR_40x_TCR] >> 28) & 0x3) {
+        target_ulong_array_set(&env->spr.rec, SPR_40x_TSR, target_ulong_array_val(&env->spr.rec, SPR_40x_TSR) & (~0x30000000));
+        target_ulong_array_set(&env->spr.rec, SPR_40x_TSR, target_ulong_array_val(&env->spr.rec, SPR_40x_TSR) | (target_ulong_array_val(&env->spr.rec, SPR_40x_TCR) & 0x30000000));
+        switch ((target_ulong_array_val(&env->spr.rec, SPR_40x_TCR) >> 28) & 0x3) {
         case 0x0:
             /* No reset */
             break;
@@ -1368,7 +1368,7 @@ void store_40x_tsr(CPUPPCState *env, target_ulong val)
 
     trace_ppc40x_store_tcr(val);
 
-    env->spr[SPR_40x_TSR] &= ~(val & 0xFC000000);
+    target_ulong_array_set(&env->spr.rec, SPR_40x_TSR, target_ulong_array_val(&env->spr.rec, SPR_40x_TSR) & (~(val & 0xFC000000)));
     if (val & 0x80000000) {
         ppc_set_irq(cpu, PPC_INTERRUPT_PIT, 0);
     }
@@ -1382,7 +1382,7 @@ void store_40x_tcr(CPUPPCState *env, target_ulong val)
     trace_ppc40x_store_tsr(val);
 
     tb_env = env->tb_env;
-    env->spr[SPR_40x_TCR] = val & 0xFFC00000;
+    target_ulong_array_set(&env->spr.rec, SPR_40x_TCR, val & 0xFFC00000);
     start_stop_pit(env, tb_env, 1);
     cpu_4xx_wdt_cb(cpu);
 }

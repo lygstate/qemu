@@ -69,11 +69,11 @@ static inline void ppc6xx_tlb_invalidate_virt2(CPUPPCState *env,
     for (way = 0; way < env->nb_ways; way++) {
         nr = ppc6xx_tlb_getnum(env, eaddr, way, is_code);
         tlb = &env->tlb.tlb6[nr];
-        if (pte_is_valid(tlb->pte0) && (match_epn == 0 || eaddr == tlb->EPN)) {
+        if (pte_is_valid(target_ulong_val(&tlb->pte0)) && (match_epn == 0 || eaddr == target_ulong_val(&tlb->EPN))) {
             qemu_log_mask(CPU_LOG_MMU, "TLB invalidate %d/%d "
                           TARGET_FMT_lx "\n", nr, env->nb_tlb, eaddr);
             pte_invalidate(&tlb->pte0);
-            tlb_flush_page(cs, tlb->EPN);
+            tlb_flush_page(cs, target_ulong_val(&tlb->EPN));
         }
     }
 #else
@@ -101,9 +101,9 @@ static void ppc6xx_tlb_store(CPUPPCState *env, target_ulong EPN, int way,
                   EPN, pte0, pte1);
     /* Invalidate any pending reference in QEMU for this virtual address */
     ppc6xx_tlb_invalidate_virt2(env, EPN, is_code, 1);
-    tlb->pte0 = pte0;
-    tlb->pte1 = pte1;
-    tlb->EPN = EPN;
+    target_ulong_set(&tlb->pte0, pte0);
+    target_ulong_set(&tlb->pte1, pte1);
+    target_ulong_set(&tlb->EPN, EPN);
     /* Store last way for LRU mechanism */
     env->last_way = way;
 }
@@ -175,8 +175,8 @@ static inline void dump_store_bat(CPUPPCState *env, char ID, int ul, int nr,
                                   target_ulong value)
 {
     qemu_log_mask(CPU_LOG_MMU, "Set %cBAT%d%c to " TARGET_FMT_lx " ("
-                  TARGET_FMT_lx ")\n", ID, nr, ul == 0 ? 'u' : 'l',
-                  value, env->nip);
+                  "%016" PRIx64 ")\n", ID, nr, ul == 0 ? 'u' : 'l',
+                  value, target_ulong_val(&env->nip));
 }
 
 void helper_store_ibatu(CPUPPCState *env, uint32_t nr, target_ulong value)
@@ -336,14 +336,14 @@ target_ulong helper_load_sr(CPUPPCState *env, target_ulong sr_num)
         return 0;
     }
 #endif
-    return env->sr[sr_num];
+    return target_ulong_array_val(&env->sr.rec, sr_num);
 }
 
 void helper_store_sr(CPUPPCState *env, target_ulong srnum, target_ulong value)
 {
     qemu_log_mask(CPU_LOG_MMU,
-            "%s: reg=%d " TARGET_FMT_lx " " TARGET_FMT_lx "\n", __func__,
-            (int)srnum, value, env->sr[srnum]);
+            "%s: reg=%d " TARGET_FMT_lx " " "%016" PRIx64 "\n", __func__,
+            (int)srnum, value, target_ulong_array_val(&env->sr.rec, srnum));
 #if defined(TARGET_PPC64)
     if (mmu_is_64bit(env->mmu_model)) {
         PowerPCCPU *cpu = env_archcpu(env);
@@ -360,8 +360,8 @@ void helper_store_sr(CPUPPCState *env, target_ulong srnum, target_ulong value)
         ppc_store_slb(cpu, srnum, esid, vsid);
     } else
 #endif
-    if (env->sr[srnum] != value) {
-        env->sr[srnum] = value;
+    if (target_ulong_array_val(&env->sr.rec, srnum) != value) {
+        target_ulong_array_set(&env->sr.rec, srnum, value);
         /*
          * Invalidating 256MB of virtual memory in 4kB pages is way
          * longer than flushing the whole TLB.
@@ -439,7 +439,7 @@ void helper_tlbie_isa300(CPUPPCState *env, target_ulong rb, target_ulong rs,
         "%s: local=%d addr=" TARGET_FMT_lx " ric=%u prs=%d r=%d is=%u\n",
         __func__, local, rb & TARGET_PAGE_MASK, ric, prs, r, is);
 
-    effR = FIELD_EX64(env->msr, MSR, HV) ? r : env->spr[SPR_LPCR] & LPCR_HR;
+    effR = FIELD_EX64(target_ulong_val(&env->msr), MSR, HV) ? r : target_ulong_array_val(&env->spr.rec, SPR_LPCR) & LPCR_HR;
 
     /* Partial TLB invalidation is supported for Radix only for now. */
     if (!effR) {
@@ -562,15 +562,15 @@ static void do_6xx_tlb(CPUPPCState *env, target_ulong new_EPN, int is_code)
     target_ulong RPN, CMP, EPN;
     int way;
 
-    RPN = env->spr[SPR_RPA];
+    RPN = target_ulong_array_val(&env->spr.rec, SPR_RPA);
     if (is_code) {
-        CMP = env->spr[SPR_ICMP];
-        EPN = env->spr[SPR_IMISS];
+        CMP = target_ulong_array_val(&env->spr.rec, SPR_ICMP);
+        EPN = target_ulong_array_val(&env->spr.rec, SPR_IMISS);
     } else {
-        CMP = env->spr[SPR_DCMP];
-        EPN = env->spr[SPR_DMISS];
+        CMP = target_ulong_array_val(&env->spr.rec, SPR_DCMP);
+        EPN = target_ulong_array_val(&env->spr.rec, SPR_DMISS);
     }
-    way = (env->spr[SPR_SRR1] >> 17) & 1;
+    way = (target_ulong_array_val(&env->spr.rec, SPR_SRR1) >> 17) & 1;
     (void)EPN; /* avoid a compiler warning */
     qemu_log_mask(CPU_LOG_MMU, "%s: EPN " TARGET_FMT_lx " " TARGET_FMT_lx
                   " PTE0 " TARGET_FMT_lx " PTE1 " TARGET_FMT_lx " way %d\n",
@@ -676,8 +676,8 @@ static inline int booke_page_size_to_tlb(target_ulong page_size)
 
 void helper_store_40x_pid(CPUPPCState *env, target_ulong val)
 {
-    if (env->spr[SPR_40x_PID] != val) {
-        env->spr[SPR_40x_PID] = val;
+    if (target_ulong_array_val(&env->spr.rec, SPR_40x_PID) != val) {
+        target_ulong_array_set(&env->spr.rec, SPR_40x_PID, val);
         env->tlb_need_flush |= TLB_NEED_LOCAL_FLUSH;
     }
 }
@@ -690,16 +690,16 @@ target_ulong helper_4xx_tlbre_hi(CPUPPCState *env, target_ulong entry)
 
     entry &= PPC4XX_TLB_ENTRY_MASK;
     tlb = &env->tlb.tlbe[entry];
-    ret = tlb->EPN;
+    ret = target_ulong_val(&tlb->EPN);
     if (tlb->prot & PAGE_VALID) {
         ret |= PPC4XX_TLBHI_V;
     }
-    size = booke_page_size_to_tlb(tlb->size);
+    size = booke_page_size_to_tlb(target_ulong_val(&tlb->size));
     if (size < PPC4XX_TLBHI_SIZE_MIN || size > PPC4XX_TLBHI_SIZE_MAX) {
         size = PPC4XX_TLBHI_SIZE_DEFAULT;
     }
     ret |= size << PPC4XX_TLBHI_SIZE_SHIFT;
-    helper_store_40x_pid(env, tlb->PID);
+    helper_store_40x_pid(env, target_ulong_val(&tlb->PID));
     return ret;
 }
 
@@ -734,7 +734,7 @@ static void ppcemb_tlb_flush(CPUState *cs, ppcemb_tlb_t *tlb)
         mmu_idx <<= 2;
     }
 
-    tlb_flush_range_by_mmuidx(cs, tlb->EPN, tlb->size, mmu_idx,
+    tlb_flush_range_by_mmuidx(cs, target_ulong_val(&tlb->EPN), target_ulong_val(&tlb->size), mmu_idx,
                               TARGET_LONG_BITS);
 }
 
@@ -750,25 +750,25 @@ void helper_4xx_tlbwe_hi(CPUPPCState *env, target_ulong entry,
     entry &= PPC4XX_TLB_ENTRY_MASK;
     tlb = &env->tlb.tlbe[entry];
     /* Invalidate previous TLB (if it's valid) */
-    if ((tlb->prot & PAGE_VALID) && tlb->PID == env->spr[SPR_40x_PID]) {
+    if ((tlb->prot & PAGE_VALID) && target_ulong_val(&tlb->PID) == target_ulong_array_val(&env->spr.rec, SPR_40x_PID)) {
         qemu_log_mask(CPU_LOG_MMU, "%s: invalidate old TLB %d start "
-                      TARGET_FMT_lx " end " TARGET_FMT_lx "\n", __func__,
-                      (int)entry, tlb->EPN, tlb->EPN + tlb->size);
+                      "%016" PRIx64 " end " "%016" PRIx64 "\n", __func__,
+                      (int)entry, target_ulong_val(&tlb->EPN), target_ulong_val(&tlb->EPN) + target_ulong_val(&tlb->size));
         ppcemb_tlb_flush(cs, tlb);
     }
-    tlb->size = booke_tlb_to_page_size((val >> PPC4XX_TLBHI_SIZE_SHIFT)
-                                       & PPC4XX_TLBHI_SIZE_MASK);
+    target_ulong_set(&tlb->size, booke_tlb_to_page_size((val >> PPC4XX_TLBHI_SIZE_SHIFT)
+                                       & PPC4XX_TLBHI_SIZE_MASK));
     /*
      * We cannot handle TLB size < TARGET_PAGE_SIZE.
      * If this ever occurs, we should implement TARGET_PAGE_BITS_VARY
      */
-    if ((val & PPC4XX_TLBHI_V) && tlb->size < TARGET_PAGE_SIZE) {
-        cpu_abort(cs, "TLB size " TARGET_FMT_lu " < %u "
+    if ((val & PPC4XX_TLBHI_V) && target_ulong_val(&tlb->size) < TARGET_PAGE_SIZE) {
+        cpu_abort(cs, "TLB size " "%" PRIu64 " < %u "
                   "are not supported (%d)\n"
                   "Please implement TARGET_PAGE_BITS_VARY\n",
-                  tlb->size, TARGET_PAGE_SIZE, (int)((val >> 7) & 0x7));
+                  target_ulong_val(&tlb->size), TARGET_PAGE_SIZE, (int)((val >> 7) & 0x7));
     }
-    tlb->EPN = val & ~(tlb->size - 1);
+    target_ulong_set(&tlb->EPN, val & ~(target_ulong_val(&tlb->size) - 1));
     if (val & PPC4XX_TLBHI_V) {
         tlb->prot |= PAGE_VALID;
         if (val & PPC4XX_TLBHI_E) {
@@ -779,15 +779,15 @@ void helper_4xx_tlbwe_hi(CPUPPCState *env, target_ulong entry,
     } else {
         tlb->prot &= ~PAGE_VALID;
     }
-    tlb->PID = env->spr[SPR_40x_PID]; /* PID */
+    target_ulong_set(&tlb->PID, target_ulong_array_val(&env->spr.rec, SPR_40x_PID)); /* PID */
     qemu_log_mask(CPU_LOG_MMU, "%s: set up TLB %d RPN " HWADDR_FMT_plx
-                  " EPN " TARGET_FMT_lx " size " TARGET_FMT_lx
+                  " EPN " "%016" PRIx64 " size " "%016" PRIx64
                   " prot %c%c%c%c PID %d\n", __func__,
-                  (int)entry, tlb->RPN, tlb->EPN, tlb->size,
+                  (int)entry, tlb->RPN, target_ulong_val(&tlb->EPN), target_ulong_val(&tlb->size),
                   tlb->prot & PAGE_READ ? 'r' : '-',
                   tlb->prot & PAGE_WRITE ? 'w' : '-',
                   tlb->prot & PAGE_EXEC ? 'x' : '-',
-                  tlb->prot & PAGE_VALID ? 'v' : '-', (int)tlb->PID);
+                  tlb->prot & PAGE_VALID ? 'v' : '-', (int)target_ulong_val(&tlb->PID));
 }
 
 void helper_4xx_tlbwe_lo(CPUPPCState *env, target_ulong entry,
@@ -801,10 +801,10 @@ void helper_4xx_tlbwe_lo(CPUPPCState *env, target_ulong entry,
     entry &= PPC4XX_TLB_ENTRY_MASK;
     tlb = &env->tlb.tlbe[entry];
     /* Invalidate previous TLB (if it's valid) */
-    if ((tlb->prot & PAGE_VALID) && tlb->PID == env->spr[SPR_40x_PID]) {
+    if ((tlb->prot & PAGE_VALID) && target_ulong_val(&tlb->PID) == target_ulong_array_val(&env->spr.rec, SPR_40x_PID)) {
         qemu_log_mask(CPU_LOG_MMU, "%s: invalidate old TLB %d start "
-                      TARGET_FMT_lx " end " TARGET_FMT_lx "\n", __func__,
-                      (int)entry, tlb->EPN, tlb->EPN + tlb->size);
+                      "%016" PRIx64 " end " "%016" PRIx64 "\n", __func__,
+                      (int)entry, target_ulong_val(&tlb->EPN), target_ulong_val(&tlb->EPN) + target_ulong_val(&tlb->size));
         ppcemb_tlb_flush(cs, tlb);
     }
     tlb->attr = val & PPC4XX_TLBLO_ATTR_MASK;
@@ -817,33 +817,33 @@ void helper_4xx_tlbwe_lo(CPUPPCState *env, target_ulong entry,
         tlb->prot |= PAGE_WRITE;
     }
     qemu_log_mask(CPU_LOG_MMU, "%s: set up TLB %d RPN " HWADDR_FMT_plx
-                  " EPN " TARGET_FMT_lx
-                  " size " TARGET_FMT_lx " prot %c%c%c%c PID %d\n", __func__,
-                  (int)entry, tlb->RPN, tlb->EPN, tlb->size,
+                  " EPN " "%016" PRIx64
+                  " size " "%016" PRIx64 " prot %c%c%c%c PID %d\n", __func__,
+                  (int)entry, tlb->RPN, target_ulong_val(&tlb->EPN), target_ulong_val(&tlb->size),
                   tlb->prot & PAGE_READ ? 'r' : '-',
                   tlb->prot & PAGE_WRITE ? 'w' : '-',
                   tlb->prot & PAGE_EXEC ? 'x' : '-',
-                  tlb->prot & PAGE_VALID ? 'v' : '-', (int)tlb->PID);
+                  tlb->prot & PAGE_VALID ? 'v' : '-', (int)target_ulong_val(&tlb->PID));
 }
 
 target_ulong helper_4xx_tlbsx(CPUPPCState *env, target_ulong address)
 {
-    return ppcemb_tlb_search(env, address, env->spr[SPR_40x_PID]);
+    return ppcemb_tlb_search(env, address, target_ulong_array_val(&env->spr.rec, SPR_40x_PID));
 }
 
 static bool mmubooke_pid_match(CPUPPCState *env, ppcemb_tlb_t *tlb)
 {
-    if (tlb->PID == env->spr[SPR_BOOKE_PID]) {
+    if (target_ulong_val(&tlb->PID) == target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID)) {
         return true;
     }
     if (!env->nb_pids) {
         return false;
     }
 
-    if (env->spr[SPR_BOOKE_PID1] && tlb->PID == env->spr[SPR_BOOKE_PID1]) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID1) && target_ulong_val(&tlb->PID) == target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID1)) {
         return true;
     }
-    if (env->spr[SPR_BOOKE_PID2] && tlb->PID == env->spr[SPR_BOOKE_PID2]) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID2) && target_ulong_val(&tlb->PID) == target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID2)) {
         return true;
     }
 
@@ -864,8 +864,8 @@ void helper_440_tlbwe(CPUPPCState *env, uint32_t word, target_ulong entry,
     /* Invalidate previous TLB (if it's valid) */
     if ((tlb->prot & PAGE_VALID) && mmubooke_pid_match(env, tlb)) {
         qemu_log_mask(CPU_LOG_MMU, "%s: invalidate old TLB %d start "
-                      TARGET_FMT_lx " end " TARGET_FMT_lx "\n", __func__,
-                      (int)entry, tlb->EPN, tlb->EPN + tlb->size);
+                      "%016" PRIx64 " end " "%016" PRIx64 "\n", __func__,
+                      (int)entry, target_ulong_val(&tlb->EPN), target_ulong_val(&tlb->EPN) + target_ulong_val(&tlb->size));
         ppcemb_tlb_flush(env_cpu(env), tlb);
     }
 
@@ -873,8 +873,8 @@ void helper_440_tlbwe(CPUPPCState *env, uint32_t word, target_ulong entry,
     default:
         /* Just here to please gcc */
     case 0:
-        tlb->EPN = value & 0xFFFFFC00;
-        tlb->size = booke_tlb_to_page_size((value >> 4) & 0xF);
+        target_ulong_set(&tlb->EPN, value & 0xFFFFFC00);
+        target_ulong_set(&tlb->size, booke_tlb_to_page_size((value >> 4) & 0xF));
         tlb->attr &= ~0x1;
         tlb->attr |= (value >> 8) & 1;
         if (value & 0x200) {
@@ -882,7 +882,7 @@ void helper_440_tlbwe(CPUPPCState *env, uint32_t word, target_ulong entry,
         } else {
             tlb->prot &= ~PAGE_VALID;
         }
-        tlb->PID = env->spr[SPR_440_MMUCR] & 0x000000FF;
+        target_ulong_set(&tlb->PID, target_ulong_array_val(&env->spr.rec, SPR_440_MMUCR) & 0x000000FF);
         break;
     case 1:
         tlb->RPN = value & 0xFFFFFC0F;
@@ -925,8 +925,8 @@ target_ulong helper_440_tlbre(CPUPPCState *env, uint32_t word,
     default:
         /* Just here to please gcc */
     case 0:
-        ret = tlb->EPN;
-        size = booke_page_size_to_tlb(tlb->size);
+        ret = target_ulong_val(&tlb->EPN);
+        size = booke_page_size_to_tlb(target_ulong_val(&tlb->size));
         if (size < 0 || size > 0xF) {
             size = 1;
         }
@@ -937,8 +937,8 @@ target_ulong helper_440_tlbre(CPUPPCState *env, uint32_t word,
         if (tlb->prot & PAGE_VALID) {
             ret |= 0x200;
         }
-        env->spr[SPR_440_MMUCR] &= ~0x000000FF;
-        env->spr[SPR_440_MMUCR] |= tlb->PID;
+        target_ulong_array_set(&env->spr.rec, SPR_440_MMUCR, target_ulong_array_val(&env->spr.rec, SPR_440_MMUCR) & (~0x000000FF));
+        target_ulong_array_set(&env->spr.rec, SPR_440_MMUCR, target_ulong_array_val(&env->spr.rec, SPR_440_MMUCR) | (target_ulong_val(&tlb->PID)));
         break;
     case 1:
         ret = tlb->RPN;
@@ -970,7 +970,7 @@ target_ulong helper_440_tlbre(CPUPPCState *env, uint32_t word,
 
 target_ulong helper_440_tlbsx(CPUPPCState *env, target_ulong address)
 {
-    return ppcemb_tlb_search(env, address, env->spr[SPR_440_MMUCR] & 0xFF);
+    return ppcemb_tlb_search(env, address, target_ulong_array_val(&env->spr.rec, SPR_440_MMUCR) & 0xFF);
 }
 
 /* PowerPC BookE 2.06 TLB management */
@@ -978,14 +978,14 @@ target_ulong helper_440_tlbsx(CPUPPCState *env, target_ulong address)
 static ppcmas_tlb_t *booke206_cur_tlb(CPUPPCState *env)
 {
     uint32_t tlbncfg = 0;
-    int esel = (env->spr[SPR_BOOKE_MAS0] & MAS0_ESEL_MASK) >> MAS0_ESEL_SHIFT;
-    int ea = (env->spr[SPR_BOOKE_MAS2] & MAS2_EPN_MASK);
+    int esel = (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS0) & MAS0_ESEL_MASK) >> MAS0_ESEL_SHIFT;
+    int ea = (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS2) & MAS2_EPN_MASK);
     int tlb;
 
-    tlb = (env->spr[SPR_BOOKE_MAS0] & MAS0_TLBSEL_MASK) >> MAS0_TLBSEL_SHIFT;
-    tlbncfg = env->spr[SPR_BOOKE_TLB0CFG + tlb];
+    tlb = (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS0) & MAS0_TLBSEL_MASK) >> MAS0_TLBSEL_SHIFT;
+    tlbncfg = target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TLB0CFG + tlb);
 
-    if ((tlbncfg & TLBnCFG_HES) && (env->spr[SPR_BOOKE_MAS0] & MAS0_HES)) {
+    if ((tlbncfg & TLBnCFG_HES) && (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS0) & MAS0_HES)) {
         cpu_abort(env_cpu(env), "we don't support HES yet\n");
     }
 
@@ -994,19 +994,19 @@ static ppcmas_tlb_t *booke206_cur_tlb(CPUPPCState *env)
 
 void helper_booke_setpid(CPUPPCState *env, uint32_t pidn, target_ulong pid)
 {
-    env->spr[pidn] = pid;
+    target_ulong_array_set(&env->spr.rec, pidn, pid);
     /* changing PIDs mean we're in a different address space now */
     tlb_flush(env_cpu(env));
 }
 
 void helper_booke_set_eplc(CPUPPCState *env, target_ulong val)
 {
-    env->spr[SPR_BOOKE_EPLC] = val & EPID_MASK;
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_EPLC, val & EPID_MASK);
     tlb_flush_by_mmuidx(env_cpu(env), 1 << PPC_TLB_EPID_LOAD);
 }
 void helper_booke_set_epsc(CPUPPCState *env, target_ulong val)
 {
-    env->spr[SPR_BOOKE_EPSC] = val & EPID_MASK;
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_EPSC, val & EPID_MASK);
     tlb_flush_by_mmuidx(env_cpu(env), 1 << PPC_TLB_EPID_STORE);
 }
 
@@ -1027,7 +1027,7 @@ void helper_booke206_tlbwe(CPUPPCState *env)
     target_ulong mask;
 
 
-    switch (env->spr[SPR_BOOKE_MAS0] & MAS0_WQ_MASK) {
+    switch (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS0) & MAS0_WQ_MASK) {
     case MAS0_WQ_ALWAYS:
         /* good to go, write that entry */
         break;
@@ -1045,15 +1045,15 @@ void helper_booke206_tlbwe(CPUPPCState *env)
         return;
     }
 
-    if (((env->spr[SPR_BOOKE_MAS0] & MAS0_ATSEL) == MAS0_ATSEL_LRAT) &&
-        !FIELD_EX64(env->msr, MSR, GS)) {
+    if (((target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS0) & MAS0_ATSEL) == MAS0_ATSEL_LRAT) &&
+        !FIELD_EX64(target_ulong_val(&env->msr), MSR, GS)) {
         /* XXX we don't support direct LRAT setting yet */
         fprintf(stderr, "cpu: don't support LRAT setting yet\n");
         return;
     }
 
-    tlbn = (env->spr[SPR_BOOKE_MAS0] & MAS0_TLBSEL_MASK) >> MAS0_TLBSEL_SHIFT;
-    tlbncfg = env->spr[SPR_BOOKE_TLB0CFG + tlbn];
+    tlbn = (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS0) & MAS0_TLBSEL_MASK) >> MAS0_TLBSEL_SHIFT;
+    tlbncfg = target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TLB0CFG + tlbn);
 
     tlb = booke206_cur_tlb(env);
 
@@ -1064,16 +1064,16 @@ void helper_booke206_tlbwe(CPUPPCState *env)
     }
 
     /* check that we support the targeted size */
-    size_tlb = (env->spr[SPR_BOOKE_MAS1] & MAS1_TSIZE_MASK) >> MAS1_TSIZE_SHIFT;
+    size_tlb = (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS1) & MAS1_TSIZE_MASK) >> MAS1_TSIZE_SHIFT;
     size_ps = booke206_tlbnps(env, tlbn);
-    if ((env->spr[SPR_BOOKE_MAS1] & MAS1_VALID) && (tlbncfg & TLBnCFG_AVAIL) &&
+    if ((target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS1) & MAS1_VALID) && (tlbncfg & TLBnCFG_AVAIL) &&
         !(size_ps & (1 << size_tlb))) {
         raise_exception_err_ra(env, POWERPC_EXCP_PROGRAM,
                                POWERPC_EXCP_INVAL |
                                POWERPC_EXCP_INVAL_INVAL, GETPC());
     }
 
-    if (FIELD_EX64(env->msr, MSR, GS)) {
+    if (FIELD_EX64(target_ulong_val(&env->msr), MSR, GS)) {
         cpu_abort(env_cpu(env), "missing HV implementation\n");
     }
 
@@ -1093,11 +1093,11 @@ void helper_booke206_tlbwe(CPUPPCState *env)
         flush_page(env, tlb);
     }
 
-    tlb->mas7_3 = ((uint64_t)env->spr[SPR_BOOKE_MAS7] << 32) |
-        env->spr[SPR_BOOKE_MAS3];
-    tlb->mas1 = env->spr[SPR_BOOKE_MAS1];
+    tlb->mas7_3 = ((uint64_t)target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS7) << 32) |
+        target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS3);
+    tlb->mas1 = target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS1);
 
-    if ((env->spr[SPR_MMUCFG] & MMUCFG_MAVN) == MMUCFG_MAVN_V2) {
+    if ((target_ulong_array_val(&env->spr.rec, SPR_MMUCFG) & MMUCFG_MAVN) == MMUCFG_MAVN_V2) {
         /* For TLB which has a fixed size TSIZE is ignored with MAV2 */
         booke206_fixed_size_tlbn(env, tlbn, tlb);
     } else {
@@ -1114,7 +1114,7 @@ void helper_booke206_tlbwe(CPUPPCState *env)
     /* Add a mask for page attributes */
     mask |= MAS2_ACM | MAS2_VLE | MAS2_W | MAS2_I | MAS2_M | MAS2_G | MAS2_E;
 
-    if (!FIELD_EX64(env->msr, MSR, CM)) {
+    if (!FIELD_EX64(target_ulong_val(&env->msr), MSR, CM)) {
         /*
          * Executing a tlbwe instruction in 32-bit mode will set bits
          * 0:31 of the TLB EPN field to zero.
@@ -1122,7 +1122,7 @@ void helper_booke206_tlbwe(CPUPPCState *env)
         mask &= 0xffffffff;
     }
 
-    tlb->mas2 = env->spr[SPR_BOOKE_MAS2] & mask;
+    tlb->mas2 = target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS2) & mask;
 
     if (!(tlbncfg & TLBnCFG_IPROT)) {
         /* no IPROT supported by TLB */
@@ -1137,14 +1137,14 @@ static inline void booke206_tlb_to_mas(CPUPPCState *env, ppcmas_tlb_t *tlb)
     int tlbn = booke206_tlbm_to_tlbn(env, tlb);
     int way = booke206_tlbm_to_way(env, tlb);
 
-    env->spr[SPR_BOOKE_MAS0] = tlbn << MAS0_TLBSEL_SHIFT;
-    env->spr[SPR_BOOKE_MAS0] |= way << MAS0_ESEL_SHIFT;
-    env->spr[SPR_BOOKE_MAS0] |= env->last_way << MAS0_NV_SHIFT;
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS0, tlbn << MAS0_TLBSEL_SHIFT);
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS0, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS0) | (way << MAS0_ESEL_SHIFT));
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS0, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS0) | (env->last_way << MAS0_NV_SHIFT));
 
-    env->spr[SPR_BOOKE_MAS1] = tlb->mas1;
-    env->spr[SPR_BOOKE_MAS2] = tlb->mas2;
-    env->spr[SPR_BOOKE_MAS3] = tlb->mas7_3;
-    env->spr[SPR_BOOKE_MAS7] = tlb->mas7_3 >> 32;
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS1, tlb->mas1);
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS2, tlb->mas2);
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS3, tlb->mas7_3);
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS7, tlb->mas7_3 >> 32);
 }
 
 void helper_booke206_tlbre(CPUPPCState *env)
@@ -1153,7 +1153,7 @@ void helper_booke206_tlbre(CPUPPCState *env)
 
     tlb = booke206_cur_tlb(env);
     if (!tlb) {
-        env->spr[SPR_BOOKE_MAS1] = 0;
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS1, 0);
     } else {
         booke206_tlb_to_mas(env, tlb);
     }
@@ -1166,8 +1166,8 @@ void helper_booke206_tlbsx(CPUPPCState *env, target_ulong address)
     hwaddr raddr;
     uint32_t spid, sas;
 
-    spid = (env->spr[SPR_BOOKE_MAS6] & MAS6_SPID_MASK) >> MAS6_SPID_SHIFT;
-    sas = env->spr[SPR_BOOKE_MAS6] & MAS6_SAS;
+    spid = (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS6) & MAS6_SPID_MASK) >> MAS6_SPID_SHIFT;
+    sas = target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS6) & MAS6_SAS;
 
     for (i = 0; i < BOOKE206_MAX_TLBN; i++) {
         int ways = booke206_tlb_ways(env, i);
@@ -1193,24 +1193,24 @@ void helper_booke206_tlbsx(CPUPPCState *env, target_ulong address)
     }
 
     /* no entry found, fill with defaults */
-    env->spr[SPR_BOOKE_MAS0] = env->spr[SPR_BOOKE_MAS4] & MAS4_TLBSELD_MASK;
-    env->spr[SPR_BOOKE_MAS1] = env->spr[SPR_BOOKE_MAS4] & MAS4_TSIZED_MASK;
-    env->spr[SPR_BOOKE_MAS2] = env->spr[SPR_BOOKE_MAS4] & MAS4_WIMGED_MASK;
-    env->spr[SPR_BOOKE_MAS3] = 0;
-    env->spr[SPR_BOOKE_MAS7] = 0;
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS0, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS4) & MAS4_TLBSELD_MASK);
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS1, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS4) & MAS4_TSIZED_MASK);
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS2, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS4) & MAS4_WIMGED_MASK);
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS3, 0);
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS7, 0);
 
-    if (env->spr[SPR_BOOKE_MAS6] & MAS6_SAS) {
-        env->spr[SPR_BOOKE_MAS1] |= MAS1_TS;
+    if (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS6) & MAS6_SAS) {
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS1, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS1) | (MAS1_TS));
     }
 
-    env->spr[SPR_BOOKE_MAS1] |= (env->spr[SPR_BOOKE_MAS6] >> 16)
-        << MAS1_TID_SHIFT;
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS1, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS1) | ((target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS6) >> 16)
+        << MAS1_TID_SHIFT));
 
     /* next victim logic */
-    env->spr[SPR_BOOKE_MAS0] |= env->last_way << MAS0_ESEL_SHIFT;
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS0, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS0) | (env->last_way << MAS0_ESEL_SHIFT));
     env->last_way++;
     env->last_way &= booke206_tlb_ways(env, 0) - 1;
-    env->spr[SPR_BOOKE_MAS0] |= env->last_way << MAS0_NV_SHIFT;
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS0, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS0) | (env->last_way << MAS0_NV_SHIFT));
 }
 
 static inline void booke206_invalidate_ea_tlb(CPUPPCState *env, int tlbn,
@@ -1273,7 +1273,7 @@ void helper_booke206_tlbilx0(CPUPPCState *env, target_ulong address)
 void helper_booke206_tlbilx1(CPUPPCState *env, target_ulong address)
 {
     int i, j;
-    int tid = (env->spr[SPR_BOOKE_MAS6] & MAS6_SPID);
+    int tid = (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS6) & MAS6_SPID);
     ppcmas_tlb_t *tlb = env->tlb.tlbm;
     int tlb_size;
 
@@ -1295,12 +1295,12 @@ void helper_booke206_tlbilx3(CPUPPCState *env, target_ulong address)
 {
     int i, j;
     ppcmas_tlb_t *tlb;
-    int tid = (env->spr[SPR_BOOKE_MAS6] & MAS6_SPID);
+    int tid = (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS6) & MAS6_SPID);
     int pid = tid >> MAS6_SPID_SHIFT;
-    int sgs = env->spr[SPR_BOOKE_MAS5] & MAS5_SGS;
-    int ind = (env->spr[SPR_BOOKE_MAS6] & MAS6_SIND) ? MAS1_IND : 0;
+    int sgs = target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS5) & MAS5_SGS;
+    int ind = (target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS6) & MAS6_SIND) ? MAS1_IND : 0;
     /* XXX check for unsupported isize and raise an invalid opcode then */
-    int size = env->spr[SPR_BOOKE_MAS6] & MAS6_ISIZE_MASK;
+    int size = target_ulong_array_val(&env->spr.rec, SPR_BOOKE_MAS6) & MAS6_ISIZE_MASK;
     /* XXX implement MAV2 handling */
     bool mav2 = false;
 

@@ -225,17 +225,17 @@ static void main_cpu_reset(void *opaque)
      * either we have a kernel to boot or we jump to U-Boot
      */
     if (bi->entry != UBOOT_ENTRY) {
-        env->gpr[1] = (16 * MiB) - 8;
-        env->gpr[3] = FDT_ADDR;
-        env->nip = bi->entry;
+        target_ulong_array_set(&env->gpr.rec, 1, (16 * MiB) - 8);
+        target_ulong_array_set(&env->gpr.rec, 3, FDT_ADDR);
+        target_ulong_set(&env->nip, bi->entry);
 
         /* Create a mapping for the kernel.  */
         booke_set_tlb(&env->tlb.tlbe[0], 0, 0, 1 << 31);
-        env->gpr[6] = EPAPR_MAGIC;
-        env->gpr[7] = (16 * MiB) - 8; /* bi->ima_size; */
+        target_ulong_array_set(&env->gpr.rec, 6, EPAPR_MAGIC);
+        target_ulong_array_set(&env->gpr.rec, 7, (16 * MiB) - 8); /* bi->ima_size; */
 
     } else {
-        env->nip = UBOOT_ENTRY;
+        target_ulong_set(&env->nip, UBOOT_ENTRY);
         /* Create a mapping for U-Boot. */
         booke_set_tlb(&env->tlb.tlbe[0], 0xf0000000, 0xf0000000, 0x10000000);
         env->tlb.tlbe[0].RPN |= 4;

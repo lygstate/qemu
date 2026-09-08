@@ -23,9 +23,9 @@ static inline void cpu_clone_regs_child(CPUPPCState *env, target_ulong newsp,
                                         unsigned flags)
 {
     if (newsp) {
-        env->gpr[1] = newsp;
+        target_ulong_array_set(&env->gpr.rec, 1, newsp);
     }
-    env->gpr[3] = 0;
+    target_ulong_array_set(&env->gpr.rec, 3, 0);
 }
 
 static inline void cpu_clone_regs_parent(CPUPPCState *env, unsigned flags)
@@ -37,9 +37,9 @@ static inline void cpu_set_tls(CPUPPCState *env, target_ulong newtls)
 #if defined(TARGET_PPC64)
     /* The kernel checks TIF_32BIT here; we don't support loading 32-bit
        binaries on PPC64 yet. */
-    env->gpr[13] = newtls;
+    target_ulong_array_set(&env->gpr.rec, 13, newtls);
 #else
-    env->gpr[2] = newtls;
+    target_ulong_array_set(&env->gpr.rec, 2, newtls);
 #endif
 }
 
@@ -54,6 +54,6 @@ static inline uint32_t get_ppc64_abi(struct image_info *infop)
 
 static inline abi_ulong get_sp_from_cpustate(CPUPPCState *state)
 {
-    return state->gpr[1];
+    return target_ulong_array_val(&state->gpr.rec, 1);
 }
 #endif

@@ -119,10 +119,10 @@ static void ppc_write_elf_prstatus(NoteFuncArg *arg, PowerPCCPU *cpu, int id)
     reg = &prstatus->pr_reg;
 
     for (i = 0; i < 32; i++) {
-        reg->gpr[i] = cpu_to_dump_reg(s, cpu->env.gpr[i]);
+        reg->gpr[i] = cpu_to_dump_reg(s, target_ulong_array_val(&cpu->env.gpr.rec, i));
     }
-    reg->nip = cpu_to_dump_reg(s, cpu->env.nip);
-    reg->msr = cpu_to_dump_reg(s, cpu->env.msr);
+    reg->nip = cpu_to_dump_reg(s, target_ulong_val(&cpu->env.nip));
+    reg->msr = cpu_to_dump_reg(s, target_ulong_val(&cpu->env.msr));
     reg->ctr = cpu_to_dump_reg(s, cpu->env.ctr);
     reg->link = cpu_to_dump_reg(s, cpu->env.lr);
     reg->xer = cpu_to_dump_reg(s, cpu_read_xer(&cpu->env));
@@ -150,7 +150,7 @@ static void ppc_write_elf_fpregset(NoteFuncArg *arg, PowerPCCPU *cpu, int id)
         uint64_t *fpr = cpu_fpr_ptr(&cpu->env, i);
         fpregset->fpr[i] = cpu_to_dump64(s, *fpr);
     }
-    fpregset->fpscr = cpu_to_dump_reg(s, cpu->env.fpscr);
+    fpregset->fpscr = cpu_to_dump_reg(s, target_ulong_val(&cpu->env.fpscr));
 }
 
 static void ppc_write_elf_vmxregset(NoteFuncArg *arg, PowerPCCPU *cpu, int id)

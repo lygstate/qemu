@@ -49,7 +49,7 @@ static inline bool fp_exceptions_enabled(CPUPPCState *env)
 #ifdef CONFIG_USER_ONLY
     return true;
 #else
-    return (env->msr & ((1U << MSR_FE0) | (1U << MSR_FE1))) != 0;
+    return (target_ulong_val(&env->msr) & ((1U << MSR_FE0) | (1U << MSR_FE1))) != 0;
 #endif
 }
 
@@ -160,7 +160,7 @@ void helper_compute_fprf_##tp(CPUPPCState *env, tp arg)           \
             fprf = 0x11 << FPSCR_FPRF;                            \
         }                                                         \
     }                                                             \
-    env->fpscr = (env->fpscr & ~FP_FPRF) | fprf;                  \
+    target_ulong_set(&env->fpscr, (target_ulong_val(&env->fpscr) & ~FP_FPRF) | fprf);                  \
 }
 
 COMPUTE_FPRF(float16)
@@ -172,12 +172,12 @@ COMPUTE_FPRF(float128)
 static void finish_invalid_op_excp(CPUPPCState *env, int op, uintptr_t retaddr)
 {
     /* Update the floating-point invalid operation summary */
-    env->fpscr |= FP_VX;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_VX);
     /* Update the floating-point exception summary */
-    env->fpscr |= FP_FX;
-    if (env->fpscr & FP_VE) {
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_FX);
+    if (target_ulong_val(&env->fpscr) & FP_VE) {
         /* Update the floating-point enabled exception summary */
-        env->fpscr |= FP_FEX;
+        target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_FEX);
         if (fp_exceptions_enabled(env)) {
             raise_exception_err_ra(env, POWERPC_EXCP_PROGRAM,
                                    POWERPC_EXCP_FP | op, retaddr);
@@ -188,11 +188,11 @@ static void finish_invalid_op_excp(CPUPPCState *env, int op, uintptr_t retaddr)
 static void finish_invalid_op_arith(CPUPPCState *env, int op,
                                     bool set_fpcc, uintptr_t retaddr)
 {
-    env->fpscr &= ~(FP_FR | FP_FI);
-    if (!(env->fpscr & FP_VE)) {
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) & ~(FP_FR | FP_FI));
+    if (!(target_ulong_val(&env->fpscr) & FP_VE)) {
         if (set_fpcc) {
-            env->fpscr &= ~FP_FPCC;
-            env->fpscr |= (FP_C | FP_FU);
+            target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) & ~FP_FPCC);
+            target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | (FP_C | FP_FU));
         }
     }
     finish_invalid_op_excp(env, op, retaddr);
@@ -201,7 +201,7 @@ static void finish_invalid_op_arith(CPUPPCState *env, int op,
 /* Signalling NaN */
 static void float_invalid_op_vxsnan(CPUPPCState *env, uintptr_t retaddr)
 {
-    env->fpscr |= FP_VXSNAN;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_VXSNAN);
     finish_invalid_op_excp(env, POWERPC_EXCP_FP_VXSNAN, retaddr);
 }
 
@@ -209,7 +209,7 @@ static void float_invalid_op_vxsnan(CPUPPCState *env, uintptr_t retaddr)
 static void float_invalid_op_vxisi(CPUPPCState *env, bool set_fpcc,
                                    uintptr_t retaddr)
 {
-    env->fpscr |= FP_VXISI;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_VXISI);
     finish_invalid_op_arith(env, POWERPC_EXCP_FP_VXISI, set_fpcc, retaddr);
 }
 
@@ -217,7 +217,7 @@ static void float_invalid_op_vxisi(CPUPPCState *env, bool set_fpcc,
 static void float_invalid_op_vxidi(CPUPPCState *env, bool set_fpcc,
                                    uintptr_t retaddr)
 {
-    env->fpscr |= FP_VXIDI;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_VXIDI);
     finish_invalid_op_arith(env, POWERPC_EXCP_FP_VXIDI, set_fpcc, retaddr);
 }
 
@@ -225,7 +225,7 @@ static void float_invalid_op_vxidi(CPUPPCState *env, bool set_fpcc,
 static void float_invalid_op_vxzdz(CPUPPCState *env, bool set_fpcc,
                                    uintptr_t retaddr)
 {
-    env->fpscr |= FP_VXZDZ;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_VXZDZ);
     finish_invalid_op_arith(env, POWERPC_EXCP_FP_VXZDZ, set_fpcc, retaddr);
 }
 
@@ -233,7 +233,7 @@ static void float_invalid_op_vxzdz(CPUPPCState *env, bool set_fpcc,
 static void float_invalid_op_vximz(CPUPPCState *env, bool set_fpcc,
                                    uintptr_t retaddr)
 {
-    env->fpscr |= FP_VXIMZ;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_VXIMZ);
     finish_invalid_op_arith(env, POWERPC_EXCP_FP_VXIMZ, set_fpcc, retaddr);
 }
 
@@ -241,7 +241,7 @@ static void float_invalid_op_vximz(CPUPPCState *env, bool set_fpcc,
 static void float_invalid_op_vxsqrt(CPUPPCState *env, bool set_fpcc,
                                     uintptr_t retaddr)
 {
-    env->fpscr |= FP_VXSQRT;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_VXSQRT);
     finish_invalid_op_arith(env, POWERPC_EXCP_FP_VXSQRT, set_fpcc, retaddr);
 }
 
@@ -249,23 +249,23 @@ static void float_invalid_op_vxsqrt(CPUPPCState *env, bool set_fpcc,
 static void float_invalid_op_vxvc(CPUPPCState *env, bool set_fpcc,
                                   uintptr_t retaddr)
 {
-    env->fpscr |= FP_VXVC;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_VXVC);
     if (set_fpcc) {
-        env->fpscr &= ~FP_FPCC;
-        env->fpscr |= (FP_C | FP_FU);
+        target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) & ~FP_FPCC);
+        target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | (FP_C | FP_FU));
     }
     /* Update the floating-point invalid operation summary */
-    env->fpscr |= FP_VX;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_VX);
     /* Update the floating-point exception summary */
-    env->fpscr |= FP_FX;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_FX);
     /* We must update the target FPR before raising the exception */
-    if (env->fpscr & FP_VE) {
+    if (target_ulong_val(&env->fpscr) & FP_VE) {
         CPUState *cs = env_cpu(env);
 
         cs->exception_index = POWERPC_EXCP_PROGRAM;
         env->error_code = POWERPC_EXCP_FP | POWERPC_EXCP_FP_VXVC;
         /* Update the floating-point enabled exception summary */
-        env->fpscr |= FP_FEX;
+        target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_FEX);
         /* Exception is deferred */
     }
 }
@@ -274,12 +274,12 @@ static void float_invalid_op_vxvc(CPUPPCState *env, bool set_fpcc,
 static void float_invalid_op_vxcvi(CPUPPCState *env, bool set_fpcc,
                                    uintptr_t retaddr)
 {
-    env->fpscr |= FP_VXCVI;
-    env->fpscr &= ~(FP_FR | FP_FI);
-    if (!(env->fpscr & FP_VE)) {
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_VXCVI);
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) & ~(FP_FR | FP_FI));
+    if (!(target_ulong_val(&env->fpscr) & FP_VE)) {
         if (set_fpcc) {
-            env->fpscr &= ~FP_FPCC;
-            env->fpscr |= (FP_C | FP_FU);
+            target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) & ~FP_FPCC);
+            target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | (FP_C | FP_FU));
         }
     }
     finish_invalid_op_excp(env, POWERPC_EXCP_FP_VXCVI, retaddr);
@@ -287,13 +287,13 @@ static void float_invalid_op_vxcvi(CPUPPCState *env, bool set_fpcc,
 
 static inline void float_zero_divide_excp(CPUPPCState *env, uintptr_t raddr)
 {
-    env->fpscr |= FP_ZX;
-    env->fpscr &= ~(FP_FR | FP_FI);
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_ZX);
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) & ~(FP_FR | FP_FI));
     /* Update the floating-point exception summary */
-    env->fpscr |= FP_FX;
-    if (env->fpscr & FP_ZE) {
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_FX);
+    if (target_ulong_val(&env->fpscr) & FP_ZE) {
         /* Update the floating-point enabled exception summary */
-        env->fpscr |= FP_FEX;
+        target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_FEX);
         if (fp_exceptions_enabled(env)) {
             raise_exception_err_ra(env, POWERPC_EXCP_PROGRAM,
                                    POWERPC_EXCP_FP | POWERPC_EXCP_FP_ZX,
@@ -306,14 +306,14 @@ static inline int float_overflow_excp(CPUPPCState *env)
 {
     CPUState *cs = env_cpu(env);
 
-    env->fpscr |= FP_OX;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_OX);
     /* Update the floating-point exception summary */
-    env->fpscr |= FP_FX;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_FX);
 
-    bool overflow_enabled = !!(env->fpscr & FP_OE);
+    bool overflow_enabled = !!(target_ulong_val(&env->fpscr) & FP_OE);
     if (overflow_enabled) {
         /* Update the floating-point enabled exception summary */
-        env->fpscr |= FP_FEX;
+        target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_FEX);
         /* We must update the target FPR before raising the exception */
         cs->exception_index = POWERPC_EXCP_PROGRAM;
         env->error_code = POWERPC_EXCP_FP | POWERPC_EXCP_FP_OX;
@@ -326,12 +326,12 @@ static inline void float_underflow_excp(CPUPPCState *env)
 {
     CPUState *cs = env_cpu(env);
 
-    env->fpscr |= FP_UX;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_UX);
     /* Update the floating-point exception summary */
-    env->fpscr |= FP_FX;
-    if (env->fpscr & FP_UE) {
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_FX);
+    if (target_ulong_val(&env->fpscr) & FP_UE) {
         /* Update the floating-point enabled exception summary */
-        env->fpscr |= FP_FEX;
+        target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_FEX);
         /* We must update the target FPR before raising the exception */
         cs->exception_index = POWERPC_EXCP_PROGRAM;
         env->error_code = POWERPC_EXCP_FP | POWERPC_EXCP_FP_UX;
@@ -342,12 +342,12 @@ static inline void float_inexact_excp(CPUPPCState *env)
 {
     CPUState *cs = env_cpu(env);
 
-    env->fpscr |= FP_XX;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_XX);
     /* Update the floating-point exception summary */
-    env->fpscr |= FP_FX;
-    if (env->fpscr & FP_XE) {
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_FX);
+    if (target_ulong_val(&env->fpscr) & FP_XE) {
         /* Update the floating-point enabled exception summary */
-        env->fpscr |= FP_FEX;
+        target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_FEX);
         /* We must update the target FPR before raising the exception */
         cs->exception_index = POWERPC_EXCP_PROGRAM;
         env->error_code = POWERPC_EXCP_FP | POWERPC_EXCP_FP_XX;
@@ -357,16 +357,16 @@ static inline void float_inexact_excp(CPUPPCState *env)
 void helper_fpscr_clrbit(CPUPPCState *env, uint32_t bit)
 {
     uint32_t mask = 1u << bit;
-    if (env->fpscr & mask) {
-        ppc_store_fpscr(env, env->fpscr & ~(target_ulong)mask);
+    if (target_ulong_val(&env->fpscr) & mask) {
+        ppc_store_fpscr(env, target_ulong_val(&env->fpscr) & ~(target_ulong)mask);
     }
 }
 
 void helper_fpscr_setbit(CPUPPCState *env, uint32_t bit)
 {
     uint32_t mask = 1u << bit;
-    if (!(env->fpscr & mask)) {
-        ppc_store_fpscr(env, env->fpscr | mask);
+    if (!(target_ulong_val(&env->fpscr) & mask)) {
+        ppc_store_fpscr(env, target_ulong_val(&env->fpscr) | mask);
     }
 }
 
@@ -381,14 +381,14 @@ void helper_store_fpscr(CPUPPCState *env, uint64_t val, uint32_t nibbles)
             mask |= (target_ulong) 0xf << (4 * i);
         }
     }
-    val = (val & mask) | (env->fpscr & ~mask);
+    val = (val & mask) | (target_ulong_val(&env->fpscr) & ~mask);
     ppc_store_fpscr(env, val);
 }
 
 static void do_fpscr_check_status(CPUPPCState *env, uintptr_t raddr)
 {
     CPUState *cs = env_cpu(env);
-    target_ulong fpscr = env->fpscr;
+    target_ulong fpscr = target_ulong_val(&env->fpscr);
     int error = 0;
 
     if ((fpscr & FP_OX) && (fpscr & FP_OE)) {
@@ -426,7 +426,7 @@ static void do_fpscr_check_status(CPUPPCState *env, uintptr_t raddr)
     }
     cs->exception_index = POWERPC_EXCP_PROGRAM;
     env->error_code = error | POWERPC_EXCP_FP;
-    env->fpscr |= FP_FEX;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_FEX);
     /* Deferred floating-point exception after target FPSCR update */
     if (fp_exceptions_enabled(env)) {
         raise_exception_err_ra(env, cs->exception_index,
@@ -454,8 +454,8 @@ static void do_float_check_status(CPUPPCState *env, bool change_fi,
         float_inexact_excp(env);
     }
     if (change_fi) {
-        env->fpscr = FIELD_DP64(env->fpscr, FPSCR, FI,
-                                !!(status & float_flag_inexact));
+        target_ulong_set(&env->fpscr, FIELD_DP64(target_ulong_val(&env->fpscr), FPSCR, FI,
+                                !!(status & float_flag_inexact)));
     }
 
     if (cs->exception_index == POWERPC_EXCP_PROGRAM &&
@@ -544,7 +544,7 @@ static uint64_t float_invalid_cvt(CPUPPCState *env, int flags,
      * VXCVI and VXSNAN for an SNaN input.
      */
     if (flags & float_flag_invalid_snan) {
-        env->fpscr |= FP_VXSNAN;
+        target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | FP_VXSNAN);
     }
     float_invalid_op_vxcvi(env, set_fprc, retaddr);
 
@@ -891,8 +891,8 @@ void helper_FCMPU(CPUPPCState *env, uint64_t arg1, uint64_t arg2,
         ret = 0x02UL;
     }
 
-    env->fpscr &= ~FP_FPCC;
-    env->fpscr |= ret << FPSCR_FPCC;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) & ~FP_FPCC);
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | ret << FPSCR_FPCC);
     env->crf[crfD] = ret;
     if (unlikely(ret == 0x01UL
                  && (float64_is_signaling_nan(farg1.d, &env->fp_status) ||
@@ -922,8 +922,8 @@ void helper_FCMPO(CPUPPCState *env, uint64_t arg1, uint64_t arg2,
         ret = 0x02UL;
     }
 
-    env->fpscr &= ~FP_FPCC;
-    env->fpscr |= ret << FPSCR_FPCC;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) & ~FP_FPCC);
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | ret << FPSCR_FPCC);
     env->crf[crfD] = (uint32_t) ret;
     if (unlikely(ret == 0x01UL)) {
         float_invalid_op_vxvc(env, 1, GETPC());
@@ -2147,7 +2147,7 @@ VSX_MADDQ(XSNMSUBQPO, NMSUB_FLGS, 0)
         vxvc = svxvc;                                                         \
         if (flags & float_flag_invalid_snan) {                                \
             float_invalid_op_vxsnan(env, GETPC());                            \
-            vxvc &= !(env->fpscr & FP_VE);                                    \
+            vxvc &= !(target_ulong_val(&env->fpscr) & FP_VE);                                    \
         }                                                                     \
         if (vxvc) {                                                           \
             float_invalid_op_vxvc(env, 0, GETPC());                           \
@@ -2188,8 +2188,8 @@ void helper_xscmpexpdp(CPUPPCState *env, uint32_t opcode,
         }
     }
 
-    env->fpscr &= ~FP_FPCC;
-    env->fpscr |= cc << FPSCR_FPCC;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) & ~FP_FPCC);
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | cc << FPSCR_FPCC);
     env->crf[BF(opcode)] = cc;
 
     do_float_check_status(env, false, GETPC());
@@ -2217,8 +2217,8 @@ void helper_xscmpexpqp(CPUPPCState *env, uint32_t opcode,
         }
     }
 
-    env->fpscr &= ~FP_FPCC;
-    env->fpscr |= cc << FPSCR_FPCC;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) & ~FP_FPCC);
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | cc << FPSCR_FPCC);
     env->crf[BF(opcode)] = cc;
 
     do_float_check_status(env, false, GETPC());
@@ -2248,7 +2248,7 @@ static inline void do_scalar_cmp(CPUPPCState *env, ppc_vsr_t *xa, ppc_vsr_t *xb,
         if (float64_is_signaling_nan(xa->VsrD(0), &env->fp_status) ||
             float64_is_signaling_nan(xb->VsrD(0), &env->fp_status)) {
             vxsnan_flag = true;
-            if (!(env->fpscr & FP_VE) && ordered) {
+            if (!(target_ulong_val(&env->fpscr) & FP_VE) && ordered) {
                 vxvc_flag = true;
             }
         } else if (float64_is_quiet_nan(xa->VsrD(0), &env->fp_status) ||
@@ -2263,8 +2263,8 @@ static inline void do_scalar_cmp(CPUPPCState *env, ppc_vsr_t *xa, ppc_vsr_t *xb,
         g_assert_not_reached();
     }
 
-    env->fpscr &= ~FP_FPCC;
-    env->fpscr |= cc << FPSCR_FPCC;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) & ~FP_FPCC);
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | cc << FPSCR_FPCC);
     env->crf[crf_idx] = cc;
 
     if (vxsnan_flag) {
@@ -2313,7 +2313,7 @@ static inline void do_scalar_cmpq(CPUPPCState *env, ppc_vsr_t *xa,
         if (float128_is_signaling_nan(xa->f128, &env->fp_status) ||
             float128_is_signaling_nan(xb->f128, &env->fp_status)) {
             vxsnan_flag = true;
-            if (!(env->fpscr & FP_VE) && ordered) {
+            if (!(target_ulong_val(&env->fpscr) & FP_VE) && ordered) {
                 vxvc_flag = true;
             }
         } else if (float128_is_quiet_nan(xa->f128, &env->fp_status) ||
@@ -2328,8 +2328,8 @@ static inline void do_scalar_cmpq(CPUPPCState *env, ppc_vsr_t *xa,
         g_assert_not_reached();
     }
 
-    env->fpscr &= ~FP_FPCC;
-    env->fpscr |= cc << FPSCR_FPCC;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) & ~FP_FPCC);
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | cc << FPSCR_FPCC);
     env->crf[crf_idx] = cc;
 
     if (vxsnan_flag) {
@@ -2463,7 +2463,7 @@ void helper_##name(CPUPPCState *env,                                          \
         t.VsrD(0) = xb->VsrD(0);                                              \
     }                                                                         \
                                                                               \
-    vex_flag = (env->fpscr & FP_VE) && vxsnan_flag;                           \
+    vex_flag = (target_ulong_val(&env->fpscr) & FP_VE) && vxsnan_flag;                           \
     if (vxsnan_flag) {                                                        \
         float_invalid_op_vxsnan(env, GETPC());                                \
     }                                                                         \
@@ -3168,8 +3168,8 @@ static bool not_SP_value(float64 val)
         uint32_t cc, match, sign = TP##_is_neg(b->FLD);                     \
         match = TP##_tstdc(b->FLD, dcmx);                                   \
         cc = sign << CRF_LT_BIT | match << CRF_EQ_BIT;                      \
-        env->fpscr &= ~FP_FPCC;                                             \
-        env->fpscr |= cc << FPSCR_FPCC;                                     \
+        target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) & ~FP_FPCC);                                             \
+        target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | cc << FPSCR_FPCC);                                     \
         env->crf[bf] = cc;                                                  \
     }
 
@@ -3185,8 +3185,8 @@ void helper_XSTSTDCSP(CPUPPCState *env, uint32_t bf,
     int not_sp = (int)not_SP_value(b->VsrD(0));
     match = float64_tstdc(b->VsrD(0), dcmx) || (exp > 0 && exp < 0x381);
     cc = sign << CRF_LT_BIT | match << CRF_EQ_BIT | not_sp << CRF_SO_BIT;
-    env->fpscr &= ~FP_FPCC;
-    env->fpscr |= cc << FPSCR_FPCC;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) & ~FP_FPCC);
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | cc << FPSCR_FPCC);
     env->crf[bf] = cc;
 }
 
@@ -3205,7 +3205,7 @@ void helper_xsrqpi(CPUPPCState *env, uint32_t opcode,
     if (r == 0 && rmc == 0) {
         rmode = float_round_ties_away;
     } else if (r == 0 && rmc == 0x3) {
-        rmode = env->fpscr & FP_RN;
+        rmode = target_ulong_val(&env->fpscr) & FP_RN;
     } else if (r == 1) {
         switch (rmc) {
         case 0:
@@ -3259,7 +3259,7 @@ void helper_xsrqpxp(CPUPPCState *env, uint32_t opcode,
     if (r == 0 && rmc == 0) {
         rmode = float_round_ties_away;
     } else if (r == 0 && rmc == 0x3) {
-        rmode = env->fpscr & FP_RN;
+        rmode = target_ulong_val(&env->fpscr) & FP_RN;
     } else if (r == 1) {
         switch (rmc) {
         case 0:
@@ -3355,8 +3355,8 @@ static inline void vsxger_excp(CPUPPCState *env, uintptr_t retaddr)
      * are disabled and only at the end throw an exception
      */
     target_ulong enable;
-    enable = env->fpscr & (FP_ENABLES | FP_FI | FP_FR);
-    env->fpscr &= ~(FP_ENABLES | FP_FI | FP_FR);
+    enable = target_ulong_val(&env->fpscr) & (FP_ENABLES | FP_FI | FP_FR);
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) & ~(FP_ENABLES | FP_FI | FP_FR));
     int status = get_float_exception_flags(&env->fp_status);
     if (unlikely(status & float_flag_invalid)) {
         if (status & float_flag_invalid_snan) {
@@ -3370,7 +3370,7 @@ static inline void vsxger_excp(CPUPPCState *env, uintptr_t retaddr)
         }
     }
     do_float_check_status(env, false, retaddr);
-    env->fpscr |= enable;
+    target_ulong_set(&env->fpscr, target_ulong_val(&env->fpscr) | enable);
     do_fpscr_check_status(env, retaddr);
 }
 

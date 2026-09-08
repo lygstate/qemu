@@ -96,7 +96,7 @@ void cpu_loop(CPUPPCState *env)
         case POWERPC_EXCP_ISI:      /* Instruction storage exception         */
             /* FIXME: handle maperr in ppc_cpu_record_sigsegv. */
             force_sig_fault(TARGET_SIGSEGV, TARGET_SEGV_MAPERR,
-                            env->spr[SPR_DAR]);
+                            target_ulong_array_val(&env->spr.rec, SPR_DAR));
             break;
         case POWERPC_EXCP_EXTERNAL: /* External input                        */
             cpu_abort(cs, "External interrupt while in user mode. "
@@ -189,13 +189,13 @@ void cpu_loop(CPUPPCState *env)
                           env->error_code);
                 break;
             }
-            force_sig_fault(si_signo, si_code, env->nip);
+            force_sig_fault(si_signo, si_code, target_ulong_val(&env->nip));
             break;
         case POWERPC_EXCP_FPU:      /* Floating-point unavailable exception  */
         case POWERPC_EXCP_APU:      /* Auxiliary processor unavailable       */
         case POWERPC_EXCP_SPEU:     /* SPE/embedded floating-point unavail.  */
         case POWERPC_EXCP_VPU:      /* Vector unavailable exception          */
-            force_sig_fault(TARGET_SIGILL, TARGET_ILL_COPROC, env->nip);
+            force_sig_fault(TARGET_SIGILL, TARGET_ILL_COPROC, target_ulong_val(&env->nip));
             break;
         case POWERPC_EXCP_SYSCALL:  /* System call exception                 */
         case POWERPC_EXCP_SYSCALL_VECTORED:
@@ -332,12 +332,12 @@ void cpu_loop(CPUPPCState *env)
              * in syscalls.
              */
             env->crf[0] &= ~0x1;
-            env->nip += 4;
-            ret = do_syscall(env, env->gpr[0], env->gpr[3], env->gpr[4],
-                             env->gpr[5], env->gpr[6], env->gpr[7],
-                             env->gpr[8], 0, 0);
+            target_ulong_set(&env->nip, target_ulong_val(&env->nip) + 4);
+            ret = do_syscall(env, target_ulong_array_val(&env->gpr.rec, 0), target_ulong_array_val(&env->gpr.rec, 3), target_ulong_array_val(&env->gpr.rec, 4),
+                             target_ulong_array_val(&env->gpr.rec, 5), target_ulong_array_val(&env->gpr.rec, 6), target_ulong_array_val(&env->gpr.rec, 7),
+                             target_ulong_array_val(&env->gpr.rec, 8), 0, 0);
             if (ret == -QEMU_ERESTARTSYS) {
-                env->nip -= 4;
+                target_ulong_set(&env->nip, target_ulong_val(&env->nip) - 4);
                 break;
             }
             if (ret == (target_ulong)(-QEMU_ESIGRETURN) ||
@@ -353,10 +353,10 @@ void cpu_loop(CPUPPCState *env)
                 env->crf[0] |= 0x1;
                 ret = -ret;
             }
-            env->gpr[3] = ret;
+            target_ulong_array_set(&env->gpr.rec, 3, ret);
             break;
         case EXCP_DEBUG:
-            force_sig_fault(TARGET_SIGTRAP, TARGET_TRAP_BRKPT, env->nip);
+            force_sig_fault(TARGET_SIGTRAP, TARGET_TRAP_BRKPT, target_ulong_val(&env->nip));
             break;
         case EXCP_INTERRUPT:
             /* just indicate that signals should be handled asap */
@@ -377,7 +377,7 @@ void cpu_loop(CPUPPCState *env)
          * are a few exceptions for traps internal to QEMU.
          */
         if (arch_interrupt) {
-            env->reserve_addr = -1;
+            target_ulong_set(&env->reserve_addr, -1);
         }
     }
 }
@@ -387,26 +387,26 @@ void init_main_thread(CPUState *cs, struct image_info *info)
     CPUArchState *env = cpu_env(cs);
     abi_ptr entry = info->entry;
 
-    env->gpr[1] = info->start_stack;
+    target_ulong_array_set(&env->gpr.rec, 1, info->start_stack);
 
 #ifdef TARGET_PPC64
     if (get_ppc64_abi(info) < 2) {
         uint64_t val;
         get_user_u64(val, entry + 8);
-        env->gpr[2] = val + info->load_bias;
+        target_ulong_array_set(&env->gpr.rec, 2, val + info->load_bias);
         get_user_u64(val, entry);
         entry = val + info->load_bias;
     } else {
-        env->gpr[12] = entry;  /* r12 set to global entry address */
+        target_ulong_array_set(&env->gpr.rec, 12, entry);  /* r12 set to global entry address */
     }
 
     int flag = (env->insns_flags2 & PPC2_BOOKE206) ? MSR_CM : MSR_SF;
 #if defined(TARGET_ABI32)
-    ppc_store_msr(env, env->msr & ~((target_ulong)1 << flag));
+    ppc_store_msr(env, target_ulong_val(&env->msr) & ~((target_ulong)1 << flag));
 #else
-    ppc_store_msr(env, env->msr | (target_ulong)1 << flag);
+    ppc_store_msr(env, target_ulong_val(&env->msr) | (target_ulong)1 << flag);
 #endif
 #endif /* TARGET_PPC64 */
 
-    env->nip = entry;
+    target_ulong_set(&env->nip, entry);
 }

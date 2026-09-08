@@ -201,7 +201,7 @@ int ppc_set_compat(PowerPCCPU *cpu, uint32_t compat_pvr, Error **errp)
     }
 
     cpu->compat_pvr = compat_pvr;
-    env->spr[SPR_PCR] = pcr & pcc->pcr_mask;
+    target_ulong_array_set(&env->spr.rec, SPR_PCR, pcr & pcc->pcr_mask);
     return 0;
 }
 

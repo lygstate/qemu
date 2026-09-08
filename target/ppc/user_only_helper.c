@@ -46,8 +46,8 @@ void ppc_cpu_record_sigsegv(CPUState *cs, vaddr address,
         if (access_type == MMU_DATA_STORE) {
             error_code |= 0x02000000;
         }
-        env->spr[SPR_DAR] = address;
-        env->spr[SPR_DSISR] = error_code;
+        target_ulong_array_set(&env->spr.rec, SPR_DAR, address);
+        target_ulong_array_set(&env->spr.rec, SPR_DSISR, error_code);
     }
     cs->exception_index = exception;
     env->error_code = error_code;

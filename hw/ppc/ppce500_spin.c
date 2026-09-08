@@ -79,15 +79,15 @@ static void spin_kick(CPUState *cs, run_on_cpu_data data)
     ppcmas_tlb_t *tlb = booke206_get_tlbm(env, 1, 0, 1);
 
     cpu_synchronize_state(cs);
-    stl_p(&curspin->pir, env->spr[SPR_BOOKE_PIR]);
-    env->nip = ldq_p(&curspin->addr) & (map_size - 1);
-    env->gpr[3] = ldq_p(&curspin->r3);
-    env->gpr[4] = 0;
-    env->gpr[5] = 0;
-    env->gpr[6] = 0;
-    env->gpr[7] = map_size;
-    env->gpr[8] = 0;
-    env->gpr[9] = 0;
+    stl_p(&curspin->pir, target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PIR));
+    target_ulong_set(&env->nip, ldq_p(&curspin->addr) & (map_size - 1));
+    target_ulong_array_set(&env->gpr.rec, 3, ldq_p(&curspin->r3));
+    target_ulong_array_set(&env->gpr.rec, 4, 0);
+    target_ulong_array_set(&env->gpr.rec, 5, 0);
+    target_ulong_array_set(&env->gpr.rec, 6, 0);
+    target_ulong_array_set(&env->gpr.rec, 7, map_size);
+    target_ulong_array_set(&env->gpr.rec, 8, 0);
+    target_ulong_array_set(&env->gpr.rec, 9, 0);
 
     map_start = ldq_p(&curspin->addr) & ~(map_size - 1);
     /* create initial mapping */

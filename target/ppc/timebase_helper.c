@@ -288,12 +288,12 @@ static void write_tfmr(CPUPPCState *env, target_ulong val)
     CPUState *cs = env_cpu(env);
 
     if (ppc_cpu_core_single_threaded(cs)) {
-        env->spr[SPR_TFMR] = val;
+        target_ulong_array_set(&env->spr.rec, SPR_TFMR, val);
     } else {
         CPUState *ccs;
         THREAD_SIBLING_FOREACH(cs, ccs) {
             CPUPPCState *cenv = &POWERPC_CPU(ccs)->env;
-            cenv->spr[SPR_TFMR] = val;
+            target_ulong_array_set(&cenv->spr.rec, SPR_TFMR, val);
         }
     }
 }
@@ -317,7 +317,7 @@ static void tb_state_machine_step(CPUPPCState *env)
 {
     PowerPCCPU *cpu = env_archcpu(env);
     PnvCoreTODState *tod_state = cpu_get_tbst(cpu);
-    uint64_t tfmr = env->spr[SPR_TFMR];
+    uint64_t tfmr = target_ulong_array_val(&env->spr.rec, SPR_TFMR);
     unsigned int tbst = tfmr_get_tb_state(tfmr);
 
     if (!(tfmr & TFMR_TB_ECLIPZ) || tbst == TBST_TB_ERROR) {
@@ -373,14 +373,14 @@ target_ulong helper_load_tfmr(CPUPPCState *env)
 {
     tb_state_machine_step(env);
 
-    return env->spr[SPR_TFMR] | TFMR_TB_ECLIPZ;
+    return target_ulong_array_val(&env->spr.rec, SPR_TFMR) | TFMR_TB_ECLIPZ;
 }
 
 void helper_store_tfmr(CPUPPCState *env, target_ulong val)
 {
     PowerPCCPU *cpu = env_archcpu(env);
     PnvCoreTODState *tod_state = cpu_get_tbst(cpu);
-    uint64_t tfmr = env->spr[SPR_TFMR];
+    uint64_t tfmr = target_ulong_array_val(&env->spr.rec, SPR_TFMR);
     uint64_t clear_on_write;
     unsigned int tbst = tfmr_get_tb_state(tfmr);
 

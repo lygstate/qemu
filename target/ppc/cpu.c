@@ -98,7 +98,7 @@ void ppc_store_lpcr(PowerPCCPU *cpu, target_ulong val)
     PowerPCCPUClass *pcc = POWERPC_CPU_GET_CLASS(cpu);
     CPUPPCState *env = &cpu->env;
 
-    env->spr[SPR_LPCR] = val & pcc->lpcr_mask;
+    target_ulong_array_set(&env->spr.rec, SPR_LPCR, val & pcc->lpcr_mask);
     /* The gtse bit affects hflags */
     hreg_compute_hflags(env);
 
@@ -109,7 +109,7 @@ void ppc_store_lpcr(PowerPCCPU *cpu, target_ulong val)
 void ppc_update_ciabr(CPUPPCState *env)
 {
     CPUState *cs = env_cpu(env);
-    target_ulong ciabr = env->spr[SPR_CIABR];
+    target_ulong ciabr = target_ulong_array_val(&env->spr.rec, SPR_CIABR);
     target_ulong ciea, priv;
 
     ciea = ciabr & PPC_BITMASK(0, 61);
@@ -127,7 +127,7 @@ void ppc_update_ciabr(CPUPPCState *env)
 
 void ppc_store_ciabr(CPUPPCState *env, target_ulong val)
 {
-    env->spr[SPR_CIABR] = val;
+    target_ulong_array_set(&env->spr.rec, SPR_CIABR, val);
     ppc_update_ciabr(env);
 }
 
@@ -136,8 +136,8 @@ void ppc_update_daw(CPUPPCState *env, int rid)
     CPUState *cs = env_cpu(env);
     int spr_dawr = rid ? SPR_DAWR1 : SPR_DAWR0;
     int spr_dawrx = rid ? SPR_DAWRX1 : SPR_DAWRX0;
-    target_ulong deaw = env->spr[spr_dawr] & PPC_BITMASK(0, 60);
-    uint32_t dawrx = env->spr[spr_dawrx];
+    target_ulong deaw = target_ulong_array_val(&env->spr.rec, spr_dawr) & PPC_BITMASK(0, 60);
+    uint32_t dawrx = target_ulong_array_val(&env->spr.rec, spr_dawrx);
     int mrd = extract32(dawrx, PPC_BIT_NR(48), 54 - 48);
     bool dw = extract32(dawrx, PPC_BIT_NR(57), 1);
     bool dr = extract32(dawrx, PPC_BIT_NR(58), 1);
@@ -176,7 +176,7 @@ void ppc_update_daw(CPUPPCState *env, int rid)
 
 void ppc_store_dawr0(CPUPPCState *env, target_ulong val)
 {
-    env->spr[SPR_DAWR0] = val;
+    target_ulong_array_set(&env->spr.rec, SPR_DAWR0, val);
     ppc_update_daw(env, 0);
 }
 
@@ -190,7 +190,7 @@ static void ppc_store_dawrx(CPUPPCState *env, uint32_t val, int rid)
                       __func__, rid);
     }
 
-    env->spr[rid ? SPR_DAWRX1 : SPR_DAWRX0] = val;
+    target_ulong_array_set(&env->spr.rec, rid ? SPR_DAWRX1 : SPR_DAWRX0, val);
     ppc_update_daw(env, rid);
 }
 
@@ -201,7 +201,7 @@ void ppc_store_dawrx0(CPUPPCState *env, uint32_t val)
 
 void ppc_store_dawr1(CPUPPCState *env, target_ulong val)
 {
-    env->spr[SPR_DAWR1] = val;
+    target_ulong_array_set(&env->spr.rec, SPR_DAWR1, val);
     ppc_update_daw(env, 1);
 }
 
@@ -218,7 +218,7 @@ static inline void fpscr_set_rounding_mode(CPUPPCState *env)
     int rnd_type;
 
     /* Set rounding mode */
-    switch (env->fpscr & FP_RN) {
+    switch (target_ulong_val(&env->fpscr) & FP_RN) {
     case 0:
         /* Best approximation (round to nearest) */
         rnd_type = float_round_nearest_even;
@@ -249,9 +249,9 @@ void ppc_store_fpscr(CPUPPCState *env, target_ulong val)
     if ((val >> FPSCR_XX) & (val >> FPSCR_XE) & 0x1f) {
         val |= FP_FEX;
     }
-    env->fpscr = val;
-    set_float_rebias_overflow(FP_OE & env->fpscr, &env->fp_status);
-    set_float_rebias_underflow(FP_UE & env->fpscr, &env->fp_status);
+    target_ulong_set(&env->fpscr, val);
+    set_float_rebias_overflow(FP_OE & target_ulong_val(&env->fpscr), &env->fp_status);
+    set_float_rebias_underflow(FP_UE & target_ulong_val(&env->fpscr), &env->fp_status);
     if (tcg_enabled()) {
         fpscr_set_rounding_mode(env);
     }

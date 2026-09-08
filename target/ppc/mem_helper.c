@@ -38,7 +38,7 @@ static inline target_ulong addr_add(CPUPPCState *env, target_ulong addr,
                                     target_long arg)
 {
 #if defined(TARGET_PPC64)
-    if (!msr_is_64bit(env, env->msr)) {
+    if (!msr_is_64bit(env, target_ulong_val(&env->msr))) {
         return (uint32_t)(addr + arg);
     } else
 #endif
@@ -83,7 +83,7 @@ void helper_LMW(CPUPPCState *env, target_ulong addr, uint32_t reg)
     if (likely(host)) {
         /* Fast path -- the entire operation is in RAM at host.  */
         for (; reg < 32; reg++) {
-            env->gpr[reg] = (uint32_t)ldl_be_p(host);
+            target_ulong_array_set(&env->gpr.rec, reg, (uint32_t)ldl_be_p(host));
             host += 4;
         }
     } else {
@@ -92,7 +92,7 @@ void helper_LMW(CPUPPCState *env, target_ulong addr, uint32_t reg)
         MemOpIdx oi = make_memop_idx(op, mmu_idx);
 
         for (; reg < 32; reg++) {
-            env->gpr[reg] = cpu_ldl_mmu(env, addr, oi, raddr);
+            target_ulong_array_set(&env->gpr.rec, reg, cpu_ldl_mmu(env, addr, oi, raddr));
             addr = addr_add(env, addr, 4);
         }
     }
@@ -108,7 +108,7 @@ void helper_STMW(CPUPPCState *env, target_ulong addr, uint32_t reg)
     if (likely(host)) {
         /* Fast path -- the entire operation is in RAM at host.  */
         for (; reg < 32; reg++) {
-            stl_be_p(host, env->gpr[reg]);
+            stl_be_p(host, target_ulong_array_val(&env->gpr.rec, reg));
             host += 4;
         }
     } else {
@@ -117,7 +117,7 @@ void helper_STMW(CPUPPCState *env, target_ulong addr, uint32_t reg)
             MemOp op = ppc_data_endian_env(env) | MO_UL | MO_UNALN;
             MemOpIdx oi = make_memop_idx(op, mmu_idx);
 
-            cpu_stl_mmu(env, addr, env->gpr[reg], oi, raddr);
+            cpu_stl_mmu(env, addr, target_ulong_array_val(&env->gpr.rec, reg), oi, raddr);
             addr = addr_add(env, addr, 4);
         }
     }
@@ -140,7 +140,7 @@ static void do_lsw(CPUPPCState *env, target_ulong addr, uint32_t nb,
     if (likely(host)) {
         /* Fast path -- the entire operation is in RAM at host.  */
         for (; nb > 3; nb -= 4) {
-            env->gpr[reg] = (uint32_t)ldl_be_p(host);
+            target_ulong_array_set(&env->gpr.rec, reg, (uint32_t)ldl_be_p(host));
             reg = (reg + 1) % 32;
             host += 4;
         }
@@ -163,7 +163,7 @@ static void do_lsw(CPUPPCState *env, target_ulong addr, uint32_t nb,
 
         /* Slow path -- at least some of the operation requires i/o.  */
         for (; nb > 3; nb -= 4) {
-            env->gpr[reg] = cpu_ldl_mmu(env, addr, oi, raddr);
+            target_ulong_array_set(&env->gpr.rec, reg, cpu_ldl_mmu(env, addr, oi, raddr));
             reg = (reg + 1) % 32;
             addr = addr_add(env, addr, 4);
         }
@@ -187,7 +187,7 @@ static void do_lsw(CPUPPCState *env, target_ulong addr, uint32_t nb,
             break;
         }
     }
-    env->gpr[reg] = val;
+    target_ulong_array_set(&env->gpr.rec, reg, val);
 }
 
 void helper_LSW(CPUPPCState *env, target_ulong addr,
@@ -236,11 +236,11 @@ void helper_STSW(CPUPPCState *env, target_ulong addr, uint32_t nb,
     if (likely(host)) {
         /* Fast path -- the entire operation is in RAM at host.  */
         for (; nb > 3; nb -= 4) {
-            stl_be_p(host, env->gpr[reg]);
+            stl_be_p(host, target_ulong_array_val(&env->gpr.rec, reg));
             reg = (reg + 1) % 32;
             host += 4;
         }
-        val = env->gpr[reg];
+        val = target_ulong_array_val(&env->gpr.rec, reg);
         switch (nb) {
         case 1:
             stb_p(host, val >> 24);
@@ -258,11 +258,11 @@ void helper_STSW(CPUPPCState *env, target_ulong addr, uint32_t nb,
         MemOpIdx oi = make_memop_idx(op, mmu_idx);
 
         for (; nb > 3; nb -= 4) {
-            cpu_stl_mmu(env, addr, env->gpr[reg], oi, raddr);
+            cpu_stl_mmu(env, addr, target_ulong_array_val(&env->gpr.rec, reg), oi, raddr);
             reg = (reg + 1) % 32;
             addr = addr_add(env, addr, 4);
         }
-        val = env->gpr[reg];
+        val = target_ulong_array_val(&env->gpr.rec, reg);
         switch (nb) {
         case 1:
             cpu_stb_mmuidx_ra(env, addr, val >> 24, mmu_idx, raddr);
@@ -293,8 +293,8 @@ static void dcbz_common(CPUPPCState *env, target_ulong addr,
     addr &= mask;
 
     /* Check reservation */
-    if (unlikely((env->reserve_addr & mask) == addr))  {
-        env->reserve_addr = (target_ulong)-1ULL;
+    if (unlikely((target_ulong_val(&env->reserve_addr) & mask) == addr))  {
+        target_ulong_set(&env->reserve_addr, (target_ulong)-1ULL);
     }
 
     /* Try fast path translate */
@@ -333,7 +333,7 @@ void helper_dcbzl(CPUPPCState *env, target_ulong addr)
      * The translator checked for POWERPC_EXCP_970.
      * All that's left is to check HID5.
      */
-    if (((env->spr[SPR_970_HID5] >> 7) & 0x3) == 1) {
+    if (((target_ulong_array_val(&env->spr.rec, SPR_970_HID5) >> 7) & 0x3) == 1) {
         dcbz_size = 32;
     }
 
@@ -515,15 +515,14 @@ void helper_tbegin(CPUPPCState *env)
      * instruction in memory, which is precisely what we want.
      */
 
-    env->spr[SPR_TEXASR] =
-        (1ULL << TEXASR_FAILURE_PERSISTENT) |
+    target_ulong_array_set(&env->spr.rec, SPR_TEXASR, (1ULL << TEXASR_FAILURE_PERSISTENT) |
         (1ULL << TEXASR_NESTING_OVERFLOW) |
-        (FIELD_EX64_HV(env->msr) << TEXASR_PRIVILEGE_HV) |
-        (FIELD_EX64(env->msr, MSR, PR) << TEXASR_PRIVILEGE_PR) |
+        (FIELD_EX64_HV(target_ulong_val(&env->msr)) << TEXASR_PRIVILEGE_HV) |
+        (FIELD_EX64(target_ulong_val(&env->msr), MSR, PR) << TEXASR_PRIVILEGE_PR) |
         (1ULL << TEXASR_FAILURE_SUMMARY) |
-        (1ULL << TEXASR_TFIAR_EXACT);
-    env->spr[SPR_TFIAR] = env->nip | (FIELD_EX64_HV(env->msr) << 1) |
-                          FIELD_EX64(env->msr, MSR, PR);
-    env->spr[SPR_TFHAR] = env->nip + 4;
+        (1ULL << TEXASR_TFIAR_EXACT));
+    target_ulong_array_set(&env->spr.rec, SPR_TFIAR, target_ulong_val(&env->nip) | (FIELD_EX64_HV(target_ulong_val(&env->msr)) << 1) |
+                          FIELD_EX64(target_ulong_val(&env->msr), MSR, PR));
+    target_ulong_array_set(&env->spr.rec, SPR_TFHAR, target_ulong_val(&env->nip) + 4);
     env->crf[0] = 0xB; /* 0b1010 = transaction failure */
 }
