@@ -2,7 +2,7 @@
 #include "cpu.h"
 #include "exec/cputlb.h"
 #include "hw/isa/isa.h"
-#include "migration/cpu.h"
+#include "migration/vmstate.h"
 #include "kvm/hyperv.h"
 #include "hw/i386/x86.h"
 #include "kvm/kvm_i386.h"
@@ -21,7 +21,8 @@ static const VMStateDescription vmstate_segment = {
     .minimum_version_id = 1,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32(selector, SegmentCache),
-        VMSTATE_UINTTL(base, SegmentCache),
+        VMSTATE_UINT32_AVAILABLE(base.u32, SegmentCache, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(base.u64, SegmentCache, target_is_long_bits_64),
         VMSTATE_UINT32(limit, SegmentCache),
         VMSTATE_UINT32(flags, SegmentCache),
         VMSTATE_END_OF_LIST()
@@ -221,7 +222,7 @@ static int cpu_pre_save(void *opaque)
      * support (otherwise the migration will fail with invalid guest state
      * error).
      */
-    if (!(env->cr[0] & CR0_PE_MASK) &&
+    if (!(target_ulong_array_val(&env->cr.rec, 0) & CR0_PE_MASK) &&
         (env->segs[R_CS].flags >> DESC_DPL_SHIFT & 3) != 0) {
         env->segs[R_CS].flags &= ~(env->segs[R_CS].flags & DESC_DPL_MASK);
         env->segs[R_DS].flags &= ~(env->segs[R_DS].flags & DESC_DPL_MASK);
@@ -283,9 +284,9 @@ static int cpu_pre_save(void *opaque)
 
         if (env->exception_has_payload) {
             if (env->exception_nr == EXCP01_DB) {
-                env->dr[6] = env->exception_payload;
+                target_ulong_array_set(&env->dr.rec, 6, env->exception_payload);
             } else if (env->exception_nr == EXCP0E_PAGE) {
-                env->cr[2] = env->exception_payload;
+                target_ulong_array_set(&env->cr.rec, 2, env->exception_payload);
             }
         }
     }
@@ -319,7 +320,7 @@ static int cpu_post_load(void *opaque, int version_id)
      * (otherwise the migration will fail with invalid guest state
      * error).
      */
-    if (!(env->cr[0] & CR0_PE_MASK) &&
+    if (!(target_ulong_array_val(&env->cr.rec, 0) & CR0_PE_MASK) &&
         (env->segs[R_CS].flags >> DESC_DPL_SHIFT & 3) != 0) {
         env->segs[R_CS].flags &= ~(env->segs[R_CS].flags & DESC_DPL_MASK);
         env->segs[R_DS].flags &= ~(env->segs[R_DS].flags & DESC_DPL_MASK);
@@ -380,8 +381,8 @@ static int cpu_post_load(void *opaque, int version_id)
 
         /* Indicate all breakpoints disabled, as they are, then
            let the helper re-enable them.  */
-        dr7 = env->dr[7];
-        env->dr[7] = dr7 & ~(DR7_GLOBAL_BP_MASK | DR7_LOCAL_BP_MASK);
+        dr7 = target_ulong_array_val(&env->dr.rec, 7);
+        target_ulong_array_set(&env->dr.rec, 7, dr7 & ~(DR7_GLOBAL_BP_MASK | DR7_LOCAL_BP_MASK));
         cpu_x86_update_dr7(env, dr7);
     }
     return 0;
@@ -1821,14 +1822,27 @@ const VMStateDescription vmstate_x86_cpu = {
         VMSTATE_SEGMENT(env.idt, X86CPU),
 
         VMSTATE_UINT32(env.sysenter_cs, X86CPU),
-        VMSTATE_UINTTL(env.sysenter_esp, X86CPU),
-        VMSTATE_UINTTL(env.sysenter_eip, X86CPU),
+        VMSTATE_UINT32_AVAILABLE(env.sysenter_esp.u32, X86CPU,
+                                 target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.sysenter_esp.u64, X86CPU,
+                                 target_is_long_bits_64),
+        VMSTATE_UINT32_AVAILABLE(env.sysenter_eip.u32, X86CPU,
+                                 target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.sysenter_eip.u64, X86CPU,
+                                 target_is_long_bits_64),
 
-        VMSTATE_UINTTL(env.cr[0], X86CPU),
-        VMSTATE_UINTTL(env.cr[2], X86CPU),
-        VMSTATE_UINTTL(env.cr[3], X86CPU),
-        VMSTATE_UINTTL(env.cr[4], X86CPU),
-        VMSTATE_UINTTL_ARRAY(env.dr, X86CPU, 8),
+        VMSTATE_UINT32_AVAILABLE(env.cr.u32[0], X86CPU, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.cr.u64[0], X86CPU, target_is_long_bits_64),
+        VMSTATE_UINT32_AVAILABLE(env.cr.u32[2], X86CPU, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.cr.u64[2], X86CPU, target_is_long_bits_64),
+        VMSTATE_UINT32_AVAILABLE(env.cr.u32[3], X86CPU, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.cr.u64[3], X86CPU, target_is_long_bits_64),
+        VMSTATE_UINT32_AVAILABLE(env.cr.u32[4], X86CPU, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.cr.u64[4], X86CPU, target_is_long_bits_64),
+        VMSTATE_UINT32_SUB_ARRAY_AVAILABLE(env.dr.u32, X86CPU, 0, 8,
+                                           target_is_long_bits_32),
+        VMSTATE_UINT64_SUB_ARRAY_AVAILABLE(env.dr.u64, X86CPU, 0, 8,
+                                           target_is_long_bits_64),
         /* MMU */
         VMSTATE_INT32(env.a20_mask, X86CPU),
         /* XMM */

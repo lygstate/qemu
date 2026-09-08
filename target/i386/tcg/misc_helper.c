@@ -66,7 +66,7 @@ void helper_rdtsc(CPUX86State *env)
 {
     uint64_t val;
 
-    if ((env->cr[4] & CR4_TSD_MASK) && ((env->hflags & HF_CPL_MASK) != 0)) {
+    if ((target_ulong_array_val(&env->cr.rec, 4) & CR4_TSD_MASK) && ((env->hflags & HF_CPL_MASK) != 0)) {
         raise_exception_ra(env, EXCP0D_GPF, GETPC());
     }
     cpu_svm_check_intercept_param(env, SVM_EXIT_RDTSC, 0, GETPC());
@@ -78,7 +78,7 @@ void helper_rdtsc(CPUX86State *env)
 
 G_NORETURN void helper_rdpmc(CPUX86State *env)
 {
-    if (((env->cr[4] & CR4_PCE_MASK) == 0 ) &&
+    if (((target_ulong_array_val(&env->cr.rec, 4) & CR4_PCE_MASK) == 0 ) &&
         ((env->hflags & HF_CPL_MASK) != 0)) {
         raise_exception_ra(env, EXCP0D_GPF, GETPC());
     }
@@ -104,7 +104,7 @@ G_NORETURN void helper_pause(CPUX86State *env)
 
 uint64_t helper_rdpkru(CPUX86State *env, uint32_t ecx)
 {
-    if ((env->cr[4] & CR4_PKE_MASK) == 0) {
+    if ((target_ulong_array_val(&env->cr.rec, 4) & CR4_PKE_MASK) == 0) {
         raise_exception_err_ra(env, EXCP06_ILLOP, 0, GETPC());
     }
     if (ecx != 0) {
@@ -118,7 +118,7 @@ void helper_wrpkru(CPUX86State *env, uint32_t ecx, uint64_t val)
 {
     CPUState *cs = env_cpu(env);
 
-    if ((env->cr[4] & CR4_PKE_MASK) == 0) {
+    if ((target_ulong_array_val(&env->cr.rec, 4) & CR4_PKE_MASK) == 0) {
         raise_exception_err_ra(env, EXCP06_ILLOP, 0, GETPC());
     }
     if (ecx != 0 || (val & 0xFFFFFFFF00000000ull)) {

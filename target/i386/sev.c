@@ -457,11 +457,11 @@ static void sev_apply_cpu_context(CPUState *cpu)
                 launch_vmsa->vmsa.ss.base, launch_vmsa->vmsa.ss.limit,
                 FLAGS_VMSA_TO_SEGCACHE(launch_vmsa->vmsa.ss.attrib));
 
-            env->gdt.base = launch_vmsa->vmsa.gdtr.base;
+            target_ulong_set(&(env->gdt).base,  launch_vmsa->vmsa.gdtr.base);
             env->gdt.limit = launch_vmsa->vmsa.gdtr.limit;
             env->gdt.flags =
                 FLAGS_VMSA_TO_SEGCACHE(launch_vmsa->vmsa.gdtr.attrib);
-            env->idt.base = launch_vmsa->vmsa.idtr.base;
+            target_ulong_set(&(env->idt).base,  launch_vmsa->vmsa.idtr.base);
             env->idt.limit = launch_vmsa->vmsa.idtr.limit;
             env->idt.flags =
                 FLAGS_VMSA_TO_SEGCACHE(launch_vmsa->vmsa.idtr.attrib);
@@ -475,29 +475,29 @@ static void sev_apply_cpu_context(CPUState *cpu)
                 launch_vmsa->vmsa.ldtr.base, launch_vmsa->vmsa.tr.limit,
                 FLAGS_VMSA_TO_SEGCACHE(launch_vmsa->vmsa.tr.attrib));
 
-            env->dr[6] = launch_vmsa->vmsa.dr6;
-            env->dr[7] = launch_vmsa->vmsa.dr7;
+            target_ulong_array_set(&env->dr.rec, 6, launch_vmsa->vmsa.dr6);
+            target_ulong_array_set(&env->dr.rec, 7, launch_vmsa->vmsa.dr7);
 
-            env->regs[R_EAX] = launch_vmsa->vmsa.rax;
-            env->regs[R_ECX] = launch_vmsa->vmsa.rcx;
-            env->regs[R_EDX] = launch_vmsa->vmsa.rdx;
-            env->regs[R_EBX] = launch_vmsa->vmsa.rbx;
-            env->regs[R_ESP] = launch_vmsa->vmsa.rsp;
-            env->regs[R_EBP] = launch_vmsa->vmsa.rbp;
-            env->regs[R_ESI] = launch_vmsa->vmsa.rsi;
-            env->regs[R_EDI] = launch_vmsa->vmsa.rdi;
+            target_ulong_array_set(&env->regs.rec, R_EAX, launch_vmsa->vmsa.rax);
+            target_ulong_array_set(&env->regs.rec, R_ECX, launch_vmsa->vmsa.rcx);
+            target_ulong_array_set(&env->regs.rec, R_EDX, launch_vmsa->vmsa.rdx);
+            target_ulong_array_set(&env->regs.rec, R_EBX, launch_vmsa->vmsa.rbx);
+            target_ulong_array_set(&env->regs.rec, R_ESP, launch_vmsa->vmsa.rsp);
+            target_ulong_array_set(&env->regs.rec, R_EBP, launch_vmsa->vmsa.rbp);
+            target_ulong_array_set(&env->regs.rec, R_ESI, launch_vmsa->vmsa.rsi);
+            target_ulong_array_set(&env->regs.rec, R_EDI, launch_vmsa->vmsa.rdi);
 #ifdef TARGET_X86_64
-            env->regs[R_R8] = launch_vmsa->vmsa.r8;
-            env->regs[R_R9] = launch_vmsa->vmsa.r9;
-            env->regs[R_R10] = launch_vmsa->vmsa.r10;
-            env->regs[R_R11] = launch_vmsa->vmsa.r11;
-            env->regs[R_R12] = launch_vmsa->vmsa.r12;
-            env->regs[R_R13] = launch_vmsa->vmsa.r13;
-            env->regs[R_R14] = launch_vmsa->vmsa.r14;
-            env->regs[R_R15] = launch_vmsa->vmsa.r15;
+            target_ulong_array_set(&env->regs.rec, R_R8, launch_vmsa->vmsa.r8);
+            target_ulong_array_set(&env->regs.rec, R_R9, launch_vmsa->vmsa.r9);
+            target_ulong_array_set(&env->regs.rec, R_R10, launch_vmsa->vmsa.r10);
+            target_ulong_array_set(&env->regs.rec, R_R11, launch_vmsa->vmsa.r11);
+            target_ulong_array_set(&env->regs.rec, R_R12, launch_vmsa->vmsa.r12);
+            target_ulong_array_set(&env->regs.rec, R_R13, launch_vmsa->vmsa.r13);
+            target_ulong_array_set(&env->regs.rec, R_R14, launch_vmsa->vmsa.r14);
+            target_ulong_array_set(&env->regs.rec, R_R15, launch_vmsa->vmsa.r15);
 #endif
-            env->eip = launch_vmsa->vmsa.rip;
-            env->eflags = launch_vmsa->vmsa.rflags;
+            target_ulong_set(&(env)->eip,  launch_vmsa->vmsa.rip);
+            target_ulong_set(&(env)->eflags,  launch_vmsa->vmsa.rflags);
 
             cpu_set_fpuc(env, launch_vmsa->vmsa.x87_fcw);
             env->mxcsr = launch_vmsa->vmsa.mxcsr;
@@ -2268,7 +2268,7 @@ sev_es_find_reset_vector(void *flash_ptr, uint64_t flash_size,
 static void seg_to_vmsa(const SegmentCache *cpu_seg, struct vmcb_seg *vmsa_seg)
 {
     vmsa_seg->selector = cpu_seg->selector;
-    vmsa_seg->base = cpu_seg->base;
+    vmsa_seg->base = target_ulong_val(&cpu_seg->base);
     vmsa_seg->limit = cpu_seg->limit;
     vmsa_seg->attrib = FLAGS_SEGCACHE_TO_VMSA(cpu_seg->flags);
 }
@@ -2285,9 +2285,9 @@ static void initialize_vmsa(const CPUState *cpu, struct sev_es_save_area *vmsa)
      */
     memset(vmsa, 0, sizeof(struct sev_es_save_area));
     vmsa->efer = env->efer;
-    vmsa->cr0 = env->cr[0];
-    vmsa->cr3 = env->cr[3];
-    vmsa->cr4 = env->cr[4];
+    vmsa->cr0 = target_ulong_array_val(&env->cr.rec, 0);
+    vmsa->cr3 = target_ulong_array_val(&env->cr.rec, 3);
+    vmsa->cr4 = target_ulong_array_val(&env->cr.rec, 4);
     vmsa->xcr0 = env->xcr0;
     vmsa->g_pat = env->pat;
 
@@ -2303,31 +2303,31 @@ static void initialize_vmsa(const CPUState *cpu, struct sev_es_save_area *vmsa)
     seg_to_vmsa(&env->ldt, &vmsa->ldtr);
     seg_to_vmsa(&env->tr, &vmsa->tr);
 
-    vmsa->dr6 = env->dr[6];
-    vmsa->dr7 = env->dr[7];
+    vmsa->dr6 = target_ulong_array_val(&env->dr.rec, 6);
+    vmsa->dr7 = target_ulong_array_val(&env->dr.rec, 7);
 
-    vmsa->rax = env->regs[R_EAX];
-    vmsa->rcx = env->regs[R_ECX];
-    vmsa->rdx = env->regs[R_EDX];
-    vmsa->rbx = env->regs[R_EBX];
-    vmsa->rsp = env->regs[R_ESP];
-    vmsa->rbp = env->regs[R_EBP];
-    vmsa->rsi = env->regs[R_ESI];
-    vmsa->rdi = env->regs[R_EDI];
+    vmsa->rax = target_ulong_array_val(&env->regs.rec, R_EAX);
+    vmsa->rcx = target_ulong_array_val(&env->regs.rec, R_ECX);
+    vmsa->rdx = target_ulong_array_val(&env->regs.rec, R_EDX);
+    vmsa->rbx = target_ulong_array_val(&env->regs.rec, R_EBX);
+    vmsa->rsp = target_ulong_array_val(&env->regs.rec, R_ESP);
+    vmsa->rbp = target_ulong_array_val(&env->regs.rec, R_EBP);
+    vmsa->rsi = target_ulong_array_val(&env->regs.rec, R_ESI);
+    vmsa->rdi = target_ulong_array_val(&env->regs.rec, R_EDI);
 
 #ifdef TARGET_X86_64
-    vmsa->r8 = env->regs[R_R8];
-    vmsa->r9 = env->regs[R_R9];
-    vmsa->r10 = env->regs[R_R10];
-    vmsa->r11 = env->regs[R_R11];
-    vmsa->r12 = env->regs[R_R12];
-    vmsa->r13 = env->regs[R_R13];
-    vmsa->r14 = env->regs[R_R14];
-    vmsa->r15 = env->regs[R_R15];
+    vmsa->r8 = target_ulong_array_val(&env->regs.rec, R_R8);
+    vmsa->r9 = target_ulong_array_val(&env->regs.rec, R_R9);
+    vmsa->r10 = target_ulong_array_val(&env->regs.rec, R_R10);
+    vmsa->r11 = target_ulong_array_val(&env->regs.rec, R_R11);
+    vmsa->r12 = target_ulong_array_val(&env->regs.rec, R_R12);
+    vmsa->r13 = target_ulong_array_val(&env->regs.rec, R_R13);
+    vmsa->r14 = target_ulong_array_val(&env->regs.rec, R_R14);
+    vmsa->r15 = target_ulong_array_val(&env->regs.rec, R_R15);
 #endif
 
-    vmsa->rip = env->eip;
-    vmsa->rflags = env->eflags;
+    vmsa->rip = target_ulong_val(&(env)->eip);
+    vmsa->rflags = target_ulong_val(&(env)->eflags);
 }
 
 static void sev_es_set_ap_context(uint32_t reset_addr)
@@ -2337,7 +2337,7 @@ static void sev_es_set_ap_context(uint32_t reset_addr)
     SegmentCache cs;
 
     cs.selector = 0xf000;
-    cs.base = reset_addr & 0xffff0000;
+    target_ulong_set(&cs.base, reset_addr & 0xffff0000);
     cs.limit = 0xffff;
     cs.flags = DESC_P_MASK | DESC_S_MASK | DESC_CS_MASK | DESC_R_MASK |
                DESC_A_MASK;

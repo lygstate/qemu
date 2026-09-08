@@ -475,9 +475,9 @@ static void hvf_load_crs(CPUState *cs)
     X86CPU *x86_cpu = X86_CPU(cs);
     CPUX86State *env = &x86_cpu->env;
 
-    env->cr[0] = rvmcs(cs->accel->fd, VMCS_GUEST_CR0);
-    env->cr[3] = rvmcs(cs->accel->fd, VMCS_GUEST_CR3);
-    env->cr[2] = rreg(cs->accel->fd, HV_X86_CR2);
+    target_ulong_array_set(&env->cr.rec, 0, rvmcs(cs->accel->fd, VMCS_GUEST_CR0));
+    target_ulong_array_set(&env->cr.rec, 3, rvmcs(cs->accel->fd, VMCS_GUEST_CR3));
+    target_ulong_array_set(&env->cr.rec, 2, rreg(cs->accel->fd, HV_X86_CR2));
 }
 
 static void hvf_save_crs(CPUState *cs)
@@ -485,9 +485,9 @@ static void hvf_save_crs(CPUState *cs)
     X86CPU *x86_cpu = X86_CPU(cs);
     CPUX86State *env = &x86_cpu->env;
 
-    wvmcs(cs->accel->fd, VMCS_GUEST_CR0, env->cr[0]);
-    wvmcs(cs->accel->fd, VMCS_GUEST_CR3, env->cr[3]);
-    wreg(cs->accel->fd, HV_X86_CR2, env->cr[2]);
+    wvmcs(cs->accel->fd, VMCS_GUEST_CR0, target_ulong_array_val(&env->cr.rec, 0));
+    wvmcs(cs->accel->fd, VMCS_GUEST_CR3, target_ulong_array_val(&env->cr.rec, 3));
+    wreg(cs->accel->fd, HV_X86_CR2, target_ulong_array_val(&env->cr.rec, 2));
 }
 
 void hvf_load_regs(CPUState *cs)
@@ -508,9 +508,9 @@ void hvf_load_regs(CPUState *cs)
         RRX(env, i) = rreg(cs->accel->fd, HV_X86_RAX + i);
     }
 
-    env->eflags = rreg(cs->accel->fd, HV_X86_RFLAGS);
+    target_ulong_set(&(env)->eflags,  rreg(cs->accel->fd, HV_X86_RFLAGS));
     rflags_to_lflags(env);
-    env->eip = rreg(cs->accel->fd, HV_X86_RIP);
+    target_ulong_set(&(env)->eip,  rreg(cs->accel->fd, HV_X86_RIP));
 }
 
 void hvf_store_regs(CPUState *cs)
@@ -532,8 +532,8 @@ void hvf_store_regs(CPUState *cs)
     }
 
     lflags_to_rflags(env);
-    wreg(cs->accel->fd, HV_X86_RFLAGS, env->eflags);
-    macvm_set_rip(cs, env->eip);
+    wreg(cs->accel->fd, HV_X86_RFLAGS, target_ulong_val(&(env)->eflags));
+    macvm_set_rip(cs, target_ulong_val(&(env)->eip));
 }
 
 bool hvf_simulate_rdmsr(CPUState *cs)
@@ -552,7 +552,7 @@ bool hvf_simulate_rdmsr(CPUState *cs)
         break;
     case MSR_APIC_START ... MSR_APIC_END: {
         int ret;
-        int index = (uint32_t)env->regs[R_ECX] - MSR_APIC_START;
+        int index = (uint32_t)target_ulong_array_val(&env->regs.rec, R_ECX) - MSR_APIC_START;
 
         ret = apic_msr_read(cpu->apic_state, index, &val);
         if (ret < 0) {
@@ -666,7 +666,7 @@ bool hvf_simulate_wrmsr(CPUState *cs)
     }
     case MSR_APIC_START ... MSR_APIC_END: {
         int ret;
-        int index = (uint32_t)env->regs[R_ECX] - MSR_APIC_START;
+        int index = (uint32_t)target_ulong_array_val(&env->regs.rec, R_ECX) - MSR_APIC_START;
 
         ret = apic_msr_write(cpu->apic_state, index, data);
         if (ret < 0) {
@@ -767,7 +767,7 @@ static int hvf_handle_vmexit(CPUState *cpu)
 
     hvf_store_events(cpu, ins_len, idtvec_info);
     rip = rreg(cpu->accel->fd, HV_X86_RIP);
-    env->eflags = rreg(cpu->accel->fd, HV_X86_RFLAGS);
+    target_ulong_set(&(env)->eflags,  rreg(cpu->accel->fd, HV_X86_RFLAGS));
 
     bql_lock();
 
@@ -778,7 +778,7 @@ static int hvf_handle_vmexit(CPUState *cpu)
     case EXIT_REASON_HLT: {
         macvm_set_rip(cpu, rip + ins_len);
         if (!(cpu_test_interrupt(cpu, CPU_INTERRUPT_HARD)
-              && (env->eflags & IF_MASK))
+              && (target_ulong_val(&(env)->eflags) & IF_MASK))
             && !cpu_test_interrupt(cpu, CPU_INTERRUPT_NMI)
             && !(idtvec_info & VMCS_IDT_VEC_VALID)) {
             cpu->halted = 1;
@@ -839,7 +839,7 @@ static int hvf_handle_vmexit(CPUState *cpu)
             } else {
                 RAX(env) = (uint64_t)val;
             }
-            env->eip += ins_len;
+            target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  ins_len);
             hvf_store_regs(cpu);
             break;
         } else if (!string && !in) {
@@ -867,7 +867,7 @@ static int hvf_handle_vmexit(CPUState *cpu)
 
         if (rax == 1) {
             /* CPUID1.ecx.OSXSAVE needs to know CR4 */
-            env->cr[4] = rvmcs(cpu->accel->fd, VMCS_GUEST_CR4);
+            target_ulong_array_set(&env->cr.rec, 4, rvmcs(cpu->accel->fd, VMCS_GUEST_CR4));
         }
         hvf_cpu_x86_cpuid(env, rax, rcx, &rax, &rbx, &rcx, &rdx);
 
@@ -914,7 +914,7 @@ static int hvf_handle_vmexit(CPUState *cpu)
         } else {
             hvf_simulate_wrmsr(cpu);
         }
-        env->eip += ins_len;
+        target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  ins_len);
         hvf_store_regs(cpu);
         break;
     }
@@ -949,7 +949,7 @@ static int hvf_handle_vmexit(CPUState *cpu)
             error_report("Unrecognized CR %d", cr);
             abort();
         }
-        env->eip += ins_len;
+        target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  ins_len);
         hvf_store_regs(cpu);
         break;
     }

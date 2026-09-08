@@ -57,7 +57,7 @@ static void do_interrupt_user(CPUX86State *env, int intno, int is_int,
         } else {
             shift = 3;
         }
-        ptr = dt->base + (intno << shift);
+        ptr = target_ulong_val(&dt->base) + (intno << shift);
         e2 = cpu_ldl_kernel(env, ptr + 4);
 
         dpl = (e2 >> DESC_DPL_SHIFT) & 3;
@@ -94,7 +94,7 @@ void x86_cpu_do_interrupt(CPUState *cs)
 
 void cpu_x86_load_seg(CPUX86State *env, X86Seg seg_reg, int selector)
 {
-    if (!(env->cr[0] & CR0_PE_MASK) || (target_ulong_val(&(env)->eflags) & VM_MASK)) {
+    if (!(target_ulong_array_val(&env->cr.rec, 0) & CR0_PE_MASK) || (target_ulong_val(&(env)->eflags) & VM_MASK)) {
         int dpl = (target_ulong_val(&(env)->eflags) & VM_MASK) ? 3 : 0;
         selector &= 0xffff;
         cpu_x86_load_seg_cache(env, seg_reg, selector,

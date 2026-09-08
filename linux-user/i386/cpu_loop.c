@@ -120,7 +120,7 @@ static void emulate_vsyscall(CPUX86State *env)
      * Validate the entry point.  We have already validated the page
      * during translation to get here; now verify the offset.
      */
-    switch (env->eip & ~TARGET_PAGE_MASK) {
+    switch (target_ulong_val(&env->eip) & ~TARGET_PAGE_MASK) {
     case 0x000:
         syscall = TARGET_NR_gettimeofday;
         break;
@@ -138,7 +138,7 @@ static void emulate_vsyscall(CPUX86State *env)
      * Validate the return address.
      * Note that the kernel treats this the same as an invalid entry point.
      */
-    if (get_user_u64(caller, env->regs[R_ESP])) {
+    if (get_user_u64(caller, target_ulong_array_val(&env->regs.rec, R_ESP))) {
         goto sigsegv;
     }
 
@@ -147,21 +147,21 @@ static void emulate_vsyscall(CPUX86State *env)
      */
     switch (syscall) {
     case TARGET_NR_gettimeofday:
-        if (!write_ok_or_segv(env, env->regs[R_EDI],
+        if (!write_ok_or_segv(env, target_ulong_array_val(&env->regs.rec, R_EDI),
                               sizeof(struct target_timeval)) ||
-            !write_ok_or_segv(env, env->regs[R_ESI],
+            !write_ok_or_segv(env, target_ulong_array_val(&env->regs.rec, R_ESI),
                               sizeof(struct target_timezone))) {
             return;
         }
         break;
     case TARGET_NR_time:
-        if (!write_ok_or_segv(env, env->regs[R_EDI], sizeof(abi_long))) {
+        if (!write_ok_or_segv(env, target_ulong_array_val(&env->regs.rec, R_EDI), sizeof(abi_long))) {
             return;
         }
         break;
     case TARGET_NR_getcpu:
-        if (!write_ok_or_segv(env, env->regs[R_EDI], sizeof(uint32_t)) ||
-            !write_ok_or_segv(env, env->regs[R_ESI], sizeof(uint32_t))) {
+        if (!write_ok_or_segv(env, target_ulong_array_val(&env->regs.rec, R_EDI), sizeof(uint32_t)) ||
+            !write_ok_or_segv(env, target_ulong_array_val(&env->regs.rec, R_ESI), sizeof(uint32_t))) {
             return;
         }
         break;
@@ -173,21 +173,21 @@ static void emulate_vsyscall(CPUX86State *env)
      * Perform the syscall.  None of the vsyscalls should need restarting.
      */
     get_task_state(env_cpu(env))->orig_ax = syscall;
-    ret = do_syscall(env, syscall, env->regs[R_EDI], env->regs[R_ESI],
-                     env->regs[R_EDX], env->regs[10], env->regs[8],
-                     env->regs[9], 0, 0);
+    ret = do_syscall(env, syscall, target_ulong_array_val(&env->regs.rec, R_EDI), target_ulong_array_val(&env->regs.rec, R_ESI),
+                     target_ulong_array_val(&env->regs.rec, R_EDX), target_ulong_array_val(&env->regs.rec, 10), target_ulong_array_val(&env->regs.rec, 8),
+                     target_ulong_array_val(&env->regs.rec, 9), 0, 0);
     g_assert(ret != -QEMU_ERESTARTSYS);
     g_assert(ret != -QEMU_ESIGRETURN);
     if (ret == -TARGET_EFAULT) {
         goto sigsegv;
     }
     if (ret != -QEMU_ESETPC) {
-        env->regs[R_EAX] = ret;
+        target_ulong_array_set(&env->regs.rec, R_EAX, ret);
     }
 
     /* Emulate a ret instruction to leave the vsyscall page.  */
-    env->eip = caller;
-    env->regs[R_ESP] += 8;
+    target_ulong_set(&env->eip, caller);
+    target_ulong_array_set(&env->regs.rec, R_ESP, target_ulong_array_val(&env->regs.rec, R_ESP) + (8));
     return;
 
  sigsegv:
@@ -198,7 +198,7 @@ static void emulate_vsyscall(CPUX86State *env)
 static bool maybe_handle_vm86_trap(CPUX86State *env, int trapnr)
 {
 #ifndef TARGET_X86_64
-    if (env->eflags & VM_MASK) {
+    if (target_ulong_val(&env->eflags) & VM_MASK) {
         handle_vm86_trap(env, trapnr);
         return true;
     }
@@ -224,39 +224,39 @@ void cpu_loop(CPUX86State *env)
         case EXCP_SYSCALL:
 #endif
             /* linux syscall from int $0x80 */
-            get_task_state(cs)->orig_ax = env->regs[R_EAX];
+            get_task_state(cs)->orig_ax = target_ulong_array_val(&env->regs.rec, R_EAX);
             ret = do_syscall(env,
-                             env->regs[R_EAX],
-                             env->regs[R_EBX],
-                             env->regs[R_ECX],
-                             env->regs[R_EDX],
-                             env->regs[R_ESI],
-                             env->regs[R_EDI],
-                             env->regs[R_EBP],
+                             target_ulong_array_val(&env->regs.rec, R_EAX),
+                             target_ulong_array_val(&env->regs.rec, R_EBX),
+                             target_ulong_array_val(&env->regs.rec, R_ECX),
+                             target_ulong_array_val(&env->regs.rec, R_EDX),
+                             target_ulong_array_val(&env->regs.rec, R_ESI),
+                             target_ulong_array_val(&env->regs.rec, R_EDI),
+                             target_ulong_array_val(&env->regs.rec, R_EBP),
                              0, 0);
             if (ret == -QEMU_ERESTARTSYS) {
-                env->eip -= 2;
+                target_ulong_set(&env->eip, target_ulong_val(&env->eip) - 2);
             } else if (ret != -QEMU_ESIGRETURN && ret != -QEMU_ESETPC) {
-                env->regs[R_EAX] = ret;
+                target_ulong_array_set(&env->regs.rec, R_EAX, ret);
             }
             break;
 #ifdef TARGET_X86_64
         case EXCP_SYSCALL:
             /* linux syscall from syscall instruction.  */
-            get_task_state(cs)->orig_ax = env->regs[R_EAX];
+            get_task_state(cs)->orig_ax = target_ulong_array_val(&env->regs.rec, R_EAX);
             ret = do_syscall(env,
-                             env->regs[R_EAX],
-                             env->regs[R_EDI],
-                             env->regs[R_ESI],
-                             env->regs[R_EDX],
-                             env->regs[10],
-                             env->regs[8],
-                             env->regs[9],
+                             target_ulong_array_val(&env->regs.rec, R_EAX),
+                             target_ulong_array_val(&env->regs.rec, R_EDI),
+                             target_ulong_array_val(&env->regs.rec, R_ESI),
+                             target_ulong_array_val(&env->regs.rec, R_EDX),
+                             target_ulong_array_val(&env->regs.rec, 10),
+                             target_ulong_array_val(&env->regs.rec, 8),
+                             target_ulong_array_val(&env->regs.rec, 9),
                              0, 0);
             if (ret == -QEMU_ERESTARTSYS) {
-                env->eip -= 2;
+                target_ulong_set(&env->eip, target_ulong_val(&env->eip) - 2);
             } else if (ret != -QEMU_ESIGRETURN && ret != -QEMU_ESETPC) {
-                env->regs[R_EAX] = ret;
+                target_ulong_array_set(&env->regs.rec, R_EAX, ret);
             }
             break;
         case EXCP_VSYSCALL:
@@ -278,19 +278,19 @@ void cpu_loop(CPUX86State *env)
             force_sig_fault(TARGET_SIGSEGV,
                             (env->error_code & PG_ERROR_P_MASK ?
                              TARGET_SEGV_ACCERR : TARGET_SEGV_MAPERR),
-                            env->cr[2]);
+                            target_ulong_array_val(&env->cr.rec, 2));
             break;
         case EXCP00_DIVZ:
             if (maybe_handle_vm86_trap(env, trapnr)) {
                 break;
             }
-            force_sig_fault(TARGET_SIGFPE, TARGET_FPE_INTDIV, env->eip);
+            force_sig_fault(TARGET_SIGFPE, TARGET_FPE_INTDIV, target_ulong_val(&env->eip));
             break;
         case EXCP01_DB:
             if (maybe_handle_vm86_trap(env, trapnr)) {
                 break;
             }
-            force_sig_fault(TARGET_SIGTRAP, TARGET_TRAP_BRKPT, env->eip);
+            force_sig_fault(TARGET_SIGTRAP, TARGET_TRAP_BRKPT, target_ulong_val(&env->eip));
             break;
         case EXCP03_INT3:
             if (maybe_handle_vm86_trap(env, trapnr)) {
@@ -306,13 +306,13 @@ void cpu_loop(CPUX86State *env)
             force_sig(TARGET_SIGSEGV);
             break;
         case EXCP06_ILLOP:
-            force_sig_fault(TARGET_SIGILL, TARGET_ILL_ILLOPN, env->eip);
+            force_sig_fault(TARGET_SIGILL, TARGET_ILL_ILLOPN, target_ulong_val(&env->eip));
             break;
         case EXCP_INTERRUPT:
             /* just indicate that signals should be handled asap */
             break;
         case EXCP_DEBUG:
-            force_sig_fault(TARGET_SIGTRAP, TARGET_TRAP_BRKPT, env->eip);
+            force_sig_fault(TARGET_SIGTRAP, TARGET_TRAP_BRKPT, target_ulong_val(&env->eip));
             break;
         case EXCP_ATOMIC:
             cpu_exec_step_atomic(cs);
@@ -340,16 +340,16 @@ void init_main_thread(CPUState *cpu, struct image_info *info)
     bool is64 = (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_LM) != 0;
 
     OBJECT(cpu)->free = target_cpu_free;
-    env->cr[0] = CR0_PG_MASK | CR0_WP_MASK | CR0_PE_MASK;
+    target_ulong_array_set(&env->cr.rec, 0, CR0_PG_MASK | CR0_WP_MASK | CR0_PE_MASK);
     env->hflags |= HF_PE_MASK | HF_CPL_MASK;
     if (env->features[FEAT_1_EDX] & CPUID_SSE) {
-        env->cr[4] |= CR4_OSFXSR_MASK;
+        target_ulong_array_set(&env->cr.rec, 4, target_ulong_array_val(&env->cr.rec, 4) | (CR4_OSFXSR_MASK));
         env->hflags |= HF_OSFXSR_MASK;
     }
 
     /* enable 64 bit mode if possible */
     if (is64) {
-        env->cr[4] |= CR4_PAE_MASK;
+        target_ulong_array_set(&env->cr.rec, 4, target_ulong_array_val(&env->cr.rec, 4) | (CR4_PAE_MASK));
         env->efer |= MSR_EFER_LMA | MSR_EFER_LME;
         env->hflags |= HF_LMA_MASK;
     }
@@ -361,7 +361,7 @@ void init_main_thread(CPUState *cpu, struct image_info *info)
 #endif
 
     /* flags setup : we activate the IRQs by default as in user mode */
-    env->eflags |= IF_MASK;
+    target_ulong_set(&env->eflags, target_ulong_val(&env->eflags) | IF_MASK);
 
     /*
      * Linux register setup.
@@ -379,9 +379,9 @@ void init_main_thread(CPUState *cpu, struct image_info *info)
      * registers.  Note that x86_cpu_reset_hold will set %edx to cpuid_version;
      * clear all general registers defensively.
      */
-    memset(env->regs, 0, sizeof(env->regs));
-    env->regs[R_ESP] = info->start_stack;
-    env->eip = info->entry;
+    memset(&env->regs, 0, sizeof(env->regs));
+    target_ulong_array_set(&env->regs.rec, R_ESP, info->start_stack);
+    target_ulong_set(&env->eip, info->entry);
 
     /* linux interrupt setup */
 #ifndef TARGET_ABI32
@@ -389,10 +389,10 @@ void init_main_thread(CPUState *cpu, struct image_info *info)
 #else
     env->idt.limit = 255;
 #endif
-    env->idt.base = target_mmap(0, sizeof(uint64_t) * (env->idt.limit + 1),
+    target_ulong_set(&env->idt.base, target_mmap(0, sizeof(uint64_t) * (env->idt.limit + 1),
                                 PROT_READ|PROT_WRITE,
-                                MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
-    idt_table = g2h_untagged(env->idt.base);
+                                MAP_ANONYMOUS|MAP_PRIVATE, -1, 0));
+    idt_table = g2h_untagged(target_ulong_val(&env->idt.base));
     for (int i = 0; i < 20; i++) {
         set_idt(i, 0, is64);
     }
@@ -403,11 +403,11 @@ void init_main_thread(CPUState *cpu, struct image_info *info)
     /* linux segment setup */
     {
         uint64_t *gdt_table;
-        env->gdt.base = target_mmap(0, sizeof(uint64_t) * TARGET_GDT_ENTRIES,
+        target_ulong_set(&env->gdt.base, target_mmap(0, sizeof(uint64_t) * TARGET_GDT_ENTRIES,
                                     PROT_READ|PROT_WRITE,
-                                    MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
+                                    MAP_ANONYMOUS|MAP_PRIVATE, -1, 0));
         env->gdt.limit = sizeof(uint64_t) * TARGET_GDT_ENTRIES - 1;
-        gdt_table = g2h_untagged(env->gdt.base);
+        gdt_table = g2h_untagged(target_ulong_val(&env->gdt.base));
 #ifdef TARGET_ABI32
         write_dt(&gdt_table[__USER_CS >> 3], 0, 0xfffff,
                  DESC_G_MASK | DESC_B_MASK | DESC_P_MASK | DESC_S_MASK |

@@ -424,6 +424,6 @@ target_ulong helper_read_eflags(CPUX86State *env)
 
 void helper_clts(CPUX86State *env)
 {
-    env->cr[0] = env->cr[0] & (~CR0_TS_MASK);
+    target_ulong_array_set(&env->cr.rec, 0, target_ulong_array_val(&env->cr.rec, 0) & (~CR0_TS_MASK));
     env->hflags &= ~HF_TS_MASK;
 }

@@ -29,7 +29,7 @@ static inline abi_long do_freebsd_arch_sysarch(CPUX86State *env, int op,
             return -TARGET_EFAULT;
         }
         cpu_x86_load_seg(env, idx, 0);
-        env->segs[idx].base = val;
+        target_ulong_set(&env->segs[idx].base, val);
         break;
 
     case TARGET_FREEBSD_I386_GET_GSBASE:
@@ -39,7 +39,7 @@ static inline abi_long do_freebsd_arch_sysarch(CPUX86State *env, int op,
         } else {
             idx = R_FS;
         }
-        val = env->segs[idx].base;
+        val = target_ulong_val(&env->segs[idx].base);
         if (put_user(val, parms, abi_ulong)) {
             return -TARGET_EFAULT;
         }

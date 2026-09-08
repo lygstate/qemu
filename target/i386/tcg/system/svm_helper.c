@@ -34,7 +34,7 @@ static void svm_save_seg(CPUX86State *env, int mmu_idx, hwaddr addr,
     cpu_stw_le_mmuidx_ra(env, addr + offsetof(struct vmcb_seg, selector),
                       sc->selector, mmu_idx, 0);
     cpu_stq_le_mmuidx_ra(env, addr + offsetof(struct vmcb_seg, base),
-                      sc->base, mmu_idx, 0);
+                      target_ulong_val(&sc->base), mmu_idx, 0);
     cpu_stl_le_mmuidx_ra(env, addr + offsetof(struct vmcb_seg, limit),
                       sc->limit, mmu_idx, 0);
     cpu_stw_le_mmuidx_ra(env, addr + offsetof(struct vmcb_seg, attrib),
@@ -61,8 +61,8 @@ static void svm_load_seg(CPUX86State *env, int mmu_idx, hwaddr addr,
     sc->selector =
         cpu_lduw_le_mmuidx_ra(env, addr + offsetof(struct vmcb_seg, selector),
                            mmu_idx, 0);
-    sc->base = cpu_ldq_le_mmuidx_ra(env, addr + offsetof(struct vmcb_seg, base),
-                          mmu_idx, 0);
+    target_ulong_set(&sc->base, cpu_ldq_le_mmuidx_ra(env, addr + offsetof(struct vmcb_seg, base),
+                          mmu_idx, 0));
     sc->limit =
         cpu_ldl_le_mmuidx_ra(env, addr + offsetof(struct vmcb_seg, limit),
                           mmu_idx, 0);
@@ -72,9 +72,9 @@ static void svm_load_seg(CPUX86State *env, int mmu_idx, hwaddr addr,
     sc->flags = ((flags & 0xff) << 8) | ((flags & 0x0f00) << 12);
 
     {
-        target_ulong tmp = sc->base;
+        target_ulong tmp = target_ulong_val(&sc->base);
         svm_canonicalization(env, &tmp);
-        sc->base = tmp;
+        target_ulong_set(&sc->base, tmp);
     }
 }
 
@@ -85,7 +85,7 @@ static void svm_load_seg_cache(CPUX86State *env, int mmu_idx,
 
     svm_load_seg(env, mmu_idx, addr, &sc);
     cpu_x86_load_seg_cache(env, seg_reg, sc.selector,
-                           sc.base, sc.limit, sc.flags);
+                           target_ulong_val(&sc.base), sc.limit, sc.flags);
 }
 
 static inline bool is_efer_invalid_state (CPUX86State *env)
@@ -103,18 +103,18 @@ static inline bool is_efer_invalid_state (CPUX86State *env)
         return true;
     }
 
-    if ((env->efer & MSR_EFER_LME) && (env->cr[0] & CR0_PG_MASK)
-                                && !(env->cr[4] & CR4_PAE_MASK)) {
+    if ((env->efer & MSR_EFER_LME) && (target_ulong_array_val(&env->cr.rec, 0) & CR0_PG_MASK)
+                                && !(target_ulong_array_val(&env->cr.rec, 4) & CR4_PAE_MASK)) {
         return true;
     }
 
-    if ((env->efer & MSR_EFER_LME) && (env->cr[0] & CR0_PG_MASK)
-                                && !(env->cr[0] & CR0_PE_MASK)) {
+    if ((env->efer & MSR_EFER_LME) && (target_ulong_array_val(&env->cr.rec, 0) & CR0_PG_MASK)
+                                && !(target_ulong_array_val(&env->cr.rec, 0) & CR0_PE_MASK)) {
         return true;
     }
 
-    if ((env->efer & MSR_EFER_LME) && (env->cr[0] & CR0_PG_MASK)
-                                && (env->cr[4] & CR4_PAE_MASK)
+    if ((env->efer & MSR_EFER_LME) && (target_ulong_array_val(&env->cr.rec, 0) & CR0_PG_MASK)
+                                && (target_ulong_array_val(&env->cr.rec, 4) & CR4_PAE_MASK)
                                 && (env->segs[R_CS].flags & DESC_L_MASK)
                                 && (env->segs[R_CS].flags & DESC_B_MASK)) {
         return true;
@@ -189,27 +189,27 @@ void helper_vmrun(CPUX86State *env, int aflag, int next_eip_addend)
 
     /* save the current CPU state in the hsave page */
     x86_stq_phys(cs, env->vm_hsave + offsetof(struct vmcb, save.gdtr.base),
-             env->gdt.base);
+             target_ulong_val(&(env->gdt).base));
     x86_stl_phys(cs, env->vm_hsave + offsetof(struct vmcb, save.gdtr.limit),
              env->gdt.limit);
 
     x86_stq_phys(cs, env->vm_hsave + offsetof(struct vmcb, save.idtr.base),
-             env->idt.base);
+             target_ulong_val(&(env->idt).base));
     x86_stl_phys(cs, env->vm_hsave + offsetof(struct vmcb, save.idtr.limit),
              env->idt.limit);
 
     x86_stq_phys(cs,
-             env->vm_hsave + offsetof(struct vmcb, save.cr0), env->cr[0]);
+             env->vm_hsave + offsetof(struct vmcb, save.cr0), target_ulong_array_val(&env->cr.rec, 0));
     x86_stq_phys(cs,
-             env->vm_hsave + offsetof(struct vmcb, save.cr2), env->cr[2]);
+             env->vm_hsave + offsetof(struct vmcb, save.cr2), target_ulong_array_val(&env->cr.rec, 2));
     x86_stq_phys(cs,
-             env->vm_hsave + offsetof(struct vmcb, save.cr3), env->cr[3]);
+             env->vm_hsave + offsetof(struct vmcb, save.cr3), target_ulong_array_val(&env->cr.rec, 3));
     x86_stq_phys(cs,
-             env->vm_hsave + offsetof(struct vmcb, save.cr4), env->cr[4]);
+             env->vm_hsave + offsetof(struct vmcb, save.cr4), target_ulong_array_val(&env->cr.rec, 4));
     x86_stq_phys(cs,
-             env->vm_hsave + offsetof(struct vmcb, save.dr6), env->dr[6]);
+             env->vm_hsave + offsetof(struct vmcb, save.dr6), target_ulong_array_val(&env->dr.rec, 6));
     x86_stq_phys(cs,
-             env->vm_hsave + offsetof(struct vmcb, save.dr7), env->dr[7]);
+             env->vm_hsave + offsetof(struct vmcb, save.dr7), target_ulong_array_val(&env->dr.rec, 7));
 
     x86_stq_phys(cs,
              env->vm_hsave + offsetof(struct vmcb, save.efer), env->efer);
@@ -333,8 +333,8 @@ void helper_vmrun(CPUX86State *env, int aflag, int next_eip_addend)
     cpu_x86_update_cr0(env, new_cr0);
     cpu_x86_update_cr4(env, new_cr4);
     cpu_x86_update_cr3(env, new_cr3);
-    env->cr[2] = x86_ldq_phys(cs,
-                          env->vm_vmcb + offsetof(struct vmcb, save.cr2));
+    target_ulong_array_set(&env->cr.rec, 2, x86_ldq_phys(cs,
+                          env->vm_vmcb + offsetof(struct vmcb, save.cr2)));
     env->int_ctl = x86_ldl_phys(cs,
                        env->vm_vmcb + offsetof(struct vmcb, control.int_ctl));
     env->hflags2 &= ~(HF2_HIF_MASK | HF2_VINTR_MASK);
@@ -388,7 +388,7 @@ void helper_vmrun(CPUX86State *env, int aflag, int next_eip_addend)
 #endif
 
     cpu_x86_update_dr7(env, new_dr7);
-    env->dr[6] = new_dr6;
+    target_ulong_array_set(&env->dr.rec, 6, new_dr6);
 
     if (is_efer_invalid_state(env)) {
         cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
@@ -532,12 +532,14 @@ void helper_vmload(CPUX86State *env, int aflag)
         cpu_ldq_le_mmuidx_ra(env,
                              addr + offsetof(struct vmcb, save.sysenter_cs),
                              mmu_idx, 0);
-    env->sysenter_esp = cpu_ldq_le_mmuidx_ra(env,
+    target_ulong_set(&(env)->sysenter_esp, 
+        cpu_ldq_le_mmuidx_ra(env,
                              addr + offsetof(struct vmcb, save.sysenter_esp),
-                             mmu_idx, 0);
-    env->sysenter_eip = cpu_ldq_le_mmuidx_ra(env,
+                             mmu_idx, 0));
+    target_ulong_set(&(env)->sysenter_eip, 
+        cpu_ldq_le_mmuidx_ra(env,
                              addr + offsetof(struct vmcb, save.sysenter_eip),
-                             mmu_idx, 0);
+                             mmu_idx, 0));
 }
 
 void helper_vmsave(CPUX86State *env, int aflag)
@@ -586,9 +588,9 @@ void helper_vmsave(CPUX86State *env, int aflag)
     cpu_stq_le_mmuidx_ra(env, addr + offsetof(struct vmcb, save.sysenter_cs),
                       env->sysenter_cs, mmu_idx, 0);
     cpu_stq_le_mmuidx_ra(env, addr + offsetof(struct vmcb, save.sysenter_esp),
-                      env->sysenter_esp, mmu_idx, 0);
+                      target_ulong_val(&(env)->sysenter_esp), mmu_idx, 0);
     cpu_stq_le_mmuidx_ra(env, addr + offsetof(struct vmcb, save.sysenter_eip),
-                      env->sysenter_eip, mmu_idx, 0);
+                      target_ulong_val(&(env)->sysenter_eip), mmu_idx, 0);
 }
 
 void helper_stgi(CPUX86State *env)
@@ -785,25 +787,25 @@ void do_vmexit(CPUX86State *env)
                  &env->segs[R_DS]);
 
     x86_stq_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.gdtr.base),
-             env->gdt.base);
+             target_ulong_val(&(env->gdt).base));
     x86_stl_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.gdtr.limit),
              env->gdt.limit);
 
     x86_stq_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.idtr.base),
-             env->idt.base);
+             target_ulong_val(&(env->idt).base));
     x86_stl_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.idtr.limit),
              env->idt.limit);
 
     x86_stq_phys(cs,
              env->vm_vmcb + offsetof(struct vmcb, save.efer), env->efer);
     x86_stq_phys(cs,
-             env->vm_vmcb + offsetof(struct vmcb, save.cr0), env->cr[0]);
+             env->vm_vmcb + offsetof(struct vmcb, save.cr0), target_ulong_array_val(&env->cr.rec, 0));
     x86_stq_phys(cs,
-             env->vm_vmcb + offsetof(struct vmcb, save.cr2), env->cr[2]);
+             env->vm_vmcb + offsetof(struct vmcb, save.cr2), target_ulong_array_val(&env->cr.rec, 2));
     x86_stq_phys(cs,
-             env->vm_vmcb + offsetof(struct vmcb, save.cr3), env->cr[3]);
+             env->vm_vmcb + offsetof(struct vmcb, save.cr3), target_ulong_array_val(&env->cr.rec, 3));
     x86_stq_phys(cs,
-             env->vm_vmcb + offsetof(struct vmcb, save.cr4), env->cr[4]);
+             env->vm_vmcb + offsetof(struct vmcb, save.cr4), target_ulong_array_val(&env->cr.rec, 4));
     x86_stl_phys(cs,
              env->vm_vmcb + offsetof(struct vmcb, control.int_ctl), env->int_ctl);
 
@@ -816,9 +818,9 @@ void do_vmexit(CPUX86State *env)
     x86_stq_phys(cs,
              env->vm_vmcb + offsetof(struct vmcb, save.rax), target_ulong_array_val(&env->regs.rec, R_EAX));
     x86_stq_phys(cs,
-             env->vm_vmcb + offsetof(struct vmcb, save.dr7), env->dr[7]);
+             env->vm_vmcb + offsetof(struct vmcb, save.dr7), target_ulong_array_val(&env->dr.rec, 7));
     x86_stq_phys(cs,
-             env->vm_vmcb + offsetof(struct vmcb, save.dr6), env->dr[6]);
+             env->vm_vmcb + offsetof(struct vmcb, save.dr6), target_ulong_array_val(&env->dr.rec, 6));
     x86_stb_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.cpl),
              env->hflags & HF_CPL_MASK);
 
@@ -835,13 +837,13 @@ void do_vmexit(CPUX86State *env)
     /* Clears the TSC_OFFSET inside the processor. */
     env->tsc_offset = 0;
 
-    env->gdt.base = x86_ldq_phys(cs, env->vm_hsave + offsetof(struct vmcb,
-                                                       save.gdtr.base));
+    target_ulong_set(&(env->gdt).base,  x86_ldq_phys(cs, env->vm_hsave + offsetof(struct vmcb,
+                                                       save.gdtr.base)));
     env->gdt.limit = x86_ldl_phys(cs, env->vm_hsave + offsetof(struct vmcb,
                                                        save.gdtr.limit));
 
-    env->idt.base = x86_ldq_phys(cs, env->vm_hsave + offsetof(struct vmcb,
-                                                       save.idtr.base));
+    target_ulong_set(&(env->idt).base,  x86_ldq_phys(cs, env->vm_hsave + offsetof(struct vmcb,
+                                                       save.idtr.base)));
     env->idt.limit = x86_ldl_phys(cs, env->vm_hsave + offsetof(struct vmcb,
                                                        save.idtr.limit));
 
@@ -893,8 +895,8 @@ void do_vmexit(CPUX86State *env)
     target_ulong_array_set(&env->regs.rec, R_EAX, x86_ldq_phys(cs, env->vm_hsave +
                                 offsetof(struct vmcb, save.rax)));
 
-    env->dr[6] = x86_ldq_phys(cs,
-                          env->vm_hsave + offsetof(struct vmcb, save.dr6));
+    target_ulong_array_set(&env->dr.rec, 6, x86_ldq_phys(cs,
+                          env->vm_hsave + offsetof(struct vmcb, save.dr6)));
 
     /* Disables all breakpoints in the host DR7 register. */
     cpu_x86_update_dr7(env,
@@ -925,7 +927,7 @@ void do_vmexit(CPUX86State *env)
      * in the main loop, call do_interrupt_all directly.
      */
     if ((target_ulong_val(&(env)->eflags) & TF_MASK) != 0) {
-        env->dr[6] = env->dr[6] | (DR6_BS);
+        target_ulong_array_set(&env->dr.rec, 6, target_ulong_array_val(&env->dr.rec, 6) | (DR6_BS));
         do_interrupt_all(X86_CPU(cs), EXCP01_DB, 0, 0, target_ulong_val(&(env)->eip), 0);
     }
 }
