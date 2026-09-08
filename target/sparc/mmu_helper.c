@@ -422,7 +422,7 @@ int sparc_cpu_memory_rw_debug(CPUState *cs, vaddr address,
     if (!is_write) {
         for (i = 0; i < env->nwindows; i++) {
             int off;
-            target_ulong fp = env->regbase[cwp * 16 + 22];
+            target_ulong fp = target_ulong_array_val(&env->regbase.rec, cwp * 16 + 22);
 
             /* Assume fp == 0 means end of frame.  */
             if (fp == 0) {
@@ -473,7 +473,7 @@ int sparc_cpu_memory_rw_debug(CPUState *cs, vaddr address,
                     uint32_t v;
                     uint8_t c[4];
                 } u;
-                u.v = cpu_to_be32(env->regbase[reg]);
+                u.v = cpu_to_be32(target_ulong_array_val(&env->regbase.rec, reg));
                 *buf++ = u.c[off & 3];
                 addr++;
                 len--;

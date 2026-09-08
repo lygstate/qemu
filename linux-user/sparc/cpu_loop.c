@@ -46,7 +46,7 @@ static inline void save_window_offset(CPUSPARCState *env, int cwp1)
     unsigned int i;
     abi_ulong sp_ptr;
 
-    sp_ptr = env->regbase[get_reg_index(env, cwp1, 6)];
+    sp_ptr = target_ulong_array_val(&env->regbase.rec, get_reg_index(env, cwp1, 6));
 #ifdef TARGET_SPARC64
     if (sp_ptr & 3)
         sp_ptr += SPARC64_STACK_BIAS;
@@ -57,7 +57,7 @@ static inline void save_window_offset(CPUSPARCState *env, int cwp1)
 #endif
     for(i = 0; i < 16; i++) {
         /* FIXME - what to do if put_user() fails? */
-        put_user_ual(env->regbase[get_reg_index(env, cwp1, 8 + i)], sp_ptr);
+        put_user_ual(target_ulong_array_val(&env->regbase.rec, get_reg_index(env, cwp1, 8 + i)), sp_ptr);
         sp_ptr += sizeof(abi_ulong);
     }
 }
@@ -96,7 +96,7 @@ static void restore_window(CPUSPARCState *env)
 
     /* restore the invalid window */
     cwp1 = cpu_cwp_inc(env, env->cwp + 1);
-    sp_ptr = env->regbase[get_reg_index(env, cwp1, 6)];
+    sp_ptr = target_ulong_array_val(&env->regbase.rec, get_reg_index(env, cwp1, 6));
 #ifdef TARGET_SPARC64
     if (sp_ptr & 3)
         sp_ptr += SPARC64_STACK_BIAS;
@@ -107,7 +107,7 @@ static void restore_window(CPUSPARCState *env)
 #endif
     for(i = 0; i < 16; i++) {
         /* FIXME - what to do if get_user() fails? */
-        get_user_ual(env->regbase[get_reg_index(env, cwp1, 8 + i)], sp_ptr);
+        get_user_ual(*(target_ulong *)target_ulong_array_elem(&env->regbase.rec, get_reg_index(env, cwp1, 8 + i)), sp_ptr);
         sp_ptr += sizeof(abi_ulong);
     }
 #ifdef TARGET_SPARC64
@@ -152,8 +152,8 @@ void flush_windows(CPUSPARCState *env)
 
 static void next_instruction(CPUSPARCState *env)
 {
-    env->pc = env->npc;
-    env->npc = env->npc + 4;
+    target_ulong_set(&env->pc, target_ulong_val(&env->npc));
+    target_ulong_set(&env->npc, target_ulong_val(&env->npc) + 4);
 }
 
 static uint32_t do_getcc(CPUSPARCState *env)
@@ -225,7 +225,7 @@ void cpu_loop (CPUSPARCState *env)
 
         switch (trapnr) {
         case TARGET_TT_SYSCALL:
-            ret = do_syscall (env, env->gregs[1],
+            ret = do_syscall (env, target_ulong_array_val(&env->gregs.rec, 1),
                               env->regwptr[0], env->regwptr[1],
                               env->regwptr[2], env->regwptr[3],
                               env->regwptr[4], env->regwptr[5],
@@ -243,18 +243,18 @@ void cpu_loop (CPUSPARCState *env)
             }
             env->regwptr[0] = ret;
             /* next instruction */
-            env->pc = env->npc;
-            env->npc = env->npc + 4;
+            target_ulong_set(&env->pc, target_ulong_val(&env->npc));
+            target_ulong_set(&env->npc, target_ulong_val(&env->npc) + 4);
             break;
 
         case TT_TRAP + 0x01: /* breakpoint */
         case EXCP_DEBUG:
-            force_sig_fault(TARGET_SIGTRAP, TARGET_TRAP_BRKPT, env->pc);
+            force_sig_fault(TARGET_SIGTRAP, TARGET_TRAP_BRKPT, target_ulong_val(&env->pc));
             break;
 
         case TT_TRAP + 0x02: /* div0 */
         case TT_DIV_ZERO:
-            force_sig_fault(TARGET_SIGFPE, TARGET_FPE_INTDIV, env->pc);
+            force_sig_fault(TARGET_SIGFPE, TARGET_FPE_INTDIV, target_ulong_val(&env->pc));
             break;
 
         case TT_TRAP + 0x03: /* flush windows */
@@ -263,15 +263,15 @@ void cpu_loop (CPUSPARCState *env)
             break;
 
         case TT_TRAP + 0x20: /* getcc */
-            env->gregs[1] = do_getcc(env);
+            target_ulong_array_set(&env->gregs.rec, 1, do_getcc(env));
             next_instruction(env);
             break;
         case TT_TRAP + 0x21: /* setcc */
-            do_setcc(env, env->gregs[1]);
+            do_setcc(env, target_ulong_array_val(&env->gregs.rec, 1));
             next_instruction(env);
             break;
         case TT_TRAP + 0x22: /* getpsr */
-            env->gregs[1] = do_getpsr(env);
+            target_ulong_array_set(&env->gregs.rec, 1, do_getpsr(env));
             next_instruction(env);
             break;
 
@@ -321,7 +321,7 @@ void cpu_loop (CPUSPARCState *env)
                         code = TARGET_FPE_FLTRES;
                     }
                 }
-                force_sig_fault(TARGET_SIGFPE, code, env->pc);
+                force_sig_fault(TARGET_SIGFPE, code, target_ulong_val(&env->pc));
             }
             break;
 
@@ -329,22 +329,22 @@ void cpu_loop (CPUSPARCState *env)
             /* just indicate that signals should be handled asap */
             break;
         case TT_ILL_INSN:
-            force_sig_fault(TARGET_SIGILL, TARGET_ILL_ILLOPC, env->pc);
+            force_sig_fault(TARGET_SIGILL, TARGET_ILL_ILLOPC, target_ulong_val(&env->pc));
             break;
         case TT_PRIV_INSN:
-            force_sig_fault(TARGET_SIGILL, TARGET_ILL_PRVOPC, env->pc);
+            force_sig_fault(TARGET_SIGILL, TARGET_ILL_PRVOPC, target_ulong_val(&env->pc));
             break;
         case TT_TOVF:
-            force_sig_fault(TARGET_SIGEMT, TARGET_EMT_TAGOVF, env->pc);
+            force_sig_fault(TARGET_SIGEMT, TARGET_EMT_TAGOVF, target_ulong_val(&env->pc));
             break;
 #ifdef TARGET_SPARC64
         case TT_PRIV_ACT:
             /* Note do_privact defers to do_privop. */
-            force_sig_fault(TARGET_SIGILL, TARGET_ILL_PRVOPC, env->pc);
+            force_sig_fault(TARGET_SIGILL, TARGET_ILL_PRVOPC, target_ulong_val(&env->pc));
             break;
 #else
         case TT_NCP_INSN:
-            force_sig_fault(TARGET_SIGILL, TARGET_ILL_COPROC, env->pc);
+            force_sig_fault(TARGET_SIGILL, TARGET_ILL_COPROC, target_ulong_val(&env->pc));
             break;
         case TT_UNIMP_FLUSH:
             next_instruction(env);
@@ -359,7 +359,7 @@ void cpu_loop (CPUSPARCState *env)
              * Handle anything not explicitly matched above.
              */
             if (trapnr >= TT_TRAP && trapnr <= TT_TRAP + 0x7f) {
-                force_sig_fault(TARGET_SIGILL, ILL_ILLTRP, env->pc);
+                force_sig_fault(TARGET_SIGILL, ILL_ILLTRP, target_ulong_val(&env->pc));
                 break;
             }
             fprintf(stderr, "Unhandled trap: 0x%x\n", trapnr);
@@ -374,8 +374,8 @@ void init_main_thread(CPUState *cs, struct image_info *info)
 {
     CPUArchState *env = cpu_env(cs);
 
-    env->pc = info->entry;
-    env->npc = env->pc + 4;
+    target_ulong_set(&env->pc, info->entry);
+    target_ulong_set(&env->npc, target_ulong_val(&env->pc) + 4);
     env->regwptr[WREG_SP] = (info->start_stack - 16 * sizeof(abi_ulong)
                              - TARGET_STACK_BIAS);
 }

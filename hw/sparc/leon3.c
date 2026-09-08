@@ -158,8 +158,8 @@ static void leon3_cpu_reset(void *opaque)
     cpu_reset(cpu);
 
     cpu->halted = cpu->cpu_index != 0;
-    env->pc = s->entry;
-    env->npc = s->entry + 4;
+    target_ulong_set(&env->pc, s->entry);
+    target_ulong_set(&env->npc, s->entry + 4);
 }
 
 static void leon3_cache_control_int(CPUSPARCState *env)
@@ -399,8 +399,10 @@ static void leon3_generic_hw_init(MachineState *machine)
             write_bootloader(memory_region_get_ram_ptr(prom), entry);
             reset_info->entry = LEON3_PROM_OFFSET;
             for (i = 0; i < machine->smp.cpus; i++) {
-                reset_info->info[i].cpu->env.pc = LEON3_PROM_OFFSET;
-                reset_info->info[i].cpu->env.npc = LEON3_PROM_OFFSET + 4;
+                target_ulong_set(&reset_info->info[i].cpu->env.pc,
+                                 LEON3_PROM_OFFSET);
+                target_ulong_set(&reset_info->info[i].cpu->env.npc,
+                                 LEON3_PROM_OFFSET + 4);
             }
         }
     }
