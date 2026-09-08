@@ -994,14 +994,13 @@ static bool avx512_needed(void *opaque)
             ENV_XMM(i, 5) || ENV_XMM(i, 7)) {
             return true;
         }
-#ifdef TARGET_X86_64
-        if (ENV_XMM(i+16, 0) || ENV_XMM(i+16, 1) ||
-            ENV_XMM(i+16, 2) || ENV_XMM(i+16, 3) ||
-            ENV_XMM(i+16, 4) || ENV_XMM(i+16, 5) ||
-            ENV_XMM(i+16, 6) || ENV_XMM(i+16, 7)) {
+        if (target_x86_64() &&
+            (ENV_XMM(i + 16, 0) || ENV_XMM(i + 16, 1) ||
+             ENV_XMM(i + 16, 2) || ENV_XMM(i + 16, 3) ||
+             ENV_XMM(i + 16, 4) || ENV_XMM(i + 16, 5) ||
+             ENV_XMM(i + 16, 6) || ENV_XMM(i + 16, 7))) {
             return true;
         }
-#endif
     }
 
     return false;
@@ -1490,7 +1489,7 @@ static bool intel_efer32_needed(void *opaque)
     X86CPU *cpu = opaque;
     CPUX86State *env = &cpu->env;
 
-    return target_i386() && env->efer != 0;
+    return !target_x86_64() && env->efer != 0;
 }
 
 static const VMStateDescription vmstate_efer32 = {

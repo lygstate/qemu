@@ -45,7 +45,7 @@
 #include "x86_mmu.h"
 
 
-#ifdef TARGET_X86_64
+/* TARGET_X86_64 begin */
 #define EXEC_2OP_FLAGS_CMD_64(env, decode, cmd, FLAGS_FUNC, save_res) \
     case 8:                                        \
     {                                               \
@@ -58,9 +58,7 @@
         FLAGS_FUNC##64(env, v1, v2, diff);          \
         break;                                      \
     }
-#else
-#define EXEC_2OP_FLAGS_CMD_64(env, decode, cmd, FLAGS_FUNC, save_res)
-#endif
+/* TARGET_X86_64 end */
 #define EXEC_2OP_FLAGS_CMD(env, decode, cmd, FLAGS_FUNC, save_res) \
 {                                                       \
     if (fetch_operands(env, decode, 2, true, true, false))  {\

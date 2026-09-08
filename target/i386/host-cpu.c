@@ -179,14 +179,16 @@ static void host_cpu_class_init(ObjectClass *oc, const void *data)
         g_strdup_printf("processor with all supported host features ");
 }
 
-static const TypeInfo host_cpu_type_info = {
-    .name = X86_CPU_TYPE_NAME("host"),
-    .parent = X86_CPU_TYPE_NAME("max"),
-    .class_init = host_cpu_class_init,
-};
-
 static void host_cpu_type_init(void)
 {
+    static TypeInfo host_cpu_type_info = {
+        .class_init = host_cpu_class_init,
+    };
+
+    host_cpu_type_info.name = target_x86_64() ? "host-x86_64-cpu"
+                                              : "host-i386-cpu";
+    host_cpu_type_info.parent = target_x86_64() ? "max-x86_64-cpu"
+                                                : "max-i386-cpu";
     type_register_static(&host_cpu_type_info);
 }
 
