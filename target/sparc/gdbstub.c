@@ -37,7 +37,7 @@ int sparc_cpu_gdb_read_register(CPUState *cs, GByteArray *mem_buf, int n)
 
     if (n < 8) {
         /* g0..g7 */
-        return gdb_get_rega(mem_buf, env->gregs[n]);
+        return gdb_get_rega(mem_buf, target_ulong_array_val(&env->gregs.rec, n));
     }
     if (n < 32) {
         /* register window */
@@ -89,17 +89,17 @@ static int sparc_cp0_gdb_read_register(CPUState *cs, GByteArray *mem_buf, int n)
     /* Y, PSR, WIM, TBR, PC, NPC, FPSR, CPSR */
     switch (n) {
     case 0:
-        return gdb_get_rega(mem_buf, env->y);
+        return gdb_get_rega(mem_buf, target_ulong_val(&env->y));
     case 1:
         return gdb_get_rega(mem_buf, cpu_get_psr(env));
     case 2:
         return gdb_get_rega(mem_buf, env->wim);
     case 3:
-        return gdb_get_rega(mem_buf, env->tbr);
+        return gdb_get_rega(mem_buf, target_ulong_val(&env->tbr));
     case 4:
-        return gdb_get_rega(mem_buf, env->pc);
+        return gdb_get_rega(mem_buf, target_ulong_val(&env->pc));
     case 5:
-        return gdb_get_rega(mem_buf, env->npc);
+        return gdb_get_rega(mem_buf, target_ulong_val(&env->npc));
     case 6:
         return gdb_get_rega(mem_buf, cpu_get_fsr(env));
     case 7:
@@ -108,9 +108,9 @@ static int sparc_cp0_gdb_read_register(CPUState *cs, GByteArray *mem_buf, int n)
 #else
     switch (n) {
     case 0:
-        return gdb_get_regl(mem_buf, env->pc);
+        return gdb_get_regl(mem_buf, target_ulong_val(&env->pc));
     case 1:
-        return gdb_get_regl(mem_buf, env->npc);
+        return gdb_get_regl(mem_buf, target_ulong_val(&env->npc));
     case 2:
         return gdb_get_regl(mem_buf, (cpu_get_ccr(env) << 32) |
                                      ((env->asi & 0xff) << 24) |
@@ -121,7 +121,7 @@ static int sparc_cp0_gdb_read_register(CPUState *cs, GByteArray *mem_buf, int n)
     case 4:
         return gdb_get_regl(mem_buf, env->fprs);
     case 5:
-        return gdb_get_regl(mem_buf, env->y);
+        return gdb_get_regl(mem_buf, target_ulong_val(&env->y));
     }
 #endif
     return 0;
@@ -146,7 +146,7 @@ int sparc_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
 
     if (n < 8) {
         /* g0..g7 */
-        env->gregs[n] = tmp;
+        target_ulong_array_set(&env->gregs.rec, n, tmp);
     } else {
         /* register window */
         env->regwptr[n - 8] = tmp;
@@ -208,7 +208,7 @@ static int sparc_cp0_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
     /* Y, PSR, WIM, TBR, PC, NPC, FPSR, CPSR */
     switch (n) {
     case 0:
-        env->y = tmp;
+        target_ulong_set(&env->y, tmp);
         break;
     case 1:
         cpu_put_psr(env, tmp);
@@ -217,13 +217,13 @@ static int sparc_cp0_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
         env->wim = tmp;
         break;
     case 3:
-        env->tbr = tmp;
+        target_ulong_set(&env->tbr, tmp);
         break;
     case 4:
-        env->pc = tmp;
+        target_ulong_set(&env->pc, tmp);
         break;
     case 5:
-        env->npc = tmp;
+        target_ulong_set(&env->npc, tmp);
         break;
     case 6:
         cpu_put_fsr(env, tmp);
@@ -239,10 +239,10 @@ static int sparc_cp0_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
 
     switch (n) {
     case 0:
-        env->pc = tmp;
+        target_ulong_set(&env->pc, tmp);
         break;
     case 1:
-        env->npc = tmp;
+        target_ulong_set(&env->npc, tmp);
         break;
     case 2:
         cpu_put_ccr(env, tmp >> 32);
@@ -257,7 +257,7 @@ static int sparc_cp0_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
         env->fprs = tmp;
         break;
     case 5:
-        env->y = tmp;
+        target_ulong_set(&env->y, tmp);
         break;
     default:
         return 0;
