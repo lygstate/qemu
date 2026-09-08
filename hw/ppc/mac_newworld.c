@@ -126,7 +126,7 @@ static void ppc_core99_reset(void *opaque)
 
     cpu_reset(CPU(cpu));
     /* 970 CPUs want to get their initial IP as part of their boot protocol */
-    cpu->env.nip = PROM_BASE + 0x100;
+    target_ulong_set(&cpu->env.nip, PROM_BASE + 0x100);
 }
 
 /* PowerPC Mac99 hardware initialisation */

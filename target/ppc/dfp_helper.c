@@ -148,7 +148,7 @@ static void dfp_prepare_decimal64(struct PPC_DFP *dfp, ppc_fprp_t *a,
                                   ppc_fprp_t *b, CPUPPCState *env)
 {
     decContextDefault(&dfp->context, DEC_INIT_DECIMAL64);
-    dfp_prepare_rounding_mode(&dfp->context, env->fpscr);
+    dfp_prepare_rounding_mode(&dfp->context, target_ulong_val(&env->fpscr));
     dfp->env = env;
 
     if (a) {
@@ -172,7 +172,7 @@ static void dfp_prepare_decimal128(struct PPC_DFP *dfp, ppc_fprp_t *a,
                                    ppc_fprp_t *b, CPUPPCState *env)
 {
     decContextDefault(&dfp->context, DEC_INIT_DECIMAL128);
-    dfp_prepare_rounding_mode(&dfp->context, env->fpscr);
+    dfp_prepare_rounding_mode(&dfp->context, target_ulong_val(&env->fpscr));
     dfp->env = env;
 
     if (a) {
@@ -205,9 +205,9 @@ static void dfp_finalize_decimal128(struct PPC_DFP *dfp)
 static void dfp_set_FPSCR_flag(struct PPC_DFP *dfp, uint64_t flag,
                 uint64_t enabled)
 {
-    dfp->env->fpscr |= (flag | FP_FX);
-    if (dfp->env->fpscr & enabled) {
-        dfp->env->fpscr |= FP_FEX;
+    target_ulong_set(&dfp->env->fpscr, target_ulong_val(&dfp->env->fpscr) | (flag | FP_FX));
+    if (target_ulong_val(&dfp->env->fpscr) & enabled) {
+        target_ulong_set(&dfp->env->fpscr, target_ulong_val(&dfp->env->fpscr) | FP_FEX);
     }
 }
 
@@ -251,8 +251,8 @@ static void dfp_set_FPRF_from_FRT_with_context(struct PPC_DFP *dfp,
     default:
         g_assert_not_reached();
     }
-    dfp->env->fpscr &= ~FP_FPRF;
-    dfp->env->fpscr |= (fprf << FPSCR_FPRF);
+    target_ulong_set(&dfp->env->fpscr, target_ulong_val(&dfp->env->fpscr) & ~FP_FPRF);
+    target_ulong_set(&dfp->env->fpscr, target_ulong_val(&dfp->env->fpscr) | (fprf << FPSCR_FPRF));
 }
 
 static void dfp_set_FPRF_from_FRT(struct PPC_DFP *dfp)
@@ -400,8 +400,8 @@ static void dfp_set_CRBF_from_T(struct PPC_DFP *dfp)
 
 static void dfp_set_FPCC_from_CRBF(struct PPC_DFP *dfp)
 {
-    dfp->env->fpscr &= ~FP_FPCC;
-    dfp->env->fpscr |= (dfp->crbf << FPSCR_FPCC);
+    target_ulong_set(&dfp->env->fpscr, target_ulong_val(&dfp->env->fpscr) & ~FP_FPCC);
+    target_ulong_set(&dfp->env->fpscr, target_ulong_val(&dfp->env->fpscr) | (dfp->crbf << FPSCR_FPCC));
 }
 
 static inline void dfp_makeQNaN(decNumber *dn)
@@ -1151,7 +1151,7 @@ static inline void dfp_invalid_op_vxcvi_64(struct PPC_DFP *dfp)
 {
     /* TODO: fpscr is incorrectly not being saved to env */
     dfp_set_FPSCR_flag(dfp, FP_VX | FP_VXCVI, FPSCR_VE);
-    if ((dfp->env->fpscr & FP_VE) == 0) {
+    if ((target_ulong_val(&dfp->env->fpscr) & FP_VE) == 0) {
         dfp->vt.VsrD(1) = 0x7c00000000000000; /* QNaN */
     }
 }
@@ -1161,7 +1161,7 @@ static inline void dfp_invalid_op_vxcvi_128(struct PPC_DFP *dfp)
 {
     /* TODO: fpscr is incorrectly not being saved to env */
     dfp_set_FPSCR_flag(dfp, FP_VX | FP_VXCVI, FPSCR_VE);
-    if ((dfp->env->fpscr & FP_VE) == 0) {
+    if ((target_ulong_val(&dfp->env->fpscr) & FP_VE) == 0) {
         dfp->vt.VsrD(0) = 0x7c00000000000000; /* QNaN */
         dfp->vt.VsrD(1) = 0x0;
     }

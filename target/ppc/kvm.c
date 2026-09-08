@@ -208,7 +208,7 @@ static int kvm_arch_sync_sregs(PowerPCCPU *cpu)
         return ret;
     }
 
-    sregs.pvr = cenv->spr[SPR_PVR];
+    sregs.pvr = target_ulong_array_val(&cenv->spr.rec, SPR_PVR);
     return kvm_vcpu_ioctl(cs, KVM_SET_SREGS, &sregs);
 }
 
@@ -580,11 +580,11 @@ static void kvm_get_one_spr(CPUState *cs, uint64_t id, int spr)
     } else {
         switch (id & KVM_REG_SIZE_MASK) {
         case KVM_REG_SIZE_U32:
-            env->spr[spr] = val.u32;
+            target_ulong_array_set(&env->spr.rec, spr, val.u32);
             break;
 
         case KVM_REG_SIZE_U64:
-            env->spr[spr] = val.u64;
+            target_ulong_array_set(&env->spr.rec, spr, val.u64);
             break;
 
         default:
@@ -609,11 +609,11 @@ static void kvm_put_one_spr(CPUState *cs, uint64_t id, int spr)
 
     switch (id & KVM_REG_SIZE_MASK) {
     case KVM_REG_SIZE_U32:
-        val.u32 = env->spr[spr];
+        val.u32 = target_ulong_array_val(&env->spr.rec, spr);
         break;
 
     case KVM_REG_SIZE_U64:
-        val.u64 = env->spr[spr];
+        val.u64 = target_ulong_array_val(&env->spr.rec, spr);
         break;
 
     default:
@@ -635,7 +635,7 @@ static int kvm_put_fp(CPUState *cs)
     int ret;
 
     if (env->insns_flags & PPC_FLOAT) {
-        uint64_t fpscr = env->fpscr;
+        uint64_t fpscr = target_ulong_val(&env->fpscr);
         bool vsx = !!(env->insns_flags2 & PPC2_VSX);
 
         reg.id = KVM_REG_PPC_FPSCR;
@@ -711,7 +711,7 @@ static int kvm_get_fp(CPUState *cs)
             trace_kvm_failed_fpscr_get(strerror(errno));
             return ret;
         } else {
-            env->fpscr = fpscr;
+            target_ulong_set(&env->fpscr, fpscr);
         }
 
         for (i = 0; i < 32; i++) {
@@ -871,12 +871,12 @@ int kvmppc_put_books_sregs(PowerPCCPU *cpu)
     struct kvm_sregs sregs = { };
     int i;
 
-    sregs.pvr = env->spr[SPR_PVR];
+    sregs.pvr = target_ulong_array_val(&env->spr.rec, SPR_PVR);
 
     if (cpu->vhyp) {
         sregs.u.s.sdr1 = cpu->vhyp_class->encode_hpt_for_kvm_pr(cpu->vhyp);
     } else {
-        sregs.u.s.sdr1 = env->spr[SPR_SDR1];
+        sregs.u.s.sdr1 = target_ulong_array_val(&env->spr.rec, SPR_SDR1);
     }
 
     /* Sync SLB */
@@ -892,7 +892,7 @@ int kvmppc_put_books_sregs(PowerPCCPU *cpu)
 
     /* Sync SRs */
     for (i = 0; i < 16; i++) {
-        sregs.u.s.ppc32.sr[i] = env->sr[i];
+        sregs.u.s.ppc32.sr[i] = target_ulong_array_val(&env->sr.rec, i);
     }
 
     /* Sync BATs */
@@ -923,25 +923,25 @@ int kvm_arch_put_registers(CPUState *cs, KvmPutState level, Error **errp)
     regs.ctr = env->ctr;
     regs.lr  = env->lr;
     regs.xer = cpu_read_xer(env);
-    regs.msr = env->msr;
-    regs.pc = env->nip;
+    regs.msr = target_ulong_val(&env->msr);
+    regs.pc = target_ulong_val(&env->nip);
 
-    regs.srr0 = env->spr[SPR_SRR0];
-    regs.srr1 = env->spr[SPR_SRR1];
+    regs.srr0 = target_ulong_array_val(&env->spr.rec, SPR_SRR0);
+    regs.srr1 = target_ulong_array_val(&env->spr.rec, SPR_SRR1);
 
-    regs.sprg0 = env->spr[SPR_SPRG0];
-    regs.sprg1 = env->spr[SPR_SPRG1];
-    regs.sprg2 = env->spr[SPR_SPRG2];
-    regs.sprg3 = env->spr[SPR_SPRG3];
-    regs.sprg4 = env->spr[SPR_SPRG4];
-    regs.sprg5 = env->spr[SPR_SPRG5];
-    regs.sprg6 = env->spr[SPR_SPRG6];
-    regs.sprg7 = env->spr[SPR_SPRG7];
+    regs.sprg0 = target_ulong_array_val(&env->spr.rec, SPR_SPRG0);
+    regs.sprg1 = target_ulong_array_val(&env->spr.rec, SPR_SPRG1);
+    regs.sprg2 = target_ulong_array_val(&env->spr.rec, SPR_SPRG2);
+    regs.sprg3 = target_ulong_array_val(&env->spr.rec, SPR_SPRG3);
+    regs.sprg4 = target_ulong_array_val(&env->spr.rec, SPR_SPRG4);
+    regs.sprg5 = target_ulong_array_val(&env->spr.rec, SPR_SPRG5);
+    regs.sprg6 = target_ulong_array_val(&env->spr.rec, SPR_SPRG6);
+    regs.sprg7 = target_ulong_array_val(&env->spr.rec, SPR_SPRG7);
 
-    regs.pid = env->spr[SPR_BOOKE_PID];
+    regs.pid = target_ulong_array_val(&env->spr.rec, SPR_BOOKE_PID);
 
     for (i = 0; i < 32; i++) {
-        regs.gpr[i] = env->gpr[i];
+        regs.gpr[i] = target_ulong_array_val(&env->gpr.rec, i);
     }
 
     regs.cr = ppc_get_cr(env);
@@ -985,9 +985,9 @@ int kvm_arch_put_registers(CPUState *cs, KvmPutState level, Error **errp)
         }
 
 #ifdef TARGET_PPC64
-        if (FIELD_EX64(env->msr, MSR, TS)) {
-            for (i = 0; i < ARRAY_SIZE(env->tm_gpr); i++) {
-                kvm_set_one_reg(cs, KVM_REG_PPC_TM_GPR(i), &env->tm_gpr[i]);
+        if (FIELD_EX64(target_ulong_val(&env->msr), MSR, TS)) {
+            for (i = 0; i < ARRAY_SIZE(env->tm_gpr.u64); i++) {
+                kvm_set_one_reg(cs, KVM_REG_PPC_TM_GPR(i), target_ulong_array_elem(&env->tm_gpr.rec, i));
             }
             for (i = 0; i < ARRAY_SIZE(env->tm_vsr); i++) {
                 kvm_set_one_reg(cs, KVM_REG_PPC_TM_VSR(i), &env->tm_vsr[i]);
@@ -1023,7 +1023,7 @@ int kvm_arch_put_registers(CPUState *cs, KvmPutState level, Error **errp)
 
 static void kvm_sync_excp(CPUPPCState *env, int vector, int ivor)
 {
-     env->excp_vectors[vector] = env->spr[ivor] + env->spr[SPR_BOOKE_IVPR];
+     env->excp_vectors[vector] = target_ulong_array_val(&env->spr.rec, ivor) + target_ulong_array_val(&env->spr.rec, SPR_BOOKE_IVPR);
 }
 
 static int kvmppc_get_booke_sregs(PowerPCCPU *cpu)
@@ -1038,121 +1038,121 @@ static int kvmppc_get_booke_sregs(PowerPCCPU *cpu)
     }
 
     if (sregs.u.e.features & KVM_SREGS_E_BASE) {
-        env->spr[SPR_BOOKE_CSRR0] = sregs.u.e.csrr0;
-        env->spr[SPR_BOOKE_CSRR1] = sregs.u.e.csrr1;
-        env->spr[SPR_BOOKE_ESR] = sregs.u.e.esr;
-        env->spr[SPR_BOOKE_DEAR] = sregs.u.e.dear;
-        env->spr[SPR_BOOKE_MCSR] = sregs.u.e.mcsr;
-        env->spr[SPR_BOOKE_TSR] = sregs.u.e.tsr;
-        env->spr[SPR_BOOKE_TCR] = sregs.u.e.tcr;
-        env->spr[SPR_DECR] = sregs.u.e.dec;
-        env->spr[SPR_TBL] = sregs.u.e.tb & 0xffffffff;
-        env->spr[SPR_TBU] = sregs.u.e.tb >> 32;
-        env->spr[SPR_VRSAVE] = sregs.u.e.vrsave;
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_CSRR0, sregs.u.e.csrr0);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_CSRR1, sregs.u.e.csrr1);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_ESR, sregs.u.e.esr);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_DEAR, sregs.u.e.dear);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MCSR, sregs.u.e.mcsr);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_TSR, sregs.u.e.tsr);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_TCR, sregs.u.e.tcr);
+        target_ulong_array_set(&env->spr.rec, SPR_DECR, sregs.u.e.dec);
+        target_ulong_array_set(&env->spr.rec, SPR_TBL, sregs.u.e.tb & 0xffffffff);
+        target_ulong_array_set(&env->spr.rec, SPR_TBU, sregs.u.e.tb >> 32);
+        target_ulong_array_set(&env->spr.rec, SPR_VRSAVE, sregs.u.e.vrsave);
     }
 
     if (sregs.u.e.features & KVM_SREGS_E_ARCH206) {
-        env->spr[SPR_BOOKE_PIR] = sregs.u.e.pir;
-        env->spr[SPR_BOOKE_MCSRR0] = sregs.u.e.mcsrr0;
-        env->spr[SPR_BOOKE_MCSRR1] = sregs.u.e.mcsrr1;
-        env->spr[SPR_BOOKE_DECAR] = sregs.u.e.decar;
-        env->spr[SPR_BOOKE_IVPR] = sregs.u.e.ivpr;
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_PIR, sregs.u.e.pir);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MCSRR0, sregs.u.e.mcsrr0);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MCSRR1, sregs.u.e.mcsrr1);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_DECAR, sregs.u.e.decar);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVPR, sregs.u.e.ivpr);
     }
 
     if (sregs.u.e.features & KVM_SREGS_E_64) {
-        env->spr[SPR_BOOKE_EPCR] = sregs.u.e.epcr;
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_EPCR, sregs.u.e.epcr);
     }
 
     if (sregs.u.e.features & KVM_SREGS_E_SPRG8) {
-        env->spr[SPR_BOOKE_SPRG8] = sregs.u.e.sprg8;
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_SPRG8, sregs.u.e.sprg8);
     }
 
     if (sregs.u.e.features & KVM_SREGS_E_IVOR) {
-        env->spr[SPR_BOOKE_IVOR0] = sregs.u.e.ivor_low[0];
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR0, sregs.u.e.ivor_low[0]);
         kvm_sync_excp(env, POWERPC_EXCP_CRITICAL,  SPR_BOOKE_IVOR0);
-        env->spr[SPR_BOOKE_IVOR1] = sregs.u.e.ivor_low[1];
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR1, sregs.u.e.ivor_low[1]);
         kvm_sync_excp(env, POWERPC_EXCP_MCHECK,  SPR_BOOKE_IVOR1);
-        env->spr[SPR_BOOKE_IVOR2] = sregs.u.e.ivor_low[2];
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR2, sregs.u.e.ivor_low[2]);
         kvm_sync_excp(env, POWERPC_EXCP_DSI,  SPR_BOOKE_IVOR2);
-        env->spr[SPR_BOOKE_IVOR3] = sregs.u.e.ivor_low[3];
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR3, sregs.u.e.ivor_low[3]);
         kvm_sync_excp(env, POWERPC_EXCP_ISI,  SPR_BOOKE_IVOR3);
-        env->spr[SPR_BOOKE_IVOR4] = sregs.u.e.ivor_low[4];
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR4, sregs.u.e.ivor_low[4]);
         kvm_sync_excp(env, POWERPC_EXCP_EXTERNAL,  SPR_BOOKE_IVOR4);
-        env->spr[SPR_BOOKE_IVOR5] = sregs.u.e.ivor_low[5];
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR5, sregs.u.e.ivor_low[5]);
         kvm_sync_excp(env, POWERPC_EXCP_ALIGN,  SPR_BOOKE_IVOR5);
-        env->spr[SPR_BOOKE_IVOR6] = sregs.u.e.ivor_low[6];
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR6, sregs.u.e.ivor_low[6]);
         kvm_sync_excp(env, POWERPC_EXCP_PROGRAM,  SPR_BOOKE_IVOR6);
-        env->spr[SPR_BOOKE_IVOR7] = sregs.u.e.ivor_low[7];
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR7, sregs.u.e.ivor_low[7]);
         kvm_sync_excp(env, POWERPC_EXCP_FPU,  SPR_BOOKE_IVOR7);
-        env->spr[SPR_BOOKE_IVOR8] = sregs.u.e.ivor_low[8];
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR8, sregs.u.e.ivor_low[8]);
         kvm_sync_excp(env, POWERPC_EXCP_SYSCALL,  SPR_BOOKE_IVOR8);
-        env->spr[SPR_BOOKE_IVOR9] = sregs.u.e.ivor_low[9];
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR9, sregs.u.e.ivor_low[9]);
         kvm_sync_excp(env, POWERPC_EXCP_APU,  SPR_BOOKE_IVOR9);
-        env->spr[SPR_BOOKE_IVOR10] = sregs.u.e.ivor_low[10];
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR10, sregs.u.e.ivor_low[10]);
         kvm_sync_excp(env, POWERPC_EXCP_DECR,  SPR_BOOKE_IVOR10);
-        env->spr[SPR_BOOKE_IVOR11] = sregs.u.e.ivor_low[11];
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR11, sregs.u.e.ivor_low[11]);
         kvm_sync_excp(env, POWERPC_EXCP_FIT,  SPR_BOOKE_IVOR11);
-        env->spr[SPR_BOOKE_IVOR12] = sregs.u.e.ivor_low[12];
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR12, sregs.u.e.ivor_low[12]);
         kvm_sync_excp(env, POWERPC_EXCP_WDT,  SPR_BOOKE_IVOR12);
-        env->spr[SPR_BOOKE_IVOR13] = sregs.u.e.ivor_low[13];
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR13, sregs.u.e.ivor_low[13]);
         kvm_sync_excp(env, POWERPC_EXCP_DTLB,  SPR_BOOKE_IVOR13);
-        env->spr[SPR_BOOKE_IVOR14] = sregs.u.e.ivor_low[14];
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR14, sregs.u.e.ivor_low[14]);
         kvm_sync_excp(env, POWERPC_EXCP_ITLB,  SPR_BOOKE_IVOR14);
-        env->spr[SPR_BOOKE_IVOR15] = sregs.u.e.ivor_low[15];
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR15, sregs.u.e.ivor_low[15]);
         kvm_sync_excp(env, POWERPC_EXCP_DEBUG,  SPR_BOOKE_IVOR15);
 
         if (sregs.u.e.features & KVM_SREGS_E_SPE) {
-            env->spr[SPR_BOOKE_IVOR32] = sregs.u.e.ivor_high[0];
+            target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR32, sregs.u.e.ivor_high[0]);
             kvm_sync_excp(env, POWERPC_EXCP_SPEU,  SPR_BOOKE_IVOR32);
-            env->spr[SPR_BOOKE_IVOR33] = sregs.u.e.ivor_high[1];
+            target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR33, sregs.u.e.ivor_high[1]);
             kvm_sync_excp(env, POWERPC_EXCP_EFPDI,  SPR_BOOKE_IVOR33);
-            env->spr[SPR_BOOKE_IVOR34] = sregs.u.e.ivor_high[2];
+            target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR34, sregs.u.e.ivor_high[2]);
             kvm_sync_excp(env, POWERPC_EXCP_EFPRI,  SPR_BOOKE_IVOR34);
         }
 
         if (sregs.u.e.features & KVM_SREGS_E_PM) {
-            env->spr[SPR_BOOKE_IVOR35] = sregs.u.e.ivor_high[3];
+            target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR35, sregs.u.e.ivor_high[3]);
             kvm_sync_excp(env, POWERPC_EXCP_EPERFM,  SPR_BOOKE_IVOR35);
         }
 
         if (sregs.u.e.features & KVM_SREGS_E_PC) {
-            env->spr[SPR_BOOKE_IVOR36] = sregs.u.e.ivor_high[4];
+            target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR36, sregs.u.e.ivor_high[4]);
             kvm_sync_excp(env, POWERPC_EXCP_DOORI,  SPR_BOOKE_IVOR36);
-            env->spr[SPR_BOOKE_IVOR37] = sregs.u.e.ivor_high[5];
+            target_ulong_array_set(&env->spr.rec, SPR_BOOKE_IVOR37, sregs.u.e.ivor_high[5]);
             kvm_sync_excp(env, POWERPC_EXCP_DOORCI, SPR_BOOKE_IVOR37);
         }
     }
 
     if (sregs.u.e.features & KVM_SREGS_E_ARCH206_MMU) {
-        env->spr[SPR_BOOKE_MAS0] = sregs.u.e.mas0;
-        env->spr[SPR_BOOKE_MAS1] = sregs.u.e.mas1;
-        env->spr[SPR_BOOKE_MAS2] = sregs.u.e.mas2;
-        env->spr[SPR_BOOKE_MAS3] = sregs.u.e.mas7_3 & 0xffffffff;
-        env->spr[SPR_BOOKE_MAS4] = sregs.u.e.mas4;
-        env->spr[SPR_BOOKE_MAS6] = sregs.u.e.mas6;
-        env->spr[SPR_BOOKE_MAS7] = sregs.u.e.mas7_3 >> 32;
-        env->spr[SPR_MMUCFG] = sregs.u.e.mmucfg;
-        env->spr[SPR_BOOKE_TLB0CFG] = sregs.u.e.tlbcfg[0];
-        env->spr[SPR_BOOKE_TLB1CFG] = sregs.u.e.tlbcfg[1];
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS0, sregs.u.e.mas0);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS1, sregs.u.e.mas1);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS2, sregs.u.e.mas2);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS3, sregs.u.e.mas7_3 & 0xffffffff);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS4, sregs.u.e.mas4);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS6, sregs.u.e.mas6);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_MAS7, sregs.u.e.mas7_3 >> 32);
+        target_ulong_array_set(&env->spr.rec, SPR_MMUCFG, sregs.u.e.mmucfg);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_TLB0CFG, sregs.u.e.tlbcfg[0]);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_TLB1CFG, sregs.u.e.tlbcfg[1]);
     }
 
     if (sregs.u.e.features & KVM_SREGS_EXP) {
-        env->spr[SPR_BOOKE_EPR] = sregs.u.e.epr;
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_EPR, sregs.u.e.epr);
     }
 
     if (sregs.u.e.features & KVM_SREGS_E_PD) {
-        env->spr[SPR_BOOKE_EPLC] = sregs.u.e.eplc;
-        env->spr[SPR_BOOKE_EPSC] = sregs.u.e.epsc;
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_EPLC, sregs.u.e.eplc);
+        target_ulong_array_set(&env->spr.rec, SPR_BOOKE_EPSC, sregs.u.e.epsc);
     }
 
     if (sregs.u.e.impl_id == KVM_SREGS_E_IMPL_FSL) {
-        env->spr[SPR_E500_SVR] = sregs.u.e.impl.fsl.svr;
-        env->spr[SPR_Exxx_MCAR] = sregs.u.e.impl.fsl.mcar;
-        env->spr[SPR_HID0] = sregs.u.e.impl.fsl.hid0;
+        target_ulong_array_set(&env->spr.rec, SPR_E500_SVR, sregs.u.e.impl.fsl.svr);
+        target_ulong_array_set(&env->spr.rec, SPR_Exxx_MCAR, sregs.u.e.impl.fsl.mcar);
+        target_ulong_array_set(&env->spr.rec, SPR_HID0, sregs.u.e.impl.fsl.hid0);
 
         if (sregs.u.e.impl.fsl.features & KVM_SREGS_E_FSL_PIDn) {
-            env->spr[SPR_BOOKE_PID1] = sregs.u.e.impl.fsl.pid1;
-            env->spr[SPR_BOOKE_PID2] = sregs.u.e.impl.fsl.pid2;
+            target_ulong_array_set(&env->spr.rec, SPR_BOOKE_PID1, sregs.u.e.impl.fsl.pid1);
+            target_ulong_array_set(&env->spr.rec, SPR_BOOKE_PID2, sregs.u.e.impl.fsl.pid2);
         }
     }
 
@@ -1198,7 +1198,7 @@ static int kvmppc_get_books_sregs(PowerPCCPU *cpu)
 
     /* Sync SRs */
     for (i = 0; i < 16; i++) {
-        env->sr[i] = sregs.u.s.ppc32.sr[i];
+        target_ulong_array_set(&env->sr.rec, i, sregs.u.s.ppc32.sr[i]);
     }
 
     /* Sync BATs */
@@ -1228,25 +1228,25 @@ int kvm_arch_get_registers(CPUState *cs, Error **errp)
     env->ctr = regs.ctr;
     env->lr = regs.lr;
     cpu_write_xer(env, regs.xer);
-    env->msr = regs.msr;
-    env->nip = regs.pc;
+    target_ulong_set(&env->msr, regs.msr);
+    target_ulong_set(&env->nip, regs.pc);
 
-    env->spr[SPR_SRR0] = regs.srr0;
-    env->spr[SPR_SRR1] = regs.srr1;
+    target_ulong_array_set(&env->spr.rec, SPR_SRR0, regs.srr0);
+    target_ulong_array_set(&env->spr.rec, SPR_SRR1, regs.srr1);
 
-    env->spr[SPR_SPRG0] = regs.sprg0;
-    env->spr[SPR_SPRG1] = regs.sprg1;
-    env->spr[SPR_SPRG2] = regs.sprg2;
-    env->spr[SPR_SPRG3] = regs.sprg3;
-    env->spr[SPR_SPRG4] = regs.sprg4;
-    env->spr[SPR_SPRG5] = regs.sprg5;
-    env->spr[SPR_SPRG6] = regs.sprg6;
-    env->spr[SPR_SPRG7] = regs.sprg7;
+    target_ulong_array_set(&env->spr.rec, SPR_SPRG0, regs.sprg0);
+    target_ulong_array_set(&env->spr.rec, SPR_SPRG1, regs.sprg1);
+    target_ulong_array_set(&env->spr.rec, SPR_SPRG2, regs.sprg2);
+    target_ulong_array_set(&env->spr.rec, SPR_SPRG3, regs.sprg3);
+    target_ulong_array_set(&env->spr.rec, SPR_SPRG4, regs.sprg4);
+    target_ulong_array_set(&env->spr.rec, SPR_SPRG5, regs.sprg5);
+    target_ulong_array_set(&env->spr.rec, SPR_SPRG6, regs.sprg6);
+    target_ulong_array_set(&env->spr.rec, SPR_SPRG7, regs.sprg7);
 
-    env->spr[SPR_BOOKE_PID] = regs.pid;
+    target_ulong_array_set(&env->spr.rec, SPR_BOOKE_PID, regs.pid);
 
     for (i = 0; i < 32; i++) {
-        env->gpr[i] = regs.gpr[i];
+        target_ulong_array_set(&env->gpr.rec, i, regs.gpr[i]);
     }
 
     kvm_get_fp(cs);
@@ -1285,9 +1285,9 @@ int kvm_arch_get_registers(CPUState *cs, Error **errp)
         }
 
 #ifdef TARGET_PPC64
-        if (FIELD_EX64(env->msr, MSR, TS)) {
-            for (i = 0; i < ARRAY_SIZE(env->tm_gpr); i++) {
-                kvm_get_one_reg(cs, KVM_REG_PPC_TM_GPR(i), &env->tm_gpr[i]);
+        if (FIELD_EX64(target_ulong_val(&env->msr), MSR, TS)) {
+            for (i = 0; i < ARRAY_SIZE(env->tm_gpr.u64); i++) {
+                kvm_get_one_reg(cs, KVM_REG_PPC_TM_GPR(i), target_ulong_array_elem(&env->tm_gpr.rec, i));
             }
             for (i = 0; i < ARRAY_SIZE(env->tm_vsr); i++) {
                 kvm_get_one_reg(cs, KVM_REG_PPC_TM_VSR(i), &env->tm_vsr[i]);
@@ -1355,7 +1355,7 @@ static int kvmppc_handle_halt(PowerPCCPU *cpu)
     CPUPPCState *env = &cpu->env;
 
     if (!cpu_test_interrupt(cs, CPU_INTERRUPT_HARD) &&
-        FIELD_EX64(env->msr, MSR, EE)) {
+        FIELD_EX64(target_ulong_val(&env->msr), MSR, EE)) {
         cs->halted = 1;
         cs->exception_index = EXCP_HLT;
     }
@@ -1650,10 +1650,10 @@ static int kvm_handle_debug(PowerPCCPU *cpu, struct kvm_run *run)
      */
     cpu_synchronize_state(cs);
     /*
-     * env->nip is PC, so increment this by 4 to use
-     * ppc_cpu_do_interrupt(), which set srr0 = env->nip - 4.
+     * target_ulong_val(&env->nip) is PC, so increment this by 4 to use
+     * ppc_cpu_do_interrupt(), which set srr0 = target_ulong_val(&env->nip) - 4.
      */
-    env->nip += 4;
+    target_ulong_set(&env->nip, target_ulong_val(&env->nip) + 4);
     cs->exception_index = POWERPC_EXCP_PROGRAM;
     env->error_code = POWERPC_EXCP_INVAL;
     ppc_cpu_do_interrupt(cs);
@@ -1767,7 +1767,7 @@ int kvmppc_set_tcr(PowerPCCPU *cpu)
 {
     CPUState *cs = CPU(cpu);
     CPUPPCState *env = &cpu->env;
-    uint32_t tcr = env->spr[SPR_BOOKE_TCR];
+    uint32_t tcr = target_ulong_array_val(&env->spr.rec, SPR_BOOKE_TCR);
 
     struct kvm_one_reg reg = {
         .id = KVM_REG_PPC_TCR,

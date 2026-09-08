@@ -566,7 +566,7 @@ static void cap_large_decr_cpu_apply(SpaprMachineState *spapr,
 {
     ERRP_GUARD();
     CPUPPCState *env = &cpu->env;
-    target_ulong lpcr = env->spr[SPR_LPCR];
+    target_ulong lpcr = target_ulong_array_val(&env->spr.rec, SPR_LPCR);
 
     if (kvm_enabled()) {
         if (kvmppc_enable_cap_large_decr(cpu, val)) {

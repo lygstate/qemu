@@ -87,10 +87,10 @@ static uint64_t mpc8544_guts_read(void *opaque, hwaddr addr,
         value = FIELD_DP32(value, GUTS_PORPLLSR, PLAT_RATIO, 6); /* 6:1 */
         break;
     case MPC8544_GUTS_ADDR_PVR:
-        value = env->spr[SPR_PVR];
+        value = target_ulong_array_val(&env->spr.rec, SPR_PVR);
         break;
     case MPC8544_GUTS_ADDR_SVR:
-        value = env->spr[SPR_E500_SVR];
+        value = target_ulong_array_val(&env->spr.rec, SPR_E500_SVR);
         break;
     default:
         qemu_log_mask(LOG_GUEST_ERROR,

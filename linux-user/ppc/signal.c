@@ -254,7 +254,7 @@ static target_ulong get_sigframe(struct target_sigaction *ka,
 
 static void save_user_regs(CPUPPCState *env, struct target_mcontext *frame)
 {
-    target_ulong msr = env->msr;
+    target_ulong msr = target_ulong_val(&env->msr);
     int i;
     uint32_t ccr = 0;
 
@@ -263,10 +263,10 @@ static void save_user_regs(CPUPPCState *env, struct target_mcontext *frame)
        much, so we just go ahead and save everything.  */
 
     /* Save general registers.  */
-    for (i = 0; i < ARRAY_SIZE(env->gpr); i++) {
-        __put_user(env->gpr[i], &frame->mc_gregs[i]);
+    for (i = 0; i < ARRAY_SIZE(env->gpr.u64); i++) {
+        __put_user(target_ulong_array_val(&env->gpr.rec, i), &frame->mc_gregs[i]);
     }
-    __put_user(env->nip, &frame->mc_gregs[TARGET_PT_NIP]);
+    __put_user(target_ulong_val(&env->nip), &frame->mc_gregs[TARGET_PT_NIP]);
     __put_user(env->ctr, &frame->mc_gregs[TARGET_PT_CTR]);
     __put_user(env->lr, &frame->mc_gregs[TARGET_PT_LNK]);
     __put_user(cpu_read_xer(env), &frame->mc_gregs[TARGET_PT_XER]);
@@ -291,7 +291,7 @@ static void save_user_regs(CPUPPCState *env, struct target_mcontext *frame)
 #else
         vrsave = (uint32_t *)&frame->mc_vregs.altivec[32];
 #endif
-        __put_user((uint32_t)env->spr[SPR_VRSAVE], vrsave);
+        __put_user((uint32_t)target_ulong_array_val(&env->spr.rec, SPR_VRSAVE), vrsave);
     }
 
 #if defined(TARGET_PPC64)
@@ -311,14 +311,14 @@ static void save_user_regs(CPUPPCState *env, struct target_mcontext *frame)
             uint64_t *fpr = cpu_fpr_ptr(env, i);
             __put_user(*fpr, &frame->mc_fregs[i]);
         }
-        __put_user((uint64_t) env->fpscr, &frame->mc_fregs[32]);
+        __put_user((uint64_t) target_ulong_val(&env->fpscr), &frame->mc_fregs[32]);
     }
 
 #if !defined(TARGET_PPC64)
     /* Save SPE registers.  The kernel only saves the high half.  */
     if (env->insns_flags & PPC_SPE) {
-        for (i = 0; i < ARRAY_SIZE(env->gprh); i++) {
-            __put_user(env->gprh[i], &frame->mc_vregs.spe[i]);
+        for (i = 0; i < ARRAY_SIZE(env->gprh.u64); i++) {
+            __put_user(target_ulong_array_val(&env->gprh.rec, i), &frame->mc_vregs.spe[i]);
         }
         __put_user(env->spe_fscr, &frame->mc_vregs.spe[32]);
     }
@@ -346,14 +346,18 @@ static void restore_user_regs(CPUPPCState *env,
     int i;
 
     if (!sig) {
-        save_r2 = env->gpr[2];
+        save_r2 = target_ulong_array_val(&env->gpr.rec, 2);
     }
 
     /* Restore general registers.  */
-    for (i = 0; i < ARRAY_SIZE(env->gpr); i++) {
-        __get_user(env->gpr[i], &frame->mc_gregs[i]);
+    for (i = 0; i < ARRAY_SIZE(env->gpr.u64); i++) {
+        __get_user(*(target_ulong *)target_ulong_array_elem(&env->gpr.rec, i), &frame->mc_gregs[i]);
     }
-    __get_user(env->nip, &frame->mc_gregs[TARGET_PT_NIP]);
+    {
+        target_ulong tmp_nip;
+        __get_user(tmp_nip, &frame->mc_gregs[TARGET_PT_NIP]);
+        target_ulong_set(&env->nip, tmp_nip);
+    }
     __get_user(env->ctr, &frame->mc_gregs[TARGET_PT_CTR]);
     __get_user(env->lr, &frame->mc_gregs[TARGET_PT_LNK]);
 
@@ -363,14 +367,14 @@ static void restore_user_regs(CPUPPCState *env,
     __get_user(ccr, &frame->mc_gregs[TARGET_PT_CCR]);
     ppc_set_cr(env, ccr);
     if (!sig) {
-        env->gpr[2] = save_r2;
+        target_ulong_array_set(&env->gpr.rec, 2, save_r2);
     }
     /* Restore MSR.  */
     __get_user(msr, &frame->mc_gregs[TARGET_PT_MSR]);
 
     /* If doing signal return, restore the previous little-endian mode.  */
     if (sig) {
-        ppc_store_msr(env, ((env->msr & ~(1ull << MSR_LE)) |
+        ppc_store_msr(env, ((target_ulong_val(&env->msr) & ~(1ull << MSR_LE)) |
                             (msr & (1ull << MSR_LE))));
     }
 
@@ -398,7 +402,7 @@ static void restore_user_regs(CPUPPCState *env,
 #else
         vrsave = (uint32_t *)&v_regs[32];
 #endif
-        __get_user(env->spr[SPR_VRSAVE], vrsave);
+        __get_user(*(target_ulong *)target_ulong_array_elem(&env->spr.rec, SPR_VRSAVE), vrsave);
     }
 
 #if defined(TARGET_PPC64)
@@ -426,8 +430,8 @@ static void restore_user_regs(CPUPPCState *env,
 #if !defined(TARGET_PPC64)
     /* Save SPE registers.  The kernel only saves the high half.  */
     if (env->insns_flags & PPC_SPE) {
-        for (i = 0; i < ARRAY_SIZE(env->gprh); i++) {
-            __get_user(env->gprh[i], &frame->mc_vregs.spe[i]);
+        for (i = 0; i < ARRAY_SIZE(env->gprh.u64); i++) {
+            __get_user(*(target_ulong *)target_ulong_array_elem(&env->gprh.rec, i), &frame->mc_vregs.spe[i]);
         }
         __get_user(env->spe_fscr, &frame->mc_vregs.spe[32]);
     }
@@ -461,24 +465,24 @@ void setup_frame(int sig, struct target_sigaction *ka,
     env->lr = default_sigreturn;
 
     /* Turn off all fp exceptions.  */
-    env->fpscr = 0;
+    target_ulong_set(&env->fpscr, 0);
 
     /* Create a stack frame for the caller of the handler.  */
     newsp = frame_addr - SIGNAL_FRAMESIZE;
-    err |= put_user(env->gpr[1], newsp, target_ulong);
+    err |= put_user(target_ulong_array_val(&env->gpr.rec, 1), newsp, target_ulong);
 
     if (err)
         goto sigsegv;
 
     /* Set up registers for signal handler.  */
-    env->gpr[1] = newsp;
-    env->gpr[3] = sig;
-    env->gpr[4] = frame_addr + offsetof(struct target_sigframe, sctx);
+    target_ulong_array_set(&env->gpr.rec, 1, newsp);
+    target_ulong_array_set(&env->gpr.rec, 3, sig);
+    target_ulong_array_set(&env->gpr.rec, 4, frame_addr + offsetof(struct target_sigframe, sctx));
 
-    env->nip = (target_ulong) ka->_sa_handler;
+    target_ulong_set(&env->nip, (target_ulong) ka->_sa_handler);
 
     /* Signal handlers are entered in big-endian mode.  */
-    ppc_store_msr(env, env->msr & ~(1ull << MSR_LE));
+    ppc_store_msr(env, target_ulong_val(&env->msr) & ~(1ull << MSR_LE));
 
     unlock_user_struct(frame, frame_addr, 1);
     return;
@@ -534,43 +538,43 @@ void setup_rt_frame(int sig, struct target_sigaction *ka,
     env->lr = default_rt_sigreturn;
 
     /* Turn off all fp exceptions.  */
-    env->fpscr = 0;
+    target_ulong_set(&env->fpscr, 0);
 
     /* Create a stack frame for the caller of the handler.  */
     newsp = rt_sf_addr - (SIGNAL_FRAMESIZE + RT_SIGFRAME_ADJUST);
-    err |= put_user(env->gpr[1], newsp, target_ulong);
+    err |= put_user(target_ulong_array_val(&env->gpr.rec, 1), newsp, target_ulong);
 
     if (err)
         goto sigsegv;
 
     /* Set up registers for signal handler.  */
-    env->gpr[1] = newsp;
-    env->gpr[3] = (target_ulong) sig;
-    env->gpr[4] = (target_ulong) h2g(&rt_sf->info);
-    env->gpr[5] = (target_ulong) h2g(&rt_sf->uc);
-    env->gpr[6] = (target_ulong) h2g(rt_sf);
+    target_ulong_array_set(&env->gpr.rec, 1, newsp);
+    target_ulong_array_set(&env->gpr.rec, 3, (target_ulong) sig);
+    target_ulong_array_set(&env->gpr.rec, 4, (target_ulong) h2g(&rt_sf->info));
+    target_ulong_array_set(&env->gpr.rec, 5, (target_ulong) h2g(&rt_sf->uc));
+    target_ulong_array_set(&env->gpr.rec, 6, (target_ulong) h2g(rt_sf));
 
 #if defined(TARGET_PPC64)
     if (get_ppc64_abi(image) < 2) {
         /* ELFv1 PPC64 function pointers are pointers to OPD entries. */
         struct target_func_ptr *handler =
             (struct target_func_ptr *)g2h(env_cpu(env), ka->_sa_handler);
-        env->nip = tswapl(handler->entry);
-        env->gpr[2] = tswapl(handler->toc);
+        target_ulong_set(&env->nip, tswapl(handler->entry));
+        target_ulong_array_set(&env->gpr.rec, 2, tswapl(handler->toc));
     } else {
         /* ELFv2 PPC64 function pointers are entry points. R12 must also be set. */
-        env->gpr[12] = env->nip = ka->_sa_handler;
+        target_ulong_array_set(&env->gpr.rec, 12, target_ulong_set(&env->nip, ka->_sa_handler));
     }
 #else
-    env->nip = (target_ulong) ka->_sa_handler;
+    target_ulong_set(&env->nip, (target_ulong) ka->_sa_handler);
 #endif
 
 #if TARGET_BIG_ENDIAN
     /* Signal handlers are entered in big-endian mode.  */
-    ppc_store_msr(env, env->msr & ~(1ull << MSR_LE));
+    ppc_store_msr(env, target_ulong_val(&env->msr) & ~(1ull << MSR_LE));
 #else
     /* Signal handlers are entered in little-endian mode.  */
-    ppc_store_msr(env, env->msr | (1ull << MSR_LE));
+    ppc_store_msr(env, target_ulong_val(&env->msr) | (1ull << MSR_LE));
 #endif
 
     unlock_user_struct(rt_sf, rt_sf_addr, 1);
@@ -591,7 +595,7 @@ long do_sigreturn(CPUPPCState *env)
     sigset_t blocked;
     target_sigset_t set;
 
-    sc_addr = env->gpr[1] + SIGNAL_FRAMESIZE;
+    sc_addr = target_ulong_array_val(&env->gpr.rec, 1) + SIGNAL_FRAMESIZE;
     if (!lock_user_struct(VERIFY_READ, sc, sc_addr, 1))
         goto sigsegv;
 
@@ -653,7 +657,7 @@ long do_rt_sigreturn(CPUPPCState *env)
     struct target_rt_sigframe *rt_sf = NULL;
     target_ulong rt_sf_addr;
 
-    rt_sf_addr = env->gpr[1] + SIGNAL_FRAMESIZE + RT_SIGFRAME_ADJUST;
+    rt_sf_addr = target_ulong_array_val(&env->gpr.rec, 1) + SIGNAL_FRAMESIZE + RT_SIGFRAME_ADJUST;
     if (!lock_user_struct(VERIFY_READ, rt_sf, rt_sf_addr, 1))
         goto sigsegv;
 

@@ -327,7 +327,7 @@ static int ppc_find_slb_vsid(PowerPCCPU *cpu, target_ulong rb,
     CPUPPCState *env = &cpu->env;
     ppc_slb_t *slb;
 
-    if (!msr_is_64bit(env, env->msr)) {
+    if (!msr_is_64bit(env, target_ulong_val(&env->msr))) {
         rb &= 0xffffffff;
     }
     slb = slb_lookup(cpu, rb);
@@ -447,7 +447,7 @@ static int ppc_hash64_pte_prot(int mmu_idx,
 static int ppc_hash64_iamr_prot(PowerPCCPU *cpu, int key)
 {
     CPUPPCState *env = &cpu->env;
-    int iamr_bits = (env->spr[SPR_IAMR] >> 2 * (31 - key)) & 0x3;
+    int iamr_bits = (target_ulong_array_val(&env->spr.rec, SPR_IAMR) >> 2 * (31 - key)) & 0x3;
 
     /*
      * An instruction fetch is permitted if the IAMR bit is 0.
@@ -472,10 +472,10 @@ static int ppc_hash64_amr_prot(PowerPCCPU *cpu, ppc_hash_pte64_t pte)
     }
 
     key = HPTE64_R_KEY(pte.pte1);
-    amrbits = (env->spr[SPR_AMR] >> 2 * (31 - key)) & 0x3;
+    amrbits = (target_ulong_array_val(&env->spr.rec, SPR_AMR) >> 2 * (31 - key)) & 0x3;
 
     /* fprintf(stderr, "AMR protection: key=%d AMR=0x%" PRIx64 "\n", key, */
-    /*         env->spr[SPR_AMR]); */
+    /*         target_ulong_array_val(&env->spr.rec, SPR_AMR)); */
 
     /*
      * A store is permitted if the AMR bit is 0. Remove write
@@ -520,12 +520,12 @@ static hwaddr ppc_hash64_hpt_base(PowerPCCPU *cpu)
     if (cpu->env.mmu_model == POWERPC_MMU_3_00) {
         ppc_v3_pate_t pate;
 
-        if (!ppc64_v3_get_pate(cpu, cpu->env.spr[SPR_LPIDR], &pate)) {
+        if (!ppc64_v3_get_pate(cpu, target_ulong_array_val(&cpu->env.spr.rec, SPR_LPIDR), &pate)) {
             return 0;
         }
         base = pate.dw0;
     } else {
-        base = cpu->env.spr[SPR_SDR1];
+        base = target_ulong_array_val(&cpu->env.spr.rec, SPR_SDR1);
     }
     return base & SDR_64_HTABORG;
 }
@@ -540,12 +540,12 @@ static hwaddr ppc_hash64_hpt_mask(PowerPCCPU *cpu)
     if (cpu->env.mmu_model == POWERPC_MMU_3_00) {
         ppc_v3_pate_t pate;
 
-        if (!ppc64_v3_get_pate(cpu, cpu->env.spr[SPR_LPIDR], &pate)) {
+        if (!ppc64_v3_get_pate(cpu, target_ulong_array_val(&cpu->env.spr.rec, SPR_LPIDR), &pate)) {
             return 0;
         }
         base = pate.dw0;
     } else {
-        base = cpu->env.spr[SPR_SDR1];
+        base = target_ulong_array_val(&cpu->env.spr.rec, SPR_SDR1);
     }
     return (1ULL << ((base & SDR_64_HTABSIZE) + 18 - 7)) - 1;
 }
@@ -721,7 +721,7 @@ static hwaddr ppc_hash64_htab_lookup(PowerPCCPU *cpu,
     assert(sps);
 
     /* If ISL is set in LPCR we need to clamp the page size to 4K */
-    if (env->spr[SPR_LPCR] & LPCR_ISL) {
+    if (target_ulong_array_val(&env->spr.rec, SPR_LPCR) & LPCR_ISL) {
         /* We assume that when using TCG, 4k is first entry of SPS */
         sps = &cpu->hash64_opts->sps[0];
         assert(sps->page_shift == 12);
@@ -814,7 +814,7 @@ static bool ppc_hash64_use_vrma(CPUPPCState *env)
         return true;
 
     default:
-        return !!(env->spr[SPR_LPCR] & LPCR_VPM0);
+        return !!(target_ulong_array_val(&env->spr.rec, SPR_LPCR) & LPCR_VPM0);
     }
 }
 
@@ -825,13 +825,13 @@ static void ppc_hash64_set_isi(CPUState *cs, int mmu_idx, uint64_t slb_vsid,
     bool vpm;
 
     if (!mmuidx_real(mmu_idx)) {
-        vpm = !!(env->spr[SPR_LPCR] & LPCR_VPM1);
+        vpm = !!(target_ulong_array_val(&env->spr.rec, SPR_LPCR) & LPCR_VPM1);
     } else {
         vpm = ppc_hash64_use_vrma(env);
     }
     if (vpm && !mmuidx_hv(mmu_idx)) {
         cs->exception_index = POWERPC_EXCP_HISI;
-        env->spr[SPR_ASDR] = slb_vsid;
+        target_ulong_array_set(&env->spr.rec, SPR_ASDR, slb_vsid);
     } else {
         cs->exception_index = POWERPC_EXCP_ISI;
     }
@@ -845,19 +845,19 @@ static void ppc_hash64_set_dsi(CPUState *cs, int mmu_idx, uint64_t slb_vsid,
     bool vpm;
 
     if (!mmuidx_real(mmu_idx)) {
-        vpm = !!(env->spr[SPR_LPCR] & LPCR_VPM1);
+        vpm = !!(target_ulong_array_val(&env->spr.rec, SPR_LPCR) & LPCR_VPM1);
     } else {
         vpm = ppc_hash64_use_vrma(env);
     }
     if (vpm && !mmuidx_hv(mmu_idx)) {
         cs->exception_index = POWERPC_EXCP_HDSI;
-        env->spr[SPR_HDAR] = dar;
-        env->spr[SPR_HDSISR] = dsisr;
-        env->spr[SPR_ASDR] = slb_vsid;
+        target_ulong_array_set(&env->spr.rec, SPR_HDAR, dar);
+        target_ulong_array_set(&env->spr.rec, SPR_HDSISR, dsisr);
+        target_ulong_array_set(&env->spr.rec, SPR_ASDR, slb_vsid);
     } else {
         cs->exception_index = POWERPC_EXCP_DSI;
-        env->spr[SPR_DAR] = dar;
-        env->spr[SPR_DSISR] = dsisr;
+        target_ulong_array_set(&env->spr.rec, SPR_DAR, dar);
+        target_ulong_array_set(&env->spr.rec, SPR_DSISR, dsisr);
    }
     env->error_code = 0;
 }
@@ -913,7 +913,7 @@ static target_ulong rmls_limit(PowerPCCPU *cpu)
         [7] = 128 * MiB,
         [8] = 32 * MiB,
     };
-    target_ulong rmls = (env->spr[SPR_LPCR] & LPCR_RMLS) >> LPCR_RMLS_SHIFT;
+    target_ulong rmls = (target_ulong_array_val(&env->spr.rec, SPR_LPCR) & LPCR_RMLS) >> LPCR_RMLS_SHIFT;
 
     return rma_sizes[rmls];
 }
@@ -933,7 +933,7 @@ static uint64_t get_vrma_llp(PowerPCCPU *cpu)
          * page size (L||LP equivalent) in the PS field in the HPT partition
          * table entry.
          */
-        if (!ppc64_v3_get_pate(cpu, cpu->env.spr[SPR_LPIDR], &pate)) {
+        if (!ppc64_v3_get_pate(cpu, target_ulong_array_val(&cpu->env.spr.rec, SPR_LPIDR), &pate)) {
             error_report("Bad VRMA with no partition table entry");
             return 0;
         }
@@ -944,7 +944,7 @@ static uint64_t get_vrma_llp(PowerPCCPU *cpu)
         llp = (l << SLB_VSID_L_SHIFT) | (lp << SLB_VSID_LP_SHIFT);
 
     } else {
-        uint64_t lpcr = env->spr[SPR_LPCR];
+        uint64_t lpcr = target_ulong_array_val(&env->spr.rec, SPR_LPCR);
         target_ulong vrmasd = (lpcr & LPCR_VRMASD) >> LPCR_VRMASD_SHIFT;
 
         /* VRMASD LLP matches SLB format, just shift and mask it */
@@ -998,7 +998,7 @@ bool ppc_hash64_xlate(PowerPCCPU *cpu, vaddr eaddr, MMUAccessType access_type,
 
     /*
      * Note on LPCR usage: 970 uses HID4, but our special variant of
-     * store_spr copies relevant fields into env->spr[SPR_LPCR].
+     * store_spr copies relevant fields into target_ulong_array_val(&env->spr.rec, SPR_LPCR).
      * Similarly we filter unimplemented bits when storing into LPCR
      * depending on the MMU version. This code can thus just use the
      * LPCR "as-is".
@@ -1020,7 +1020,7 @@ bool ppc_hash64_xlate(PowerPCCPU *cpu, vaddr eaddr, MMUAccessType access_type,
         } else if (mmuidx_hv(mmu_idx) || !env->has_hv_mode) {
             /* In HV mode, add HRMOR if top EA bit is clear */
             if (!(eaddr >> 63)) {
-                raddr |= env->spr[SPR_HRMOR];
+                raddr |= target_ulong_array_val(&env->spr.rec, SPR_HRMOR);
             }
         } else if (ppc_hash64_use_vrma(env)) {
             /* Emulated VRMA mode */
@@ -1061,7 +1061,7 @@ bool ppc_hash64_xlate(PowerPCCPU *cpu, vaddr eaddr, MMUAccessType access_type,
                 return false;
             }
 
-            raddr |= env->spr[SPR_RMOR];
+            raddr |= target_ulong_array_val(&env->spr.rec, SPR_RMOR);
         }
 
         *raddrp = raddr;
@@ -1092,7 +1092,7 @@ bool ppc_hash64_xlate(PowerPCCPU *cpu, vaddr eaddr, MMUAccessType access_type,
         case MMU_DATA_STORE:
             cs->exception_index = POWERPC_EXCP_DSEG;
             env->error_code = 0;
-            env->spr[SPR_DAR] = eaddr;
+            target_ulong_array_set(&env->spr.rec, SPR_DAR, eaddr);
             break;
         default:
             g_assert_not_reached();

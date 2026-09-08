@@ -113,16 +113,16 @@ static void main_cpu_reset(void *opaque)
        *   r8: 0
        *   r9: 0
     */
-    env->gpr[1] = (16 * MiB) - 8;
+    target_ulong_array_set(&env->gpr.rec, 1, (16 * MiB) - 8);
     /* Provide a device-tree.  */
-    env->gpr[3] = bi->fdt;
-    env->nip = bi->bootstrap_pc;
+    target_ulong_array_set(&env->gpr.rec, 3, bi->fdt);
+    target_ulong_set(&env->nip, bi->bootstrap_pc);
 
     /* Create a mapping spanning the 32bit addr space. */
     booke_set_tlb(&env->tlb.tlbe[0], 0, 0, 1U << 31);
     booke_set_tlb(&env->tlb.tlbe[1], 0x80000000, 0x80000000, 1U << 31);
-    env->gpr[6] = EPAPR_MAGIC;
-    env->gpr[7] = bi->ima_size;
+    target_ulong_array_set(&env->gpr.rec, 6, EPAPR_MAGIC);
+    target_ulong_array_set(&env->gpr.rec, 7, bi->ima_size);
 }
 
 #define BINARY_DEVICE_TREE_FILE "virtex-ml507.dtb"

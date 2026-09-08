@@ -95,12 +95,12 @@ static void pegasos_cpu_reset(void *opaque)
     PegasosMachineState *pm = PEGASOS_MACHINE(current_machine);
 
     cpu_reset(CPU(cpu));
-    cpu->env.spr[SPR_HID1] = 7ULL << 28;
+    target_ulong_array_set(&cpu->env.spr.rec, SPR_HID1, 7ULL << 28);
     if (pm->vof) {
-        cpu->env.gpr[1] = 2 * VOF_STACK_SIZE - 0x20;
-        cpu->env.nip = 0x100;
+        target_ulong_array_set(&cpu->env.gpr.rec, 1, 2 * VOF_STACK_SIZE - 0x20);
+        target_ulong_set(&cpu->env.nip, 0x100);
     } else if (pm->type == PEGASOS1) {
-        cpu->env.nip = 0xfffc0100;
+        target_ulong_set(&cpu->env.nip, 0xfffc0100);
     }
     cpu_ppc_tb_reset(&cpu->env);
 }
@@ -701,19 +701,19 @@ static void pegasos_hypercall(PPCVirtualHypervisor *vhyp, PowerPCCPU *cpu)
     /* The TCG path should also be holding the BQL at this point */
     g_assert(bql_locked());
 
-    if (FIELD_EX64(env->msr, MSR, PR)) {
+    if (FIELD_EX64(target_ulong_val(&env->msr), MSR, PR)) {
         qemu_log_mask(LOG_GUEST_ERROR, "Hypercall made with MSR[PR]=1\n");
-        env->gpr[3] = H_PRIVILEGE;
-    } else if (env->gpr[3] == KVMPPC_H_RTAS && pm->type == PEGASOS2) {
-        env->gpr[3] = pegasos2_rtas(cpu, pm, env->gpr[4]);
-    } else if (env->gpr[3] == KVMPPC_H_VOF_CLIENT) {
+        target_ulong_array_set(&env->gpr.rec, 3, H_PRIVILEGE);
+    } else if (target_ulong_array_val(&env->gpr.rec, 3) == KVMPPC_H_RTAS && pm->type == PEGASOS2) {
+        target_ulong_array_set(&env->gpr.rec, 3, pegasos2_rtas(cpu, pm, target_ulong_array_val(&env->gpr.rec, 4)));
+    } else if (target_ulong_array_val(&env->gpr.rec, 3) == KVMPPC_H_VOF_CLIENT) {
         int ret = vof_client_call(MACHINE(pm), pm->vof, MACHINE(pm)->fdt,
-                                  env->gpr[4]);
-        env->gpr[3] = (ret ? H_PARAMETER : H_SUCCESS);
+                                  target_ulong_array_val(&env->gpr.rec, 4));
+        target_ulong_array_set(&env->gpr.rec, 3, (ret ? H_PARAMETER : H_SUCCESS));
     } else {
-        qemu_log_mask(LOG_GUEST_ERROR, "Unsupported hypercall " TARGET_FMT_lx
-                      "\n", env->gpr[3]);
-        env->gpr[3] = -1;
+        qemu_log_mask(LOG_GUEST_ERROR, "Unsupported hypercall " "%016" PRIx64
+                      "\n", target_ulong_array_val(&env->gpr.rec, 3));
+        target_ulong_array_set(&env->gpr.rec, 3, -1);
     }
 }
 
@@ -723,7 +723,7 @@ static void vhyp_nop(PPCVirtualHypervisor *vhyp, PowerPCCPU *cpu)
 
 static target_ulong vhyp_encode_hpt_for_kvm_pr(PPCVirtualHypervisor *vhyp)
 {
-    return POWERPC_CPU(current_cpu)->env.spr[SPR_SDR1];
+    return target_ulong_array_val(&POWERPC_CPU(current_cpu)->env.spr.rec, SPR_SDR1);
 }
 
 static bool pegasos_setprop(MachineState *ms, const char *path,
@@ -988,7 +988,7 @@ static void add_cpu_info(void *fdt, PowerPCCPU *cpu, int bus_freq)
                           cpu->env.tb_env->tb_freq);
     qemu_fdt_setprop_cell(fdt, cp, "bus-frequency", bus_freq);
     qemu_fdt_setprop_cell(fdt, cp, "clock-frequency", bus_freq * 7.5);
-    qemu_fdt_setprop_cell(fdt, cp, "cpu-version", cpu->env.spr[SPR_PVR]);
+    qemu_fdt_setprop_cell(fdt, cp, "cpu-version", target_ulong_array_val(&cpu->env.spr.rec, SPR_PVR));
     cells[0] = 0;
     cells[1] = 0;
     qemu_fdt_setprop(fdt, cp, "reg", cells, 2 * sizeof(cells[0]));

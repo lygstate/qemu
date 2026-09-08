@@ -186,7 +186,7 @@ static void do_store_cpu_regs(CPUState *cpu, MpiplPreservedCPUState *state)
 
     cpu_synchronize_state(cpu);
 
-    regs_hdr->pir = cpu_to_be32(env->spr[SPR_PIR]);
+    regs_hdr->pir = cpu_to_be32(target_ulong_array_val(&env->spr.rec, SPR_PIR));
 
     /* QEMU CPUs are not in Power Saving Mode */
     regs_hdr->core_state = 0xff;
@@ -223,46 +223,46 @@ static void do_store_cpu_regs(CPUState *cpu, MpiplPreservedCPUState *state)
 
     /* Save the GPRs */
     for (int gpr_id = 0; gpr_id < 32; ++gpr_id) {
-        REG_ENTRY(REG_TYPE_GPR, gpr_id, env->gpr[gpr_id]);
+        REG_ENTRY(REG_TYPE_GPR, gpr_id, target_ulong_array_val(&env->gpr.rec, gpr_id));
     }
 
-    REG_ENTRY(REG_TYPE_SPR, SPR_ACOP, env->spr[SPR_ACOP]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_AMR, env->spr[SPR_AMR]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_BESCR, env->spr[SPR_BESCR]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_CFAR, env->spr[SPR_CFAR]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_CIABR, env->spr[SPR_CIABR]);
+    REG_ENTRY(REG_TYPE_SPR, SPR_ACOP, target_ulong_array_val(&env->spr.rec, SPR_ACOP));
+    REG_ENTRY(REG_TYPE_SPR, SPR_AMR, target_ulong_array_val(&env->spr.rec, SPR_AMR));
+    REG_ENTRY(REG_TYPE_SPR, SPR_BESCR, target_ulong_array_val(&env->spr.rec, SPR_BESCR));
+    REG_ENTRY(REG_TYPE_SPR, SPR_CFAR, target_ulong_array_val(&env->spr.rec, SPR_CFAR));
+    REG_ENTRY(REG_TYPE_SPR, SPR_CIABR, target_ulong_array_val(&env->spr.rec, SPR_CIABR));
 
-    REG_ENTRY(REG_TYPE_SPR, SPR_CTR, env->spr[SPR_CTR]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_CTRL, env->spr[SPR_CTRL]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_DABR, env->spr[SPR_DABR]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_DABRX, env->spr[SPR_DABRX]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_DAR, env->spr[SPR_DAR]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_DAWR0, env->spr[SPR_DAWR0]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_DAWR1, env->spr[SPR_DAWR1]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_DAWRX0, env->spr[SPR_DAWRX0]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_DAWRX1, env->spr[SPR_DAWRX1]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_DPDES, env->spr[SPR_DPDES]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_DSCR, env->spr[SPR_DSCR]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_DSISR, env->spr[SPR_DSISR]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_EBBHR, env->spr[SPR_EBBHR]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_EBBRR, env->spr[SPR_EBBRR]);
+    REG_ENTRY(REG_TYPE_SPR, SPR_CTR, target_ulong_array_val(&env->spr.rec, SPR_CTR));
+    REG_ENTRY(REG_TYPE_SPR, SPR_CTRL, target_ulong_array_val(&env->spr.rec, SPR_CTRL));
+    REG_ENTRY(REG_TYPE_SPR, SPR_DABR, target_ulong_array_val(&env->spr.rec, SPR_DABR));
+    REG_ENTRY(REG_TYPE_SPR, SPR_DABRX, target_ulong_array_val(&env->spr.rec, SPR_DABRX));
+    REG_ENTRY(REG_TYPE_SPR, SPR_DAR, target_ulong_array_val(&env->spr.rec, SPR_DAR));
+    REG_ENTRY(REG_TYPE_SPR, SPR_DAWR0, target_ulong_array_val(&env->spr.rec, SPR_DAWR0));
+    REG_ENTRY(REG_TYPE_SPR, SPR_DAWR1, target_ulong_array_val(&env->spr.rec, SPR_DAWR1));
+    REG_ENTRY(REG_TYPE_SPR, SPR_DAWRX0, target_ulong_array_val(&env->spr.rec, SPR_DAWRX0));
+    REG_ENTRY(REG_TYPE_SPR, SPR_DAWRX1, target_ulong_array_val(&env->spr.rec, SPR_DAWRX1));
+    REG_ENTRY(REG_TYPE_SPR, SPR_DPDES, target_ulong_array_val(&env->spr.rec, SPR_DPDES));
+    REG_ENTRY(REG_TYPE_SPR, SPR_DSCR, target_ulong_array_val(&env->spr.rec, SPR_DSCR));
+    REG_ENTRY(REG_TYPE_SPR, SPR_DSISR, target_ulong_array_val(&env->spr.rec, SPR_DSISR));
+    REG_ENTRY(REG_TYPE_SPR, SPR_EBBHR, target_ulong_array_val(&env->spr.rec, SPR_EBBHR));
+    REG_ENTRY(REG_TYPE_SPR, SPR_EBBRR, target_ulong_array_val(&env->spr.rec, SPR_EBBRR));
 
-    REG_ENTRY(REG_TYPE_SPR, SPR_FSCR, env->spr[SPR_FSCR]);
+    REG_ENTRY(REG_TYPE_SPR, SPR_FSCR, target_ulong_array_val(&env->spr.rec, SPR_FSCR));
 
     REG_ENTRY(REG_TYPE_SPR, SPR_CTR, env->ctr);
-    REG_ENTRY(REG_TYPE_SPR, SPR_DAR, env->spr[SPR_DAR]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_DSISR, env->spr[SPR_DSISR]);
+    REG_ENTRY(REG_TYPE_SPR, SPR_DAR, target_ulong_array_val(&env->spr.rec, SPR_DAR));
+    REG_ENTRY(REG_TYPE_SPR, SPR_DSISR, target_ulong_array_val(&env->spr.rec, SPR_DSISR));
     REG_ENTRY(REG_TYPE_SPR, SPR_LR, env->lr);
-    REG_ENTRY(REG_TYPE_SPR, REG_ID_MSR, env->msr);
-    REG_ENTRY(REG_TYPE_SPR, REG_ID_NIP, env->nip);
+    REG_ENTRY(REG_TYPE_SPR, REG_ID_MSR, target_ulong_val(&env->msr));
+    REG_ENTRY(REG_TYPE_SPR, REG_ID_NIP, target_ulong_val(&env->nip));
     REG_ENTRY(REG_TYPE_SPR, SPR_XER, env->xer);
-    REG_ENTRY(REG_TYPE_SPR, SPR_SRR0, env->spr[SPR_SRR0]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_SRR1, env->spr[SPR_SRR1]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_HSRR0, env->spr[SPR_HSRR0]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_HSRR1, env->spr[SPR_HSRR1]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_CFAR, env->spr[SPR_CFAR]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_HMER, env->spr[SPR_HMER]);
-    REG_ENTRY(REG_TYPE_SPR, SPR_HMEER, env->spr[SPR_HMEER]);
+    REG_ENTRY(REG_TYPE_SPR, SPR_SRR0, target_ulong_array_val(&env->spr.rec, SPR_SRR0));
+    REG_ENTRY(REG_TYPE_SPR, SPR_SRR1, target_ulong_array_val(&env->spr.rec, SPR_SRR1));
+    REG_ENTRY(REG_TYPE_SPR, SPR_HSRR0, target_ulong_array_val(&env->spr.rec, SPR_HSRR0));
+    REG_ENTRY(REG_TYPE_SPR, SPR_HSRR1, target_ulong_array_val(&env->spr.rec, SPR_HSRR1));
+    REG_ENTRY(REG_TYPE_SPR, SPR_CFAR, target_ulong_array_val(&env->spr.rec, SPR_CFAR));
+    REG_ENTRY(REG_TYPE_SPR, SPR_HMER, target_ulong_array_val(&env->spr.rec, SPR_HMER));
+    REG_ENTRY(REG_TYPE_SPR, SPR_HMEER, target_ulong_array_val(&env->spr.rec, SPR_HMEER));
 
     /*
      * Ensure the number of registers saved match the number of
