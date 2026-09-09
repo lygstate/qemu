@@ -1764,6 +1764,10 @@ typedef struct {
 #define CPU_NB_REGS CPU_NB_REGS32
 #endif
 
+/* TARGET-independent max; use these to replace CPU_NB_EREGS / CPU_NB_REGS. */
+#define CPU_NB_EREGS_MAX CPU_NB_EREGS64
+#define CPU_NB_REGS_MAX CPU_NB_REGS64
+
 #define MAX_FIXED_COUNTERS 3
 /*
  * This formula is based on Intel's MSR. The current size also meets AMD's
@@ -2056,7 +2060,7 @@ typedef struct CPUArchState {
     float_status mmx_status; /* for 3DNow! float ops */
     float_status sse_status;
     uint32_t mxcsr;
-    ZMMReg xmm_regs[CPU_NB_EREGS] QEMU_ALIGNED(16);
+    ZMMReg xmm_regs[CPU_NB_EREGS_MAX] QEMU_ALIGNED(16);
     ZMMReg xmm_t0 QEMU_ALIGNED(16);
     MMXReg mmx_t0;
 
