@@ -15,9 +15,6 @@
 #include "qemu/bswap.h"
 #include "qemu/target-info.h"
 
-#ifdef COMPILING_PER_TARGET
-#include "cpu-param.h"
-#endif
 
 /*
  * The GDB remote protocol transfers values in target byte order. As
