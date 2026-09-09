@@ -15,6 +15,8 @@
 
 #include "qemu/error-report.h"
 
+extern const VMStateDescription vmstate_nested_state;
+
 static const VMStateDescription vmstate_segment = {
     .name = "segment",
     .version_id = 1,
