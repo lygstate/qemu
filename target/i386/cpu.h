@@ -2057,10 +2057,10 @@ typedef struct CPUArchState {
     MMXReg mmx_t0;
 
     uint64_t opmask_regs[NB_OPMASK_REGS];
-#ifdef TARGET_X86_64
+    /* TARGET_X86_64 begin */
     uint8_t xtilecfg[64];
     uint8_t xtiledata[8192];
-#endif
+    /* TARGET_X86_64 end */
 
     /* sysenter registers */
     uint32_t sysenter_cs;
@@ -2070,7 +2070,7 @@ typedef struct CPUArchState {
 
     uint64_t vm_hsave;
 
-#ifdef TARGET_X86_64
+    /* TARGET_X86_64 begin */
     uint64_t lstar;
     uint64_t cstar;
     uint64_t fmask;
@@ -2086,7 +2086,7 @@ typedef struct CPUArchState {
     uint64_t fred_ssp2;
     uint64_t fred_ssp3;
     uint64_t fred_config;
-#endif
+    /* TARGET_X86_64 end */
 
     /* CET MSRs and register */
     uint64_t u_cet;
@@ -2095,9 +2095,9 @@ typedef struct CPUArchState {
     uint64_t pl1_ssp;
     uint64_t pl2_ssp;
     uint64_t pl3_ssp;
-#ifdef TARGET_X86_64
+    /* TARGET_X86_64 begin */
     uint64_t int_ssp_table;
-#endif
+    /* TARGET_X86_64 end */
     uint64_t guest_ssp;
 
     uint64_t tsc_adjust;
