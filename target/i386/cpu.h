@@ -2008,8 +2008,8 @@ struct hv_vp_register_page;
 typedef struct CPUArchState {
     /* standard registers */
     TARGET_ULONG_ARRAY(CPU_NB_EREGS_MAX) regs;
-    target_ulong eip;
-    target_ulong eflags; /* eflags register. During CPU emulation, CC
+    target_ulong_t eip;
+    target_ulong_t eflags; /* eflags register. During CPU emulation, CC
                         flags and DF are set to zero because they are
                         stored elsewhere */
 
@@ -2680,7 +2680,7 @@ static inline void cpu_x86_load_seg_cache(CPUX86State *env,
         if (env->hflags & HF_CS64_MASK) {
             /* zero base assumed for DS, ES and SS in long mode */
         } else if (!(env->cr[0] & CR0_PE_MASK) ||
-                   (env->eflags & VM_MASK) ||
+                   (target_ulong_val(&env->eflags) & VM_MASK) ||
                    !(env->hflags & HF_CS32_MASK)) {
             /* XXX: try to avoid this test. The problem comes from the
                fact that is real mode or vm86 mode we only modify the
@@ -2705,7 +2705,7 @@ static inline void cpu_x86_load_seg_cache_sipi(X86CPU *cpu,
     CPUState *cs = CPU(cpu);
     CPUX86State *env = &cpu->env;
 
-    env->eip = 0;
+    target_ulong_set(&env->eip, 0);
     cpu_x86_load_seg_cache(env, R_CS, sipi_vector << 8,
                            sipi_vector << 12,
                            env->segs[R_CS].limit,
@@ -2879,7 +2879,7 @@ uint32_t cpu_cc_compute_all(CPUX86State *env1);
 
 static inline uint32_t cpu_compute_eflags(CPUX86State *env)
 {
-    uint32_t eflags = env->eflags;
+    uint32_t eflags = target_ulong_val(&env->eflags);
     if (tcg_enabled()) {
         eflags |= cpu_cc_compute_all(env) | (env->df & DF_MASK);
     }
@@ -3118,7 +3118,7 @@ static inline bool ctl_has_irq(CPUX86State *env)
 
 static inline bool x86_cpu_interrupts_enabled(const CPUX86State *env)
 {
-    return ((env->eflags & IF_MASK) &&
+    return ((target_ulong_val(&env->eflags) & IF_MASK) &&
             !(env->hflags & HF_INHIBIT_IRQ_MASK)) ||
            (env->hflags2 & HF2_HYPERV_HLT_MASK);
 }

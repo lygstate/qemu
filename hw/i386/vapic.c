@@ -687,7 +687,7 @@ static void vapic_write(void *opaque, hwaddr addr, uint64_t data,
     switch (size) {
     case 2:
         if (s->state == VAPIC_INACTIVE) {
-            rom_paddr = (env->segs[R_CS].base + env->eip) & ROM_BLOCK_MASK;
+            rom_paddr = (env->segs[R_CS].base + target_ulong_val(&(env)->eip)) & ROM_BLOCK_MASK;
             s->rom_state_paddr = rom_paddr + data;
 
             s->state = VAPIC_STANDBY;
@@ -711,12 +711,12 @@ static void vapic_write(void *opaque, hwaddr addr, uint64_t data,
              */
             pause_all_vcpus();
             if (!kvm_enabled()) {
-                patch_byte(cpu, env->eip, 0x66);
-                patch_byte(cpu, env->eip + 1, 0x90);
+                patch_byte(cpu, target_ulong_val(&(env)->eip), 0x66);
+                patch_byte(cpu, target_ulong_val(&(env)->eip) + 1, 0x90);
             }
             else {
-                patch_byte(cpu, env->eip - 2, 0x66);
-                patch_byte(cpu, env->eip - 1, 0x90);
+                patch_byte(cpu, target_ulong_val(&(env)->eip) - 2, 0x66);
+                patch_byte(cpu, target_ulong_val(&(env)->eip) - 1, 0x90);
             }
             resume_all_vcpus();
         }
@@ -724,7 +724,7 @@ static void vapic_write(void *opaque, hwaddr addr, uint64_t data,
         if (s->state == VAPIC_ACTIVE) {
             break;
         }
-        if (update_rom_mapping(s, env, env->eip) < 0) {
+        if (update_rom_mapping(s, env, target_ulong_val(&(env)->eip)) < 0) {
             break;
         }
         if (find_real_tpr_addr(s, env) < 0) {

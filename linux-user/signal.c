@@ -1333,7 +1333,7 @@ static void handle_pending_signal(CPUArchState *cpu_env, int sig,
 #if defined(TARGET_I386) && !defined(TARGET_X86_64)
         {
             CPUX86State *env = cpu_env;
-            if (env->eflags & VM_MASK)
+            if (target_ulong_val(&env->eflags) & VM_MASK)
                 save_v86_state(env);
         }
 #endif

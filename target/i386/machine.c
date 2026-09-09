@@ -1801,8 +1801,10 @@ const VMStateDescription vmstate_x86_cpu = {
                                            target_is_long_bits_64),
         VMSTATE_UINT64_SUB_ARRAY_AVAILABLE(env.regs.u64, X86CPU, 8, 8,
                                            target_is_x86_64),
-        VMSTATE_UINTTL(env.eip, X86CPU),
-        VMSTATE_UINTTL(env.eflags, X86CPU),
+        VMSTATE_UINT32_AVAILABLE(env.eip.u32, X86CPU, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.eip.u64, X86CPU, target_is_long_bits_64),
+        VMSTATE_UINT32_AVAILABLE(env.eflags.u32, X86CPU, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.eflags.u64, X86CPU, target_is_long_bits_64),
         VMSTATE_UINT32(env.hflags, X86CPU),
         /* FPU */
         VMSTATE_UINT16(env.fpuc, X86CPU),

@@ -538,7 +538,7 @@ void whpx_set_registers(CPUState *cpu, WHPXStateLevel level)
 
     memset(&vcxt, 0, sizeof(struct whpx_register_set));
 
-    v86 = (env->eflags & VM_MASK);
+    v86 = (target_ulong_val(&(env)->eflags) & VM_MASK);
     r86 = !(env->cr[0] & CR0_PE_MASK);
 
     vcpu->tpr = cpu_get_apic_tpr(x86_cpu->apic_state);
@@ -554,11 +554,11 @@ void whpx_set_registers(CPUState *cpu, WHPXStateLevel level)
 
     /* Same goes for RIP and RFLAGS */
     assert(whpx_register_names[idx] == WHvX64RegisterRip);
-    vcxt.values[idx++].Reg64 = env->eip;
+    vcxt.values[idx++].Reg64 = target_ulong_val(&(env)->eip);
 
     assert(whpx_register_names[idx] == WHvX64RegisterRflags);
     lflags_to_rflags(env);
-    vcxt.values[idx++].Reg64 = env->eflags;
+    vcxt.values[idx++].Reg64 = target_ulong_val(&(env)->eflags);
     assert(idx == WHvX64RegisterEs);
 
     if (level > WHPX_LEVEL_FAST_RUNTIME_STATE) {
@@ -739,8 +739,8 @@ static void whpx_get_registers_for_vmexit(CPUState *cpu, WHPXStateLevel level)
     }
     idx = idx_next;
 
-    env->eip = vcpu->exit_ctx.VpContext.Rip;
-    env->eflags = vcpu->exit_ctx.VpContext.Rflags;
+    target_ulong_set(&(env)->eip,  vcpu->exit_ctx.VpContext.Rip);
+    target_ulong_set(&(env)->eflags,  vcpu->exit_ctx.VpContext.Rflags);
     rflags_to_lflags(env);
 
     assert(idx == RTL_NUMBER_OF(whpx_register_names_for_vmexit));
@@ -897,9 +897,9 @@ void whpx_get_registers(CPUState *cpu, WHPXStateLevel level)
 
     /* Same goes for RIP and RFLAGS */
     assert(whpx_register_names[idx] == WHvX64RegisterRip);
-    env->eip = vcxt.values[idx++].Reg64;
+    target_ulong_set(&(env)->eip,  vcxt.values[idx++].Reg64);
     assert(whpx_register_names[idx] == WHvX64RegisterRflags);
-    env->eflags = vcxt.values[idx++].Reg64;
+    target_ulong_set(&(env)->eflags,  vcxt.values[idx++].Reg64);
     rflags_to_lflags(env);
 
     /* Translate 6+4 segment registers. HV and QEMU order matches  */
@@ -1153,7 +1153,7 @@ static int whpx_handle_portio(CPUState *cpu,
             whpx_bump_rip(cpu, exit_ctx);
             whpx_set_reg(cpu, WHvX64RegisterRax, reg);
         } else {
-            env->eip = exit_ctx->VpContext.Rip + exit_ctx->VpContext.InstructionLength;
+            target_ulong_set(&(env)->eip,  exit_ctx->VpContext.Rip + exit_ctx->VpContext.InstructionLength);
             target_ulong_array_set(&env->regs.rec, R_EAX, reg.Reg64);
         }
         return 0;
@@ -1163,7 +1163,7 @@ static int whpx_handle_portio(CPUState *cpu,
         if (!cpu->vcpu_dirty) {
             whpx_bump_rip(cpu, exit_ctx);
         } else {
-            env->eip = exit_ctx->VpContext.Rip + exit_ctx->VpContext.InstructionLength;
+            target_ulong_set(&(env)->eip,  exit_ctx->VpContext.Rip + exit_ctx->VpContext.InstructionLength);
         }
         return 0;
     }
@@ -1890,7 +1890,7 @@ static vaddr whpx_vcpu_get_pc(CPUState *cpu, bool exit_context_valid)
 {
     if (cpu->vcpu_dirty) {
         /* The CPU registers have been modified by other parts of QEMU. */
-        return cpu_env(cpu)->eip;
+        return target_ulong_val(&cpu_env(cpu)->eip);
     } else if (exit_context_valid) {
         /*
          * The CPU registers have not been modified by neither other parts
@@ -2026,7 +2026,7 @@ static void whpx_vcpu_pre_run(CPUState *cpu)
     /* Get pending hard interruption or replay one that was overwritten */
     if (!whpx_irqchip_in_kernel()) {
         if (!vcpu->interruption_pending &&
-            vcpu->interruptable && (env->eflags & IF_MASK)
+            vcpu->interruptable && (target_ulong_val(&(env)->eflags) & IF_MASK)
             && (vcpu->tpr < irr || irr == 0)) {
             assert(!new_int.InterruptionPending);
             if (cpu_test_interrupt(cpu, CPU_INTERRUPT_HARD)) {
@@ -2119,7 +2119,7 @@ static void whpx_vcpu_post_run(CPUState *cpu)
     X86CPU *x86_cpu = X86_CPU(cpu);
     CPUX86State *env = &x86_cpu->env;
 
-    env->eflags = vcpu->exit_ctx.VpContext.Rflags;
+    target_ulong_set(&(env)->eflags,  vcpu->exit_ctx.VpContext.Rflags);
 
     if (!whpx_irqchip_in_kernel()) {
         uint64_t tpr = vcpu->exit_ctx.VpContext.Cr8;
@@ -2158,7 +2158,7 @@ static void whpx_vcpu_process_async_events(CPUState *cpu)
     }
 
     if ((cpu_test_interrupt(cpu, CPU_INTERRUPT_HARD) &&
-         ((env->eflags & IF_MASK) || (env->hflags2 & HF2_HYPERV_HLT_MASK))) ||
+         ((target_ulong_val(&(env)->eflags) & IF_MASK) || (env->hflags2 & HF2_HYPERV_HLT_MASK))) ||
         cpu_test_interrupt(cpu, CPU_INTERRUPT_NMI)) {
         cpu->halted = false;
         env->hflags2 &= ~HF2_HYPERV_HLT_MASK;
@@ -2173,7 +2173,7 @@ static void whpx_vcpu_process_async_events(CPUState *cpu)
     if (cpu_test_interrupt(cpu, CPU_INTERRUPT_TPR)) {
         cpu_reset_interrupt(cpu, CPU_INTERRUPT_TPR);
         whpx_cpu_synchronize_state(cpu);
-        apic_handle_tpr_access_report(x86_cpu->apic_state, env->eip,
+        apic_handle_tpr_access_report(x86_cpu->apic_state, target_ulong_val(&(env)->eip),
                                       env->tpr_access_type);
     }
 }

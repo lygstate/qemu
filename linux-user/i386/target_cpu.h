@@ -24,9 +24,9 @@ static inline void cpu_clone_regs_child(CPUX86State *env, target_ulong newsp,
                                         unsigned flags)
 {
     if (newsp) {
-        env->regs[R_ESP] = newsp;
+        target_ulong_array_set(&env->regs.rec, R_ESP, newsp);
     }
-    env->regs[R_EAX] = 0;
+    target_ulong_array_set(&env->regs.rec, R_EAX, 0);
 }
 
 static inline void cpu_clone_regs_parent(CPUX86State *env, unsigned flags)
@@ -52,6 +52,6 @@ static inline void cpu_set_tls(CPUX86State *env, target_ulong newtls)
 
 static inline abi_ulong get_sp_from_cpustate(CPUX86State *state)
 {
-    return state->regs[R_ESP];
+    return target_ulong_array_val(&state->regs.rec, R_ESP);
 }
 #endif /* I386_TARGET_CPU_H */

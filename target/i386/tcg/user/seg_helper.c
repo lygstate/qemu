@@ -32,7 +32,7 @@ void helper_syscall(CPUX86State *env, int next_eip_addend)
 
     cs->exception_index = EXCP_SYSCALL;
     env->exception_is_int = 0;
-    env->exception_next_eip = env->eip + next_eip_addend;
+    env->exception_next_eip = target_ulong_val(&(env)->eip) + next_eip_addend;
     cpu_loop_exit(cs);
 }
 
@@ -72,7 +72,7 @@ static void do_interrupt_user(CPUX86State *env, int intno, int is_int,
        exiting the emulation with the suitable exception and error
        code. So update EIP for INT 0x80 and EXCP_SYSCALL. */
     if (is_int || intno == EXCP_SYSCALL) {
-        env->eip = next_eip;
+        target_ulong_set(&(env)->eip,  next_eip);
     }
 }
 
@@ -94,8 +94,8 @@ void x86_cpu_do_interrupt(CPUState *cs)
 
 void cpu_x86_load_seg(CPUX86State *env, X86Seg seg_reg, int selector)
 {
-    if (!(env->cr[0] & CR0_PE_MASK) || (env->eflags & VM_MASK)) {
-        int dpl = (env->eflags & VM_MASK) ? 3 : 0;
+    if (!(env->cr[0] & CR0_PE_MASK) || (target_ulong_val(&(env)->eflags) & VM_MASK)) {
+        int dpl = (target_ulong_val(&(env)->eflags) & VM_MASK) ? 3 : 0;
         selector &= 0xffff;
         cpu_x86_load_seg_cache(env, seg_reg, selector,
                                (selector << 4), 0xffff,

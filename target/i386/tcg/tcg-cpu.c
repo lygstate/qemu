@@ -34,10 +34,10 @@ static void x86_cpu_exec_enter(CPUState *cs)
     X86CPU *cpu = X86_CPU(cs);
     CPUX86State *env = &cpu->env;
 
-    CC_SRC = env->eflags & (CC_O | CC_S | CC_Z | CC_A | CC_P | CC_C);
-    env->df = 1 - (2 * ((env->eflags >> 10) & 1));
+    CC_SRC = target_ulong_val(&(env)->eflags) & (CC_O | CC_S | CC_Z | CC_A | CC_P | CC_C);
+    env->df = 1 - (2 * ((target_ulong_val(&(env)->eflags) >> 10) & 1));
     CC_OP = CC_OP_EFLAGS;
-    env->eflags &= ~(DF_MASK | CC_O | CC_S | CC_Z | CC_A | CC_P | CC_C);
+    target_ulong_set(&(env)->eflags, target_ulong_val(&(env)->eflags) &  ~(DF_MASK | CC_O | CC_S | CC_Z | CC_A | CC_P | CC_C));
 }
 
 static void x86_cpu_exec_exit(CPUState *cs)
@@ -45,7 +45,7 @@ static void x86_cpu_exec_exit(CPUState *cs)
     X86CPU *cpu = X86_CPU(cs);
     CPUX86State *env = &cpu->env;
 
-    env->eflags = cpu_compute_eflags(env);
+    target_ulong_set(&(env)->eflags,  cpu_compute_eflags(env));
 }
 
 static TCGTBCPUState x86_get_tb_cpu_state(CPUState *cs)
@@ -55,13 +55,13 @@ static TCGTBCPUState x86_get_tb_cpu_state(CPUState *cs)
     vaddr pc;
 
     flags = env->hflags |
-        (env->eflags & (IOPL_MASK | TF_MASK | RF_MASK | VM_MASK | AC_MASK));
+        (target_ulong_val(&(env)->eflags) & (IOPL_MASK | TF_MASK | RF_MASK | VM_MASK | AC_MASK));
     if (env->hflags & HF_CS64_MASK) {
         cs_base = 0;
-        pc = env->eip;
+        pc = target_ulong_val(&(env)->eip);
     } else {
         cs_base = env->segs[R_CS].base;
-        pc = (uint32_t)(cs_base + env->eip);
+        pc = (uint32_t)(cs_base + target_ulong_val(&(env)->eip));
     }
 
     return (TCGTBCPUState){ .pc = pc, .flags = flags, .cs_base = cs_base };
@@ -75,9 +75,9 @@ static void x86_cpu_synchronize_from_tb(CPUState *cs,
         CPUX86State *env = cpu_env(cs);
 
         if (tb->flags & HF_CS64_MASK) {
-            env->eip = tb->pc;
+            target_ulong_set(&(env)->eip,  tb->pc);
         } else {
-            env->eip = (uint32_t)(tb->pc - tb->cs_base);
+            target_ulong_set(&(env)->eip,  (uint32_t)(tb->pc - tb->cs_base));
         }
     }
 }
@@ -98,15 +98,15 @@ static void x86_restore_state_to_opc(CPUState *cs,
          * stay the same across the translation block.  Add the CS base back before
          * replacing the low bits, and subtract it below just like for !CF_PCREL.
          */
-        uint64_t pc = env->eip + tb->cs_base;
+        uint64_t pc = target_ulong_val(&(env)->eip) + tb->cs_base;
         new_pc = (pc & TARGET_PAGE_MASK) | data[0];
     } else {
         new_pc = data[0];
     }
     if (tb->flags & HF_CS64_MASK) {
-        env->eip = new_pc;
+        target_ulong_set(&(env)->eip,  new_pc);
     } else {
-        env->eip = (uint32_t)(new_pc - tb->cs_base);
+        target_ulong_set(&(env)->eip,  (uint32_t)(new_pc - tb->cs_base));
     }
 
     if (cc_op != CC_OP_DYNAMIC) {
@@ -120,7 +120,7 @@ int x86_mmu_index_pl(CPUX86State *env, unsigned pl)
     int mmu_index_base =
         pl == 3 ? MMU_USER64_IDX :
         !(env->hflags & HF_SMAP_MASK) ? MMU_KNOSMAP64_IDX :
-        (env->eflags & AC_MASK) ? MMU_KNOSMAP64_IDX : MMU_KSMAP64_IDX;
+        (target_ulong_val(&(env)->eflags) & AC_MASK) ? MMU_KNOSMAP64_IDX : MMU_KSMAP64_IDX;
 
     return mmu_index_base + mmu_index_32;
 }
@@ -138,7 +138,7 @@ static bool x86_debug_check_breakpoint(CPUState *cs)
     CPUX86State *env = &cpu->env;
 
     /* RF disables all architectural breakpoints. */
-    return !(env->eflags & RF_MASK);
+    return !(target_ulong_val(&(env)->eflags) & RF_MASK);
 }
 
 static void x86_cpu_exec_reset(CPUState *cs)

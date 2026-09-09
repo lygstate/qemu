@@ -181,7 +181,7 @@ static inline void macvm_set_rip(CPUState *cpu, uint64_t rip)
 
     /* BUG, should take considering overlap.. */
     wreg(cpu->accel->fd, HV_X86_RIP, rip);
-    env->eip = rip;
+    target_ulong_set(&(env)->eip,  rip);
 
     /* after moving forward in rip, we need to clean INTERRUPTABILITY */
    val = rvmcs(cpu->accel->fd, VMCS_GUEST_INTERRUPTIBILITY);

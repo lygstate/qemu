@@ -160,9 +160,9 @@ int x86_cpu_gdb_read_register(CPUState *cs, GByteArray *mem_buf, int n)
         }
         switch (n - cpu_nb_regs()) {
         case IDX_IP_REG:
-            return gdb_get_reg(env, mem_buf, env->eip);
+            return gdb_get_reg(env, mem_buf, target_ulong_val(&(env)->eip));
         case IDX_FLAGS_REG:
-            return gdb_get_reg32(mem_buf, env->eflags);
+            return gdb_get_reg32(mem_buf, target_ulong_val(&(env)->eflags));
 
         case IDX_SEG_REGS:
             return gdb_get_reg32(mem_buf, env->segs[R_CS].selector);
@@ -241,8 +241,8 @@ static int x86_cpu_gdb_load_seg(X86CPU *cpu, X86Seg sreg, uint8_t *mem_buf)
         unsigned int limit, flags;
         target_ulong base;
 
-        if (!(env->cr[0] & CR0_PE_MASK) || (env->eflags & VM_MASK)) {
-            int dpl = (env->eflags & VM_MASK) ? 3 : 0;
+        if (!(env->cr[0] & CR0_PE_MASK) || (target_ulong_val(&(env)->eflags) & VM_MASK)) {
+            int dpl = (target_ulong_val(&(env)->eflags) & VM_MASK) ? 3 : 0;
             base = selector << 4;
             limit = 0xffff;
             flags = DESC_P_MASK | DESC_S_MASK | DESC_W_MASK |
@@ -321,9 +321,11 @@ int x86_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
         }
         switch (n - cpu_nb_regs()) {
         case IDX_IP_REG:
-            return gdb_write_reg(env, mem_buf, &env->eip);
+            len = gdb_write_reg(env, mem_buf, &tmp);
+            target_ulong_set(&env->eip, tmp);
+            return len;
         case IDX_FLAGS_REG:
-            env->eflags = ldl_p(mem_buf);
+            target_ulong_set(&(env)->eflags,  ldl_p(mem_buf));
             return 4;
 
         case IDX_SEG_REGS:
@@ -339,9 +341,13 @@ int x86_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
         case IDX_SEG_REGS + 5:
             return x86_cpu_gdb_load_seg(cpu, R_GS, mem_buf);
         case IDX_SEG_REGS + 6:
-            return gdb_write_reg_cs64(env->hflags, mem_buf, &env->segs[R_FS].base);
+            len = gdb_write_reg_cs64(env->hflags, mem_buf, &tmp);
+            env->segs[R_FS].base = tmp;
+            return len;
         case IDX_SEG_REGS + 7:
-            return gdb_write_reg_cs64(env->hflags, mem_buf, &env->segs[R_GS].base);
+            len = gdb_write_reg_cs64(env->hflags, mem_buf, &tmp);
+            env->segs[R_GS].base = tmp;
+            return len;
         case IDX_SEG_REGS + 8:
 #ifdef TARGET_X86_64
             return gdb_write_reg_cs64(env->hflags, mem_buf, &env->kernelgsbase);

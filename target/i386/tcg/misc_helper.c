@@ -34,8 +34,8 @@ void cpu_load_eflags(CPUX86State *env, int eflags, int update_mask)
     CC_SRC = eflags & (CC_O | CC_S | CC_Z | CC_A | CC_P | CC_C);
     CC_OP = CC_OP_EFLAGS;
     env->df = 1 - (2 * ((eflags >> 10) & 1));
-    env->eflags = (env->eflags & ~update_mask) |
-        (eflags & update_mask) | 0x2;
+    target_ulong_set(&(env)->eflags,  (target_ulong_val(&(env)->eflags) & ~update_mask) |
+        (eflags & update_mask) | 0x2);
 }
 
 void helper_into(CPUX86State *env, int next_eip_addend)
