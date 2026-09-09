@@ -987,7 +987,7 @@ static bool avx512_needed(void *opaque)
         }
     }
 
-    for (i = 0; i < CPU_NB_REGS; i++) {
+    for (i = 0; i < cpu_nb_regs(); i++) {
 #define ENV_XMM(reg, field) (env->xmm_regs[reg].ZMM_Q(field))
         if (ENV_XMM(i, 4) || ENV_XMM(i, 6) ||
             ENV_XMM(i, 5) || ENV_XMM(i, 7)) {
@@ -1783,8 +1783,7 @@ static const VMStateDescription vmstate_apx = {
     .minimum_version_id = 1,
     .needed = apx_needed,
     .fields = (VMStateField[]) {
-        VMSTATE_UINT64_SUB_ARRAY(env.regs, X86CPU, CPU_NB_REGS,
-                                 CPU_NB_EREGS - CPU_NB_REGS),
+        VMSTATE_UINT64_SUB_ARRAY(env.regs.u64, X86CPU, 16, 16),
         VMSTATE_END_OF_LIST()
     }
 };
@@ -1796,7 +1795,12 @@ const VMStateDescription vmstate_x86_cpu = {
     .pre_save = cpu_pre_save,
     .post_load = cpu_post_load,
     .fields = (const VMStateField[]) {
-        VMSTATE_UINTTL_SUB_ARRAY(env.regs, X86CPU, 0, CPU_NB_REGS),
+        VMSTATE_UINT32_SUB_ARRAY_AVAILABLE(env.regs.u32, X86CPU, 0, 8,
+                                           target_is_long_bits_32),
+        VMSTATE_UINT64_SUB_ARRAY_AVAILABLE(env.regs.u64, X86CPU, 0, 8,
+                                           target_is_long_bits_64),
+        VMSTATE_UINT64_SUB_ARRAY_AVAILABLE(env.regs.u64, X86CPU, 8, 8,
+                                           target_is_x86_64),
         VMSTATE_UINTTL(env.eip, X86CPU),
         VMSTATE_UINTTL(env.eflags, X86CPU),
         VMSTATE_UINT32(env.hflags, X86CPU),

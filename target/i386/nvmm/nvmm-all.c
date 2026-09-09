@@ -164,7 +164,7 @@ nvmm_set_registers(CPUState *cpu)
     state->fpu.fx_mxcsr_mask = 0x0000FFFF;
     assert(sizeof(state->fpu.fx_87_ac) == sizeof(env->fpregs));
     memcpy(state->fpu.fx_87_ac, env->fpregs, sizeof(env->fpregs));
-    for (i = 0; i < CPU_NB_REGS; i++) {
+    for (i = 0; i < cpu_nb_regs(); i++) {
         memcpy(&state->fpu.fx_xmm[i].xmm_bytes[0],
             &env->xmm_regs[i].ZMM_Q(0), 8);
         memcpy(&state->fpu.fx_xmm[i].xmm_bytes[8],
@@ -319,7 +319,7 @@ nvmm_get_registers(CPUState *cpu)
     env->mxcsr = state->fpu.fx_mxcsr;
     assert(sizeof(state->fpu.fx_87_ac) == sizeof(env->fpregs));
     memcpy(env->fpregs, state->fpu.fx_87_ac, sizeof(env->fpregs));
-    for (i = 0; i < CPU_NB_REGS; i++) {
+    for (i = 0; i < cpu_nb_regs(); i++) {
         memcpy(&env->xmm_regs[i].ZMM_Q(0),
             &state->fpu.fx_xmm[i].xmm_bytes[0], 8);
         memcpy(&env->xmm_regs[i].ZMM_Q(1),

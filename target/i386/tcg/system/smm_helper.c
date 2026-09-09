@@ -63,16 +63,16 @@ static void sm_state_init_64(X86CPU *cpu)
        supposed to happen?  */
     x86_stq_phys(cs, sm_state + 0x7ed0, env->efer);
 
-    x86_stq_phys(cs, sm_state + 0x7ff8, env->regs[R_EAX]);
-    x86_stq_phys(cs, sm_state + 0x7ff0, env->regs[R_ECX]);
-    x86_stq_phys(cs, sm_state + 0x7fe8, env->regs[R_EDX]);
-    x86_stq_phys(cs, sm_state + 0x7fe0, env->regs[R_EBX]);
-    x86_stq_phys(cs, sm_state + 0x7fd8, env->regs[R_ESP]);
-    x86_stq_phys(cs, sm_state + 0x7fd0, env->regs[R_EBP]);
-    x86_stq_phys(cs, sm_state + 0x7fc8, env->regs[R_ESI]);
-    x86_stq_phys(cs, sm_state + 0x7fc0, env->regs[R_EDI]);
+    x86_stq_phys(cs, sm_state + 0x7ff8, target_ulong_array_val(&env->regs.rec, R_EAX));
+    x86_stq_phys(cs, sm_state + 0x7ff0, target_ulong_array_val(&env->regs.rec, R_ECX));
+    x86_stq_phys(cs, sm_state + 0x7fe8, target_ulong_array_val(&env->regs.rec, R_EDX));
+    x86_stq_phys(cs, sm_state + 0x7fe0, target_ulong_array_val(&env->regs.rec, R_EBX));
+    x86_stq_phys(cs, sm_state + 0x7fd8, target_ulong_array_val(&env->regs.rec, R_ESP));
+    x86_stq_phys(cs, sm_state + 0x7fd0, target_ulong_array_val(&env->regs.rec, R_EBP));
+    x86_stq_phys(cs, sm_state + 0x7fc8, target_ulong_array_val(&env->regs.rec, R_ESI));
+    x86_stq_phys(cs, sm_state + 0x7fc0, target_ulong_array_val(&env->regs.rec, R_EDI));
     for (i = 8; i < 16; i++) {
-        x86_stq_phys(cs, sm_state + 0x7ff8 - i * 8, env->regs[i]);
+        x86_stq_phys(cs, sm_state + 0x7ff8 - i * 8, target_ulong_array_val(&env->regs.rec, i));
     }
     x86_stq_phys(cs, sm_state + 0x7f78, env->eip);
     x86_stl_phys(cs, sm_state + 0x7f70, cpu_compute_eflags(env));
@@ -102,14 +102,14 @@ static void sm_state_init_32(X86CPU *cpu)
     x86_stl_phys(cs, sm_state + 0x7ff8, env->cr[3]);
     x86_stl_phys(cs, sm_state + 0x7ff4, cpu_compute_eflags(env));
     x86_stl_phys(cs, sm_state + 0x7ff0, env->eip);
-    x86_stl_phys(cs, sm_state + 0x7fec, env->regs[R_EDI]);
-    x86_stl_phys(cs, sm_state + 0x7fe8, env->regs[R_ESI]);
-    x86_stl_phys(cs, sm_state + 0x7fe4, env->regs[R_EBP]);
-    x86_stl_phys(cs, sm_state + 0x7fe0, env->regs[R_ESP]);
-    x86_stl_phys(cs, sm_state + 0x7fdc, env->regs[R_EBX]);
-    x86_stl_phys(cs, sm_state + 0x7fd8, env->regs[R_EDX]);
-    x86_stl_phys(cs, sm_state + 0x7fd4, env->regs[R_ECX]);
-    x86_stl_phys(cs, sm_state + 0x7fd0, env->regs[R_EAX]);
+    x86_stl_phys(cs, sm_state + 0x7fec, target_ulong_array_val(&env->regs.rec, R_EDI));
+    x86_stl_phys(cs, sm_state + 0x7fe8, target_ulong_array_val(&env->regs.rec, R_ESI));
+    x86_stl_phys(cs, sm_state + 0x7fe4, target_ulong_array_val(&env->regs.rec, R_EBP));
+    x86_stl_phys(cs, sm_state + 0x7fe0, target_ulong_array_val(&env->regs.rec, R_ESP));
+    x86_stl_phys(cs, sm_state + 0x7fdc, target_ulong_array_val(&env->regs.rec, R_EBX));
+    x86_stl_phys(cs, sm_state + 0x7fd8, target_ulong_array_val(&env->regs.rec, R_EDX));
+    x86_stl_phys(cs, sm_state + 0x7fd4, target_ulong_array_val(&env->regs.rec, R_ECX));
+    x86_stl_phys(cs, sm_state + 0x7fd0, target_ulong_array_val(&env->regs.rec, R_EAX));
     x86_stl_phys(cs, sm_state + 0x7fcc, env->dr[6]);
     x86_stl_phys(cs, sm_state + 0x7fc8, env->dr[7]);
 
@@ -229,16 +229,16 @@ static void rsm_load_regs_64(CPUX86State *env)
     env->tr.limit = x86_ldl_phys(cs, sm_state + 0x7e94);
     env->tr.flags = (x86_lduw_phys(cs, sm_state + 0x7e92) & 0xf0ff) << 8;
 
-    env->regs[R_EAX] = x86_ldq_phys(cs, sm_state + 0x7ff8);
-    env->regs[R_ECX] = x86_ldq_phys(cs, sm_state + 0x7ff0);
-    env->regs[R_EDX] = x86_ldq_phys(cs, sm_state + 0x7fe8);
-    env->regs[R_EBX] = x86_ldq_phys(cs, sm_state + 0x7fe0);
-    env->regs[R_ESP] = x86_ldq_phys(cs, sm_state + 0x7fd8);
-    env->regs[R_EBP] = x86_ldq_phys(cs, sm_state + 0x7fd0);
-    env->regs[R_ESI] = x86_ldq_phys(cs, sm_state + 0x7fc8);
-    env->regs[R_EDI] = x86_ldq_phys(cs, sm_state + 0x7fc0);
+    target_ulong_array_set(&env->regs.rec, R_EAX, x86_ldq_phys(cs, sm_state + 0x7ff8));
+    target_ulong_array_set(&env->regs.rec, R_ECX, x86_ldq_phys(cs, sm_state + 0x7ff0));
+    target_ulong_array_set(&env->regs.rec, R_EDX, x86_ldq_phys(cs, sm_state + 0x7fe8));
+    target_ulong_array_set(&env->regs.rec, R_EBX, x86_ldq_phys(cs, sm_state + 0x7fe0));
+    target_ulong_array_set(&env->regs.rec, R_ESP, x86_ldq_phys(cs, sm_state + 0x7fd8));
+    target_ulong_array_set(&env->regs.rec, R_EBP, x86_ldq_phys(cs, sm_state + 0x7fd0));
+    target_ulong_array_set(&env->regs.rec, R_ESI, x86_ldq_phys(cs, sm_state + 0x7fc8));
+    target_ulong_array_set(&env->regs.rec, R_EDI, x86_ldq_phys(cs, sm_state + 0x7fc0));
     for (i = 8; i < 16; i++) {
-        env->regs[i] = x86_ldq_phys(cs, sm_state + 0x7ff8 - i * 8);
+        target_ulong_array_set(&env->regs.rec, i, x86_ldq_phys(cs, sm_state + 0x7ff8 - i * 8));
     }
     env->eip = x86_ldq_phys(cs, sm_state + 0x7f78);
     cpu_load_eflags(env, x86_ldl_phys(cs, sm_state + 0x7f70),
@@ -283,14 +283,14 @@ static void rsm_load_regs_32(CPUX86State *env)
     cpu_load_eflags(env, x86_ldl_phys(cs, sm_state + 0x7ff4),
                     ~(CC_O | CC_S | CC_Z | CC_A | CC_P | CC_C | DF_MASK));
     env->eip = x86_ldl_phys(cs, sm_state + 0x7ff0);
-    env->regs[R_EDI] = x86_ldl_phys(cs, sm_state + 0x7fec);
-    env->regs[R_ESI] = x86_ldl_phys(cs, sm_state + 0x7fe8);
-    env->regs[R_EBP] = x86_ldl_phys(cs, sm_state + 0x7fe4);
-    env->regs[R_ESP] = x86_ldl_phys(cs, sm_state + 0x7fe0);
-    env->regs[R_EBX] = x86_ldl_phys(cs, sm_state + 0x7fdc);
-    env->regs[R_EDX] = x86_ldl_phys(cs, sm_state + 0x7fd8);
-    env->regs[R_ECX] = x86_ldl_phys(cs, sm_state + 0x7fd4);
-    env->regs[R_EAX] = x86_ldl_phys(cs, sm_state + 0x7fd0);
+    target_ulong_array_set(&env->regs.rec, R_EDI, x86_ldl_phys(cs, sm_state + 0x7fec));
+    target_ulong_array_set(&env->regs.rec, R_ESI, x86_ldl_phys(cs, sm_state + 0x7fe8));
+    target_ulong_array_set(&env->regs.rec, R_EBP, x86_ldl_phys(cs, sm_state + 0x7fe4));
+    target_ulong_array_set(&env->regs.rec, R_ESP, x86_ldl_phys(cs, sm_state + 0x7fe0));
+    target_ulong_array_set(&env->regs.rec, R_EBX, x86_ldl_phys(cs, sm_state + 0x7fdc));
+    target_ulong_array_set(&env->regs.rec, R_EDX, x86_ldl_phys(cs, sm_state + 0x7fd8));
+    target_ulong_array_set(&env->regs.rec, R_ECX, x86_ldl_phys(cs, sm_state + 0x7fd4));
+    target_ulong_array_set(&env->regs.rec, R_EAX, x86_ldl_phys(cs, sm_state + 0x7fd0));
     helper_set_dr(env, 6, x86_ldl_phys(cs, sm_state + 0x7fcc));
     helper_set_dr(env, 7, x86_ldl_phys(cs, sm_state + 0x7fc8));
 
