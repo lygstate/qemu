@@ -34,7 +34,7 @@ void helper_divb_AL(CPUX86State *env, target_ulong t0)
 {
     unsigned int num, den, q, r;
 
-    num = (env->regs[R_EAX] & 0xffff);
+    num = (target_ulong_array_val(&env->regs.rec, R_EAX) & 0xffff);
     den = (t0 & 0xff);
     if (den == 0) {
         raise_exception_ra(env, EXCP00_DIVZ, GETPC());
@@ -45,14 +45,14 @@ void helper_divb_AL(CPUX86State *env, target_ulong t0)
     }
     q &= 0xff;
     r = (num % den) & 0xff;
-    env->regs[R_EAX] = (env->regs[R_EAX] & ~0xffff) | (r << 8) | q;
+    target_ulong_array_set(&env->regs.rec, R_EAX, (target_ulong_array_val(&env->regs.rec, R_EAX) & ~0xffff) | (r << 8) | q);
 }
 
 void helper_idivb_AL(CPUX86State *env, target_ulong t0)
 {
     int num, den, q, r;
 
-    num = (int16_t)env->regs[R_EAX];
+    num = (int16_t)target_ulong_array_val(&env->regs.rec, R_EAX);
     den = (int8_t)t0;
     if (den == 0) {
         raise_exception_ra(env, EXCP00_DIVZ, GETPC());
@@ -63,14 +63,14 @@ void helper_idivb_AL(CPUX86State *env, target_ulong t0)
     }
     q &= 0xff;
     r = (num % den) & 0xff;
-    env->regs[R_EAX] = (env->regs[R_EAX] & ~0xffff) | (r << 8) | q;
+    target_ulong_array_set(&env->regs.rec, R_EAX, (target_ulong_array_val(&env->regs.rec, R_EAX) & ~0xffff) | (r << 8) | q);
 }
 
 void helper_divw_AX(CPUX86State *env, target_ulong t0)
 {
     unsigned int num, den, q, r;
 
-    num = (env->regs[R_EAX] & 0xffff) | ((env->regs[R_EDX] & 0xffff) << 16);
+    num = (target_ulong_array_val(&env->regs.rec, R_EAX) & 0xffff) | ((target_ulong_array_val(&env->regs.rec, R_EDX) & 0xffff) << 16);
     den = (t0 & 0xffff);
     if (den == 0) {
         raise_exception_ra(env, EXCP00_DIVZ, GETPC());
@@ -81,15 +81,15 @@ void helper_divw_AX(CPUX86State *env, target_ulong t0)
     }
     q &= 0xffff;
     r = (num % den) & 0xffff;
-    env->regs[R_EAX] = (env->regs[R_EAX] & ~0xffff) | q;
-    env->regs[R_EDX] = (env->regs[R_EDX] & ~0xffff) | r;
+    target_ulong_array_set(&env->regs.rec, R_EAX, (target_ulong_array_val(&env->regs.rec, R_EAX) & ~0xffff) | q);
+    target_ulong_array_set(&env->regs.rec, R_EDX, (target_ulong_array_val(&env->regs.rec, R_EDX) & ~0xffff) | r);
 }
 
 void helper_idivw_AX(CPUX86State *env, target_ulong t0)
 {
     int num, den, q, r;
 
-    num = (env->regs[R_EAX] & 0xffff) | ((env->regs[R_EDX] & 0xffff) << 16);
+    num = (target_ulong_array_val(&env->regs.rec, R_EAX) & 0xffff) | ((target_ulong_array_val(&env->regs.rec, R_EDX) & 0xffff) << 16);
     den = (int16_t)t0;
     if (den == 0) {
         raise_exception_ra(env, EXCP00_DIVZ, GETPC());
@@ -100,8 +100,8 @@ void helper_idivw_AX(CPUX86State *env, target_ulong t0)
     }
     q &= 0xffff;
     r = (num % den) & 0xffff;
-    env->regs[R_EAX] = (env->regs[R_EAX] & ~0xffff) | q;
-    env->regs[R_EDX] = (env->regs[R_EDX] & ~0xffff) | r;
+    target_ulong_array_set(&env->regs.rec, R_EAX, (target_ulong_array_val(&env->regs.rec, R_EAX) & ~0xffff) | q);
+    target_ulong_array_set(&env->regs.rec, R_EDX, (target_ulong_array_val(&env->regs.rec, R_EDX) & ~0xffff) | r);
 }
 
 void helper_divl_EAX(CPUX86State *env, target_ulong t0)
@@ -109,7 +109,7 @@ void helper_divl_EAX(CPUX86State *env, target_ulong t0)
     unsigned int den, r;
     uint64_t num, q;
 
-    num = ((uint32_t)env->regs[R_EAX]) | ((uint64_t)((uint32_t)env->regs[R_EDX]) << 32);
+    num = ((uint32_t)target_ulong_array_val(&env->regs.rec, R_EAX)) | ((uint64_t)((uint32_t)target_ulong_array_val(&env->regs.rec, R_EDX)) << 32);
     den = t0;
     if (den == 0) {
         raise_exception_ra(env, EXCP00_DIVZ, GETPC());
@@ -119,8 +119,8 @@ void helper_divl_EAX(CPUX86State *env, target_ulong t0)
     if (q > 0xffffffff) {
         raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
-    env->regs[R_EAX] = (uint32_t)q;
-    env->regs[R_EDX] = (uint32_t)r;
+    target_ulong_array_set(&env->regs.rec, R_EAX, (uint32_t)q);
+    target_ulong_array_set(&env->regs.rec, R_EDX, (uint32_t)r);
 }
 
 void helper_idivl_EAX(CPUX86State *env, target_ulong t0)
@@ -128,7 +128,7 @@ void helper_idivl_EAX(CPUX86State *env, target_ulong t0)
     int den, r;
     int64_t num, q;
 
-    num = ((uint32_t)env->regs[R_EAX]) | ((uint64_t)((uint32_t)env->regs[R_EDX]) << 32);
+    num = ((uint32_t)target_ulong_array_val(&env->regs.rec, R_EAX)) | ((uint64_t)((uint32_t)target_ulong_array_val(&env->regs.rec, R_EDX)) << 32);
     den = t0;
     if (den == 0) {
         raise_exception_ra(env, EXCP00_DIVZ, GETPC());
@@ -138,8 +138,8 @@ void helper_idivl_EAX(CPUX86State *env, target_ulong t0)
     if (q != (int32_t)q) {
         raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
-    env->regs[R_EAX] = (uint32_t)q;
-    env->regs[R_EDX] = (uint32_t)r;
+    target_ulong_array_set(&env->regs.rec, R_EAX, (uint32_t)q);
+    target_ulong_array_set(&env->regs.rec, R_EDX, (uint32_t)r);
 }
 
 /* bcd */
@@ -172,8 +172,8 @@ void helper_aaa(CPUX86State *env)
 
     eflags = cpu_cc_compute_all(env);
     af = eflags & CC_A;
-    al = env->regs[R_EAX] & 0xff;
-    ah = (env->regs[R_EAX] >> 8) & 0xff;
+    al = target_ulong_array_val(&env->regs.rec, R_EAX) & 0xff;
+    ah = (target_ulong_array_val(&env->regs.rec, R_EAX) >> 8) & 0xff;
 
     icarry = (al > 0xf9);
     if (((al & 0x0f) > 9) || af) {
@@ -184,7 +184,7 @@ void helper_aaa(CPUX86State *env)
         eflags &= ~(CC_C | CC_A);
         al &= 0x0f;
     }
-    env->regs[R_EAX] = (env->regs[R_EAX] & ~0xffff) | al | (ah << 8);
+    target_ulong_array_set(&env->regs.rec, R_EAX, (target_ulong_array_val(&env->regs.rec, R_EAX) & ~0xffff) | al | (ah << 8));
     CC_SRC = eflags;
     CC_OP = CC_OP_EFLAGS;
 }
@@ -197,8 +197,8 @@ void helper_aas(CPUX86State *env)
 
     eflags = cpu_cc_compute_all(env);
     af = eflags & CC_A;
-    al = env->regs[R_EAX] & 0xff;
-    ah = (env->regs[R_EAX] >> 8) & 0xff;
+    al = target_ulong_array_val(&env->regs.rec, R_EAX) & 0xff;
+    ah = (target_ulong_array_val(&env->regs.rec, R_EAX) >> 8) & 0xff;
 
     icarry = (al < 6);
     if (((al & 0x0f) > 9) || af) {
@@ -209,7 +209,7 @@ void helper_aas(CPUX86State *env)
         eflags &= ~(CC_C | CC_A);
         al &= 0x0f;
     }
-    env->regs[R_EAX] = (env->regs[R_EAX] & ~0xffff) | al | (ah << 8);
+    target_ulong_array_set(&env->regs.rec, R_EAX, (target_ulong_array_val(&env->regs.rec, R_EAX) & ~0xffff) | al | (ah << 8));
     CC_SRC = eflags;
     CC_OP = CC_OP_EFLAGS;
 }
@@ -222,7 +222,7 @@ void helper_daa(CPUX86State *env)
     eflags = cpu_cc_compute_all(env);
     cf = eflags & CC_C;
     af = eflags & CC_A;
-    old_al = al = env->regs[R_EAX] & 0xff;
+    old_al = al = target_ulong_array_val(&env->regs.rec, R_EAX) & 0xff;
 
     eflags = 0;
     if (((al & 0x0f) > 9) || af) {
@@ -233,7 +233,7 @@ void helper_daa(CPUX86State *env)
         al = (al + 0x60) & 0xff;
         eflags |= CC_C;
     }
-    env->regs[R_EAX] = (env->regs[R_EAX] & ~0xff) | al;
+    target_ulong_array_set(&env->regs.rec, R_EAX, (target_ulong_array_val(&env->regs.rec, R_EAX) & ~0xff) | al);
     /* well, speed is not an issue here, so we compute the flags by hand */
     eflags |= (al == 0) << 6; /* zf */
     eflags |= compute_pf(al);
@@ -250,7 +250,7 @@ void helper_das(CPUX86State *env)
     eflags = cpu_cc_compute_all(env);
     cf = eflags & CC_C;
     af = eflags & CC_A;
-    al = env->regs[R_EAX] & 0xff;
+    al = target_ulong_array_val(&env->regs.rec, R_EAX) & 0xff;
 
     eflags = 0;
     al1 = al;
@@ -265,7 +265,7 @@ void helper_das(CPUX86State *env)
         al = (al - 0x60) & 0xff;
         eflags |= CC_C;
     }
-    env->regs[R_EAX] = (env->regs[R_EAX] & ~0xff) | al;
+    target_ulong_array_set(&env->regs.rec, R_EAX, (target_ulong_array_val(&env->regs.rec, R_EAX) & ~0xff) | al);
     /* well, speed is not an issue here, so we compute the flags by hand */
     eflags |= (al == 0) << 6; /* zf */
     eflags |= compute_pf(al);
@@ -371,13 +371,13 @@ void helper_divq_EAX(CPUX86State *env, target_ulong t0)
     if (t0 == 0) {
         raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
-    r0 = env->regs[R_EAX];
-    r1 = env->regs[R_EDX];
+    r0 = target_ulong_array_val(&env->regs.rec, R_EAX);
+    r1 = target_ulong_array_val(&env->regs.rec, R_EDX);
     if (div64(&r0, &r1, t0)) {
         raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
-    env->regs[R_EAX] = r0;
-    env->regs[R_EDX] = r1;
+    target_ulong_array_set(&env->regs.rec, R_EAX, r0);
+    target_ulong_array_set(&env->regs.rec, R_EDX, r1);
 }
 
 void helper_idivq_EAX(CPUX86State *env, target_ulong t0)
@@ -387,13 +387,13 @@ void helper_idivq_EAX(CPUX86State *env, target_ulong t0)
     if (t0 == 0) {
         raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
-    r0 = env->regs[R_EAX];
-    r1 = env->regs[R_EDX];
+    r0 = target_ulong_array_val(&env->regs.rec, R_EAX);
+    r1 = target_ulong_array_val(&env->regs.rec, R_EDX);
     if (idiv64(&r0, &r1, t0)) {
         raise_exception_ra(env, EXCP00_DIVZ, GETPC());
     }
-    env->regs[R_EAX] = r0;
-    env->regs[R_EDX] = r1;
+    target_ulong_array_set(&env->regs.rec, R_EAX, r0);
+    target_ulong_array_set(&env->regs.rec, R_EDX, r1);
 }
 #endif
 

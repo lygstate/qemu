@@ -54,12 +54,12 @@ void helper_cpuid(CPUX86State *env)
 
     cpu_svm_check_intercept_param(env, SVM_EXIT_CPUID, 0, GETPC());
 
-    cpu_x86_cpuid(env, (uint32_t)env->regs[R_EAX], (uint32_t)env->regs[R_ECX],
+    cpu_x86_cpuid(env, (uint32_t)target_ulong_array_val(&env->regs.rec, R_EAX), (uint32_t)target_ulong_array_val(&env->regs.rec, R_ECX),
                   &eax, &ebx, &ecx, &edx);
-    env->regs[R_EAX] = eax;
-    env->regs[R_EBX] = ebx;
-    env->regs[R_ECX] = ecx;
-    env->regs[R_EDX] = edx;
+    target_ulong_array_set(&env->regs.rec, R_EAX, eax);
+    target_ulong_array_set(&env->regs.rec, R_EBX, ebx);
+    target_ulong_array_set(&env->regs.rec, R_ECX, ecx);
+    target_ulong_array_set(&env->regs.rec, R_EDX, edx);
 }
 
 void helper_rdtsc(CPUX86State *env)
@@ -72,8 +72,8 @@ void helper_rdtsc(CPUX86State *env)
     cpu_svm_check_intercept_param(env, SVM_EXIT_RDTSC, 0, GETPC());
 
     val = cpu_get_tsc(env) + env->tsc_offset;
-    env->regs[R_EAX] = (uint32_t)(val);
-    env->regs[R_EDX] = (uint32_t)(val >> 32);
+    target_ulong_array_set(&env->regs.rec, R_EAX, (uint32_t)(val));
+    target_ulong_array_set(&env->regs.rec, R_EDX, (uint32_t)(val >> 32));
 }
 
 G_NORETURN void helper_rdpmc(CPUX86State *env)

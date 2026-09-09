@@ -495,12 +495,12 @@ static void regs_to_cpu(vmware_regs_t *vmport_regs, ioreq_t *req)
 
     cpu = X86_CPU(current_cpu);
     env = &cpu->env;
-    env->regs[R_EAX] = req->data;
-    env->regs[R_EBX] = vmport_regs->ebx;
-    env->regs[R_ECX] = vmport_regs->ecx;
-    env->regs[R_EDX] = vmport_regs->edx;
-    env->regs[R_ESI] = vmport_regs->esi;
-    env->regs[R_EDI] = vmport_regs->edi;
+    target_ulong_array_set(&env->regs.rec, R_EAX, req->data);
+    target_ulong_array_set(&env->regs.rec, R_EBX, vmport_regs->ebx);
+    target_ulong_array_set(&env->regs.rec, R_ECX, vmport_regs->ecx);
+    target_ulong_array_set(&env->regs.rec, R_EDX, vmport_regs->edx);
+    target_ulong_array_set(&env->regs.rec, R_ESI, vmport_regs->esi);
+    target_ulong_array_set(&env->regs.rec, R_EDI, vmport_regs->edi);
 }
 
 static void regs_from_cpu(vmware_regs_t *vmport_regs)
@@ -508,11 +508,11 @@ static void regs_from_cpu(vmware_regs_t *vmport_regs)
     X86CPU *cpu = X86_CPU(current_cpu);
     CPUX86State *env = &cpu->env;
 
-    vmport_regs->ebx = env->regs[R_EBX];
-    vmport_regs->ecx = env->regs[R_ECX];
-    vmport_regs->edx = env->regs[R_EDX];
-    vmport_regs->esi = env->regs[R_ESI];
-    vmport_regs->edi = env->regs[R_EDI];
+    vmport_regs->ebx = target_ulong_array_val(&env->regs.rec, R_EBX);
+    vmport_regs->ecx = target_ulong_array_val(&env->regs.rec, R_ECX);
+    vmport_regs->edx = target_ulong_array_val(&env->regs.rec, R_EDX);
+    vmport_regs->esi = target_ulong_array_val(&env->regs.rec, R_ESI);
+    vmport_regs->edi = target_ulong_array_val(&env->regs.rec, R_EDI);
 }
 
 static void handle_vmport_ioreq(XenIOState *state, ioreq_t *req)

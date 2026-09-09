@@ -4677,14 +4677,14 @@ static void gen_VZEROALL(DisasContext *s, X86DecodedInsn *decode)
 
     tcg_gen_addi_ptr(ptr, tcg_env, offsetof(CPUX86State, xmm_regs));
     gen_helper_memset(ptr, ptr, tcg_constant_i32(0),
-                      tcg_constant_ptr(CPU_NB_REGS * sizeof(ZMMReg)));
+                      tcg_constant_ptr(cpu_nb_regs() * sizeof(ZMMReg)));
 }
 
 static void gen_VZEROUPPER(DisasContext *s, X86DecodedInsn *decode)
 {
     int i;
 
-    for (i = 0; i < CPU_NB_REGS; i++) {
+    for (i = 0; i < cpu_nb_regs(); i++) {
         int offset = offsetof(CPUX86State, xmm_regs[i].ZMM_X(1));
         tcg_gen_gvec_dup_imm(MO_64, offset, 16, 16, 0);
     }

@@ -26,6 +26,7 @@
 #include "exec/cpu-common.h"
 #include "exec/cpu-interrupt.h"
 #include "exec/target_long.h"
+#include "exec/target-long-types.h"
 #include "exec/memop.h"
 #include "hw/i386/apic.h"
 #include "hw/i386/topology.h"
@@ -1768,6 +1769,22 @@ typedef struct {
 #define CPU_NB_EREGS_MAX CPU_NB_EREGS64
 #define CPU_NB_REGS_MAX CPU_NB_REGS64
 
+static inline unsigned cpu_nb_regs(void)
+{
+    if (target_long_bits() == 64) {
+        return CPU_NB_REGS64;
+    }
+    return CPU_NB_REGS32;
+}
+
+static inline unsigned cpu_nb_eregs(void)
+{
+    if (target_long_bits() == 64) {
+        return CPU_NB_EREGS64;
+    }
+    return CPU_NB_REGS32;
+}
+
 #define MAX_FIXED_COUNTERS 3
 /*
  * This formula is based on Intel's MSR. The current size also meets AMD's
@@ -2003,7 +2020,7 @@ struct hv_vp_register_page;
 
 typedef struct CPUArchState {
     /* standard registers */
-    target_ulong regs[CPU_NB_EREGS];
+    TARGET_ULONG_ARRAY(CPU_NB_EREGS_MAX) regs;
     target_ulong eip;
     target_ulong eflags; /* eflags register. During CPU emulation, CC
                         flags and DF are set to zero because they are
