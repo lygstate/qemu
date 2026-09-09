@@ -4,7 +4,7 @@
 #include "system/tcg.h"
 #include "helper_regs.h"
 #include "mmu-hash64.h"
-#include "migration/cpu.h"
+#include "migration/vmstate.h"
 #include "migration/qemu-file-types.h"
 #include "qapi/error.h"
 #include "kvm_ppc.h"
@@ -332,7 +332,8 @@ static const VMStateDescription vmstate_fpu = {
     .needed = fpu_needed,
     .fields = (const VMStateField[]) {
         VMSTATE_FPR_ARRAY(env.vsr, PowerPCCPU, 32),
-        VMSTATE_UINTTL(env.fpscr, PowerPCCPU),
+        VMSTATE_UINT32_AVAILABLE(env.fpscr.u32, PowerPCCPU, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.fpscr.u64, PowerPCCPU, target_is_long_bits_64),
         VMSTATE_END_OF_LIST()
     },
 };
@@ -425,7 +426,10 @@ static const VMStateDescription vmstate_tm = {
     .minimum_version_id = 1,
     .needed = tm_needed,
     .fields = (const VMStateField []) {
-        VMSTATE_UINTTL_ARRAY(env.tm_gpr, PowerPCCPU, 32),
+        VMSTATE_UINT32_ARRAY_AVAILABLE(env.tm_gpr.u32, PowerPCCPU, 32,
+                                       target_is_long_bits_32),
+        VMSTATE_UINT64_ARRAY_AVAILABLE(env.tm_gpr.u64, PowerPCCPU, 32,
+                                       target_is_long_bits_64),
         VMSTATE_AVR_ARRAY(env.tm_vsr, PowerPCCPU, 64),
         VMSTATE_UINT64(env.tm_cr, PowerPCCPU),
         VMSTATE_UINT64(env.tm_lr, PowerPCCPU),
@@ -459,7 +463,10 @@ static const VMStateDescription vmstate_sr = {
     .minimum_version_id = 1,
     .needed = sr_needed,
     .fields = (const VMStateField[]) {
-        VMSTATE_UINTTL_ARRAY(env.sr, PowerPCCPU, 32),
+        VMSTATE_UINT32_ARRAY_AVAILABLE(env.sr.u32, PowerPCCPU, 32,
+                                       target_is_long_bits_32),
+        VMSTATE_UINT64_ARRAY_AVAILABLE(env.sr.u64, PowerPCCPU, 32,
+                                       target_is_long_bits_64),
         VMSTATE_END_OF_LIST()
     },
 };
@@ -544,9 +551,12 @@ static const VMStateDescription vmstate_tlb6xx_entry = {
     .version_id = 1,
     .minimum_version_id = 1,
     .fields = (const VMStateField[]) {
-        VMSTATE_UINTTL(pte0, ppc6xx_tlb_t),
-        VMSTATE_UINTTL(pte1, ppc6xx_tlb_t),
-        VMSTATE_UINTTL(EPN, ppc6xx_tlb_t),
+        VMSTATE_UINT32_AVAILABLE(pte0.u32, ppc6xx_tlb_t, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(pte0.u64, ppc6xx_tlb_t, target_is_long_bits_64),
+        VMSTATE_UINT32_AVAILABLE(pte1.u32, ppc6xx_tlb_t, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(pte1.u64, ppc6xx_tlb_t, target_is_long_bits_64),
+        VMSTATE_UINT32_AVAILABLE(EPN.u32, ppc6xx_tlb_t, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(EPN.u64, ppc6xx_tlb_t, target_is_long_bits_64),
         VMSTATE_END_OF_LIST()
     },
 };
@@ -570,7 +580,10 @@ static const VMStateDescription vmstate_tlb6xx = {
                                             env.nb_tlb,
                                             vmstate_tlb6xx_entry,
                                             ppc6xx_tlb_t),
-        VMSTATE_UINTTL_ARRAY(env.tgpr, PowerPCCPU, 4),
+        VMSTATE_UINT32_ARRAY_AVAILABLE(env.tgpr.u32, PowerPCCPU, 4,
+                                       target_is_long_bits_32),
+        VMSTATE_UINT64_ARRAY_AVAILABLE(env.tgpr.u64, PowerPCCPU, 4,
+                                       target_is_long_bits_64),
         VMSTATE_END_OF_LIST()
     }
 };
@@ -581,9 +594,12 @@ static const VMStateDescription vmstate_tlbemb_entry = {
     .minimum_version_id = 1,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT64(RPN, ppcemb_tlb_t),
-        VMSTATE_UINTTL(EPN, ppcemb_tlb_t),
-        VMSTATE_UINTTL(PID, ppcemb_tlb_t),
-        VMSTATE_UINTTL(size, ppcemb_tlb_t),
+        VMSTATE_UINT32_AVAILABLE(EPN.u32, ppcemb_tlb_t, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(EPN.u64, ppcemb_tlb_t, target_is_long_bits_64),
+        VMSTATE_UINT32_AVAILABLE(PID.u32, ppcemb_tlb_t, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(PID.u64, ppcemb_tlb_t, target_is_long_bits_64),
+        VMSTATE_UINT32_AVAILABLE(size.u32, ppcemb_tlb_t, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(size.u64, ppcemb_tlb_t, target_is_long_bits_64),
         VMSTATE_UINT32(prot, ppcemb_tlb_t),
         VMSTATE_UINT32(attr, ppcemb_tlb_t),
         VMSTATE_END_OF_LIST()
@@ -679,11 +695,15 @@ static const VMStateDescription vmstate_reservation = {
     .minimum_version_id = 1,
     .needed = reservation_needed,
     .fields = (const VMStateField[]) {
-        VMSTATE_UINTTL(env.reserve_addr, PowerPCCPU),
-        VMSTATE_UINTTL(env.reserve_length, PowerPCCPU),
-        VMSTATE_UINTTL(env.reserve_val, PowerPCCPU),
+        VMSTATE_UINT32_AVAILABLE(env.reserve_addr.u32, PowerPCCPU, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.reserve_addr.u64, PowerPCCPU, target_is_long_bits_64),
+        VMSTATE_UINT32_AVAILABLE(env.reserve_length.u32, PowerPCCPU, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.reserve_length.u64, PowerPCCPU, target_is_long_bits_64),
+        VMSTATE_UINT32_AVAILABLE(env.reserve_val.u32, PowerPCCPU, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.reserve_val.u64, PowerPCCPU, target_is_long_bits_64),
 #if defined(TARGET_PPC64)
-        VMSTATE_UINTTL(env.reserve_val2, PowerPCCPU),
+        VMSTATE_UINT32_AVAILABLE(env.reserve_val2.u32, PowerPCCPU, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.reserve_val2.u64, PowerPCCPU, target_is_long_bits_64),
 #endif
         VMSTATE_END_OF_LIST()
     }
@@ -724,7 +744,8 @@ static const VMStateDescription vmstate_bhrb = {
     .minimum_version_id = 1,
     .needed = bhrb_needed,
     .fields = (VMStateField[]) {
-        VMSTATE_UINTTL(env.bhrb_offset, PowerPCCPU),
+        VMSTATE_UINT32_AVAILABLE(env.bhrb_offset.u32, PowerPCCPU, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.bhrb_offset.u64, PowerPCCPU, target_is_long_bits_64),
         VMSTATE_UINT64_ARRAY(env.bhrb, PowerPCCPU, BHRB_MAX_NUM_ENTRIES),
         VMSTATE_END_OF_LIST()
     }
@@ -741,24 +762,36 @@ const VMStateDescription vmstate_ppc_cpu = {
         VMSTATE_UNUSED(sizeof(target_ulong)), /* was _EQUAL(env.spr[SPR_PVR]) */
 
         /* User mode architected state */
-        VMSTATE_UINTTL_ARRAY(env.gpr, PowerPCCPU, 32),
+        VMSTATE_UINT32_ARRAY_AVAILABLE(env.gpr.u32, PowerPCCPU, 32,
+                                       target_is_long_bits_32),
+        VMSTATE_UINT64_ARRAY_AVAILABLE(env.gpr.u64, PowerPCCPU, 32,
+                                       target_is_long_bits_64),
 #if !defined(TARGET_PPC64)
-        VMSTATE_UINTTL_ARRAY(env.gprh, PowerPCCPU, 32),
+        VMSTATE_UINT32_ARRAY_AVAILABLE(env.gprh.u32, PowerPCCPU, 32,
+                                       target_is_long_bits_32),
+        VMSTATE_UINT64_ARRAY_AVAILABLE(env.gprh.u64, PowerPCCPU, 32,
+                                       target_is_long_bits_64),
 #endif
         VMSTATE_UINT32_ARRAY(env.crf, PowerPCCPU, 8),
-        VMSTATE_UINTTL(env.nip, PowerPCCPU),
+        VMSTATE_UINT32_AVAILABLE(env.nip.u32, PowerPCCPU, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.nip.u64, PowerPCCPU, target_is_long_bits_64),
 
         /* SPRs */
-        VMSTATE_UINTTL_ARRAY(env.spr, PowerPCCPU, 1024),
+        VMSTATE_UINT32_ARRAY_AVAILABLE(env.spr.u32, PowerPCCPU, 1024,
+                                       target_is_long_bits_32),
+        VMSTATE_UINT64_ARRAY_AVAILABLE(env.spr.u64, PowerPCCPU, 1024,
+                                       target_is_long_bits_64),
         VMSTATE_UINT64(env.spe_acc, PowerPCCPU),
 
         VMSTATE_UNUSED(sizeof(target_ulong)), /* was env.reserve_addr */
 
         /* Supervisor mode architected state */
-        VMSTATE_UINTTL(env.msr, PowerPCCPU),
+        VMSTATE_UINT32_AVAILABLE(env.msr.u32, PowerPCCPU, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.msr.u64, PowerPCCPU, target_is_long_bits_64),
 
         /* Backward compatible internal state */
-        VMSTATE_UINTTL(env.hflags_compat_nmsr, PowerPCCPU),
+        VMSTATE_UINT32_AVAILABLE(env.hflags_compat_nmsr.u32, PowerPCCPU, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.hflags_compat_nmsr.u64, PowerPCCPU, target_is_long_bits_64),
 
         VMSTATE_END_OF_LIST()
     },
