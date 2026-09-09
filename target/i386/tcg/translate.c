@@ -3365,13 +3365,7 @@ void tcg_x86_init(void)
     };
     const char (*reg_names)[4] = target_long_bits() == 64 ? reg_names64
                                                           : reg_names32;
-    static const char eip_name[] = {
-#ifdef TARGET_X86_64
-        "rip"
-#else
-        "eip"
-#endif
-    };
+    const char *eip_name = target_long_bits() == 64 ? "rip" : "eip";
     static const char seg_base_names[6][8] = {
         [R_CS] = "cs_base",
         [R_DS] = "ds_base",
