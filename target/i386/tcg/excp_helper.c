@@ -95,7 +95,7 @@ void raise_interrupt2(CPUX86State *env, int intno,
                       uintptr_t retaddr)
 {
     CPUState *cs = env_cpu(env);
-    uint64_t last_pc = env->eip + env->segs[R_CS].base;
+    uint64_t last_pc = target_ulong_val(&(env)->eip) + env->segs[R_CS].base;
 
     if (!is_int) {
         cpu_svm_check_intercept_param(env, SVM_EXIT_EXCP_BASE + intno,
@@ -108,7 +108,7 @@ void raise_interrupt2(CPUX86State *env, int intno,
     cs->exception_index = intno;
     env->error_code = error_code;
     env->exception_is_int = is_int;
-    env->exception_next_eip = env->eip + next_eip_addend;
+    env->exception_next_eip = target_ulong_val(&(env)->eip) + next_eip_addend;
     qemu_plugin_vcpu_exception_cb(cs, last_pc);
     cpu_loop_exit_restore(cs, retaddr);
 }
@@ -159,7 +159,7 @@ G_NORETURN void helper_icebp(CPUX86State *env)
     cs->exception_index = EXCP01_DB;
     env->error_code = 0;
     env->exception_is_int = 0;
-    env->exception_next_eip = env->eip;
+    env->exception_next_eip = target_ulong_val(&(env)->eip);
     cpu_loop_exit(cs);
 }
 

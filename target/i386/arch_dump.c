@@ -68,8 +68,8 @@ static int x86_64_write_elf64_note(WriteCoreDumpFunction f,
     regs.rcx = target_ulong_array_val(&env->regs.rec, R_ECX);
     regs.rbx = target_ulong_array_val(&env->regs.rec, R_EBX);
     regs.rax = target_ulong_array_val(&env->regs.rec, R_EAX);
-    regs.rip = env->eip;
-    regs.eflags = env->eflags;
+    regs.rip = target_ulong_val(&(env)->eip);
+    regs.eflags = target_ulong_val(&(env)->eflags);
 
     regs.orig_rax = 0; /* FIXME */
     regs.cs = env->segs[R_CS].selector;
@@ -135,8 +135,8 @@ static void x86_fill_elf_prstatus(x86_elf_prstatus *prstatus, CPUX86State *env,
     prstatus->regs.ecx = target_ulong_array_val(&env->regs.rec, R_ECX) & 0xffffffff;
     prstatus->regs.ebx = target_ulong_array_val(&env->regs.rec, R_EBX) & 0xffffffff;
     prstatus->regs.eax = target_ulong_array_val(&env->regs.rec, R_EAX) & 0xffffffff;
-    prstatus->regs.eip = env->eip & 0xffffffff;
-    prstatus->regs.eflags = env->eflags & 0xffffffff;
+    prstatus->regs.eip = target_ulong_val(&(env)->eip) & 0xffffffff;
+    prstatus->regs.eflags = target_ulong_val(&(env)->eflags) & 0xffffffff;
 
     prstatus->regs.cs = env->segs[R_CS].selector;
     prstatus->regs.ss = env->segs[R_SS].selector;
@@ -303,8 +303,8 @@ static void qemu_get_cpustate(QEMUCPUState *s, CPUX86State *env)
     s->r14 = target_ulong_array_val(&env->regs.rec, 14);
     s->r15 = target_ulong_array_val(&env->regs.rec, 15);
 #endif
-    s->rip = env->eip;
-    s->rflags = env->eflags;
+    s->rip = target_ulong_val(&(env)->eip);
+    s->rflags = target_ulong_val(&(env)->eflags);
 
     copy_segment(&s->cs, &env->segs[R_CS]);
     copy_segment(&s->ds, &env->segs[R_DS]);

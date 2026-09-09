@@ -9438,10 +9438,10 @@ static void x86_cpu_reset_hold(Object *obj, ResetType type)
                            DESC_P_MASK | DESC_S_MASK | DESC_W_MASK |
                            DESC_A_MASK);
 
-    env->eip = 0xfff0;
+    target_ulong_set(&env->eip, 0xfff0);
     target_ulong_array_set(&env->regs.rec, R_EDX, env->cpuid_version);
 
-    env->eflags = 0x2;
+    target_ulong_set(&env->eflags, 0x2);
 
     /* FPU init */
     for (i = 0; i < 8; i++) {
@@ -10593,7 +10593,7 @@ static void x86_cpu_set_pc(CPUState *cs, vaddr value)
 {
     X86CPU *cpu = X86_CPU(cs);
 
-    cpu->env.eip = value;
+    target_ulong_set(&cpu->env.eip, value);
 }
 
 static vaddr x86_cpu_get_pc(CPUState *cs)
@@ -10601,7 +10601,7 @@ static vaddr x86_cpu_get_pc(CPUState *cs)
     X86CPU *cpu = X86_CPU(cs);
 
     /* Match cpu_get_tb_cpu_state. */
-    return cpu->env.eip + cpu->env.segs[R_CS].base;
+    return target_ulong_val(&cpu->env.eip) + cpu->env.segs[R_CS].base;
 }
 
 #if !defined(CONFIG_USER_ONLY)
@@ -10680,7 +10680,8 @@ void x86_update_hflags(CPUX86State *env)
     hflags |= (env->cr[0] & CR0_PE_MASK) << (HF_PE_SHIFT - CR0_PE_SHIFT);
     hflags |= (env->cr[0] << (HF_MP_SHIFT - CR0_MP_SHIFT)) &
                 (HF_MP_MASK | HF_EM_MASK | HF_TS_MASK);
-    hflags |= (env->eflags & (HF_TF_MASK | HF_VM_MASK | HF_IOPL_MASK));
+    hflags |= (target_ulong_val(&env->eflags) &
+               (HF_TF_MASK | HF_VM_MASK | HF_IOPL_MASK));
 
     if (env->cr[4] & CR4_OSFXSR_MASK) {
         hflags |= HF_OSFXSR_MASK;
@@ -10697,7 +10698,8 @@ void x86_update_hflags(CPUX86State *env)
                     (DESC_B_SHIFT - HF_CS32_SHIFT);
         hflags |= (env->segs[R_SS].flags & DESC_B_MASK) >>
                     (DESC_B_SHIFT - HF_SS32_SHIFT);
-        if (!(env->cr[0] & CR0_PE_MASK) || (env->eflags & VM_MASK) ||
+        if (!(env->cr[0] & CR0_PE_MASK) ||
+            (target_ulong_val(&env->eflags) & VM_MASK) ||
             !(hflags & HF_CS32_MASK)) {
             hflags |= HF_ADDSEG_MASK;
         } else {
@@ -10861,7 +10863,7 @@ static int64_t monitor_get_pc(MonitorHMP *hmp, const struct MonitorDef *md,
                               int offset)
 {
     CPUArchState *env = monitor_hmp_get_cpu_env(hmp);
-    int64_t ret = env->eip + env->segs[R_CS].base;
+    int64_t ret = target_ulong_val(&env->eip) + env->segs[R_CS].base;
 
     if (!(env->hflags & HF_CS64_MASK)) {
         ret = (int32_t)ret;

@@ -37,8 +37,8 @@ static void save_state_to_tss32(CPUState *cpu, struct x86_tss_segment32 *tss)
     CPUX86State *env = &x86_cpu->env;
 
     /* CR3 and ldt selector are not saved intentionally */
-    tss->eip = (uint32_t)env->eip;
-    tss->eflags = (uint32_t)env->eflags;
+    tss->eip = (uint32_t)target_ulong_val(&(env)->eip);
+    tss->eflags = (uint32_t)target_ulong_val(&(env)->eflags);
     tss->eax = EAX(env);
     tss->ecx = ECX(env);
     tss->edx = EDX(env);
@@ -63,8 +63,8 @@ static void load_state_from_tss32(CPUState *cpu, struct x86_tss_segment32 *tss)
 
     wvmcs(cpu->accel->fd, VMCS_GUEST_CR3, tss->cr3);
 
-    env->eip = tss->eip;
-    env->eflags = tss->eflags | 2;
+    target_ulong_set(&(env)->eip,  tss->eip);
+    target_ulong_set(&(env)->eflags,  tss->eflags | 2);
 
     /* General purpose registers */
     RAX(env) = tss->eax;
@@ -156,7 +156,7 @@ void vmx_handle_task_switch(CPUState *cpu, x86_segment_selector tss_sel, int rea
     }
 
     if (reason == TSR_IRET)
-        env->eflags &= ~NT_MASK;
+        target_ulong_set(&(env)->eflags, target_ulong_val(&(env)->eflags) &  ~NT_MASK);
 
     if (reason != TSR_CALL && reason != TSR_IDT_GATE)
         old_tss_sel.sel = 0xffff;

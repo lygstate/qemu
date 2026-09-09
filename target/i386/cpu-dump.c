@@ -398,7 +398,7 @@ void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
         }
 
         qemu_fprintf(f, "RIP=%016" PRIx64 " RFL=%08x [%c%c%c%c%c%c%c] CPL=%d II=%d A20=%d SMM=%d HLT=%d\n",
-                     env->eip, eflags,
+                     target_ulong_val(&(env)->eip), eflags,
                      eflags & DF_MASK ? 'D' : '-',
                      eflags & CC_O ? 'O' : '-',
                      eflags & CC_S ? 'S' : '-',
@@ -425,7 +425,7 @@ void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
                      (uint32_t)target_ulong_array_val(&env->regs.rec, R_EDI),
                      (uint32_t)target_ulong_array_val(&env->regs.rec, R_EBP),
                      (uint32_t)target_ulong_array_val(&env->regs.rec, R_ESP),
-                     (uint32_t)env->eip, eflags,
+                     (uint32_t)target_ulong_val(&(env)->eip), eflags,
                      eflags & DF_MASK ? 'D' : '-',
                      eflags & CC_O ? 'O' : '-',
                      eflags & CC_S ? 'S' : '-',
@@ -578,8 +578,8 @@ void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
         }
     }
     if (flags & CPU_DUMP_CODE) {
-        target_ulong base = env->segs[R_CS].base + env->eip;
-        target_ulong offs = MIN(env->eip, DUMP_CODE_BYTES_BACKWARD);
+        target_ulong base = env->segs[R_CS].base + target_ulong_val(&(env)->eip);
+        target_ulong offs = MIN(target_ulong_val(&(env)->eip), DUMP_CODE_BYTES_BACKWARD);
         uint8_t code;
         char codestr[3];
 

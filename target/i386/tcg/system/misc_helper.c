@@ -534,7 +534,7 @@ G_NORETURN void helper_mwait(CPUX86State *env, int next_eip_addend)
         raise_exception_ra(env, EXCP0D_GPF, GETPC());
     }
     cpu_svm_check_intercept_param(env, SVM_EXIT_MWAIT, 0, GETPC());
-    env->eip += next_eip_addend;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  next_eip_addend);
 
     /* XXX: not complete but not completely erroneous */
     if (cs->cpu_index != 0 || CPU_NEXT(cs) != NULL) {

@@ -276,15 +276,15 @@ static inline uint32_t get_SF(CPUX86State *env)
 
 void lflags_to_rflags(CPUX86State *env)
 {
-    env->eflags &= ~(CC_C|CC_P|CC_A|CC_Z|CC_S|CC_O);
+    target_ulong_set(&(env)->eflags, target_ulong_val(&(env)->eflags) &  ~(CC_C|CC_P|CC_A|CC_Z|CC_S|CC_O));
     /* rotate left by one to move carry-out bits into CF and AF */
-    env->eflags |= (
-        (env->cc_src << 1) |
-        (env->cc_src >> (TARGET_LONG_BITS - 1))) & (CC_C | CC_A);
-    env->eflags |= get_SF(env);
-    env->eflags |= get_PF(env);
-    env->eflags |= get_ZF(env);
-    env->eflags |= get_OF(env);
+    target_ulong_set(&(env)->eflags, target_ulong_val(&(env)->eflags) | (
+        ((env->cc_src << 1) |
+         (env->cc_src >> (TARGET_LONG_BITS - 1))) & (CC_C | CC_A)));
+    target_ulong_set(&(env)->eflags, target_ulong_val(&(env)->eflags) |  get_SF(env));
+    target_ulong_set(&(env)->eflags, target_ulong_val(&(env)->eflags) |  get_PF(env));
+    target_ulong_set(&(env)->eflags, target_ulong_val(&(env)->eflags) |  get_ZF(env));
+    target_ulong_set(&(env)->eflags, target_ulong_val(&(env)->eflags) |  get_OF(env));
 }
 
 void rflags_to_lflags(CPUX86State *env)
@@ -292,14 +292,14 @@ void rflags_to_lflags(CPUX86State *env)
     target_ulong cf_af, cf_xor_of;
 
     /* compute DST and SRC2 that reconstruct ZF/SF/PF.  */
-    env->cc_dst = ~env->eflags & CC_Z;     /* DST = 0 if ZF=1 */
-    env->cc_src2 = ~env->eflags & CC_P;    /* odd parity if PF=0 */
-    env->cc_src2 ^= -!!(env->eflags & CC_S);
+    env->cc_dst = ~target_ulong_val(&(env)->eflags) & CC_Z;     /* DST = 0 if ZF=1 */
+    env->cc_src2 = ~target_ulong_val(&(env)->eflags) & CC_P;    /* odd parity if PF=0 */
+    env->cc_src2 ^= -!!(target_ulong_val(&(env)->eflags) & CC_S);
 
     /* rotate right by one to move CF and AF into the carry-out positions */
-    cf_af = env->eflags & (CC_C | CC_A);
+    cf_af = target_ulong_val(&(env)->eflags) & (CC_C | CC_A);
     env->cc_src = ((cf_af >> 1) | (cf_af << (TARGET_LONG_BITS - 1)));
 
-    cf_xor_of = ((env->eflags & (CC_C | CC_O)) + (CC_O - CC_C)) & CC_O;
+    cf_xor_of = ((target_ulong_val(&(env)->eflags) & (CC_C | CC_O)) + (CC_O - CC_C)) & CC_O;
     env->cc_src |= -cf_xor_of & LF_MASK_PO;
 }
