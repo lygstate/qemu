@@ -51,10 +51,6 @@ static const VMStateDescription vmstate_xmm_reg = {
     }
 };
 
-#define VMSTATE_XMM_REGS(_field, _state, _start)                         \
-    VMSTATE_STRUCT_SUB_ARRAY(_field, _state, _start, CPU_NB_REGS, 0,     \
-                             vmstate_xmm_reg, ZMMReg)
-
 /* YMMH format is the same as XMM, but for bits 128-255 */
 static const VMStateDescription vmstate_ymmh_reg = {
     .name = "ymmh_reg",
@@ -66,10 +62,6 @@ static const VMStateDescription vmstate_ymmh_reg = {
         VMSTATE_END_OF_LIST()
     }
 };
-
-#define VMSTATE_YMMH_REGS_VARS(_field, _state, _start, _v)               \
-    VMSTATE_STRUCT_SUB_ARRAY(_field, _state, _start, CPU_NB_REGS, _v,    \
-                             vmstate_ymmh_reg, ZMMReg)
 
 static const VMStateDescription vmstate_zmmh_reg = {
     .name = "zmmh_reg",
@@ -84,11 +76,6 @@ static const VMStateDescription vmstate_zmmh_reg = {
     }
 };
 
-#define VMSTATE_ZMMH_REGS_VARS(_field, _state, _start)                   \
-    VMSTATE_STRUCT_SUB_ARRAY(_field, _state, _start, CPU_NB_REGS, 0,     \
-                             vmstate_zmmh_reg, ZMMReg)
-
-#ifdef TARGET_X86_64
 static const VMStateDescription vmstate_hi16_zmm_reg = {
     .name = "hi16_zmm_reg",
     .version_id = 1,
@@ -105,11 +92,6 @@ static const VMStateDescription vmstate_hi16_zmm_reg = {
         VMSTATE_END_OF_LIST()
     }
 };
-
-#define VMSTATE_Hi16_ZMM_REGS_VARS(_field, _state, _start)               \
-    VMSTATE_STRUCT_SUB_ARRAY(_field, _state, _start, CPU_NB_REGS, 0,     \
-                             vmstate_hi16_zmm_reg, ZMMReg)
-#endif
 
 static const VMStateDescription vmstate_bnd_regs = {
     .name = "bnd_regs",
@@ -1031,10 +1013,18 @@ static const VMStateDescription vmstate_avx512 = {
     .needed = avx512_needed,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT64_ARRAY(env.opmask_regs, X86CPU, NB_OPMASK_REGS),
-        VMSTATE_ZMMH_REGS_VARS(env.xmm_regs, X86CPU, 0),
-#ifdef TARGET_X86_64
-        VMSTATE_Hi16_ZMM_REGS_VARS(env.xmm_regs, X86CPU, 16),
-#endif
+        /* xmm_regs[0..7]: ZMM high 256 bits (Q4-Q7). Low half is XMM/YMMH. */
+        VMSTATE_STRUCT_SUB_ARRAY_AVAILABLE(env.xmm_regs, X86CPU, 0, 8,
+                                           NULL, 0, vmstate_zmmh_reg,
+                                           ZMMReg),
+        /* xmm_regs[8..15]: ZMM high 256 bits; x86_64 only. */
+        VMSTATE_STRUCT_SUB_ARRAY_AVAILABLE(env.xmm_regs, X86CPU, 8, 8,
+                                           target_is_x86_64, 0,
+                                           vmstate_zmmh_reg, ZMMReg),
+        /* xmm_regs[16..31]: full ZMM; no prior XMM/YMMH. x86_64 only. */
+        VMSTATE_STRUCT_SUB_ARRAY_AVAILABLE(env.xmm_regs, X86CPU, 16, 16,
+                                           target_is_x86_64, 0,
+                                           vmstate_hi16_zmm_reg, ZMMReg),
         VMSTATE_END_OF_LIST()
     }
 };
@@ -1778,13 +1768,13 @@ static const VMStateDescription vmstate_cet = {
     },
 };
 
-#ifdef TARGET_X86_64
 static bool apx_needed(void *opaque)
 {
     X86CPU *cpu = opaque;
     CPUX86State *env = &cpu->env;
 
-    return !!(env->features[FEAT_7_1_EDX] & CPUID_7_1_EDX_APXF);
+    return target_x86_64() &&
+           !!(env->features[FEAT_7_1_EDX] & CPUID_7_1_EDX_APXF);
 }
 
 static const VMStateDescription vmstate_apx = {
@@ -1798,7 +1788,6 @@ static const VMStateDescription vmstate_apx = {
         VMSTATE_END_OF_LIST()
     }
 };
-#endif
 
 const VMStateDescription vmstate_x86_cpu = {
     .name = "cpu",
@@ -1838,7 +1827,14 @@ const VMStateDescription vmstate_x86_cpu = {
         VMSTATE_INT32(env.a20_mask, X86CPU),
         /* XMM */
         VMSTATE_UINT32(env.mxcsr, X86CPU),
-        VMSTATE_XMM_REGS(env.xmm_regs, X86CPU, 0),
+        /* xmm_regs[0..7]: low 128 bits. */
+        VMSTATE_STRUCT_SUB_ARRAY_AVAILABLE(env.xmm_regs, X86CPU, 0, 8,
+                                           NULL, 0, vmstate_xmm_reg,
+                                           ZMMReg),
+        /* xmm_regs[8..15]: low 128 bits; x86_64 only. */
+        VMSTATE_STRUCT_SUB_ARRAY_AVAILABLE(env.xmm_regs, X86CPU, 8, 8,
+                                           target_is_x86_64, 0,
+                                           vmstate_xmm_reg, ZMMReg),
 
         VMSTATE_UINT64_AVAILABLE(env.efer, X86CPU, target_is_long_bits_64),
         VMSTATE_UINT64_AVAILABLE(env.star, X86CPU, target_is_long_bits_64),
@@ -1889,7 +1885,14 @@ const VMStateDescription vmstate_x86_cpu = {
         /* XSAVE related fields */
         VMSTATE_UINT64_V(env.xcr0, X86CPU, 12),
         VMSTATE_UINT64_V(env.xstate_bv, X86CPU, 12),
-        VMSTATE_YMMH_REGS_VARS(env.xmm_regs, X86CPU, 0, 12),
+        /* xmm_regs[0..7]: YMM high 128 bits (Q2-Q3). */
+        VMSTATE_STRUCT_SUB_ARRAY_AVAILABLE(env.xmm_regs, X86CPU, 0, 8,
+                                           NULL, 12, vmstate_ymmh_reg,
+                                           ZMMReg),
+        /* xmm_regs[8..15]: YMM high 128 bits; x86_64 only. */
+        VMSTATE_STRUCT_SUB_ARRAY_AVAILABLE(env.xmm_regs, X86CPU, 8, 8,
+                                           target_is_x86_64, 12,
+                                           vmstate_ymmh_reg, ZMMReg),
         VMSTATE_END_OF_LIST()
         /* The above list is not sorted /wrt version numbers, watch out! */
     },
@@ -1946,9 +1949,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_triple_fault,
         &vmstate_pl0_ssp,
         &vmstate_cet,
-#ifdef TARGET_X86_64
         &vmstate_apx,
-#endif
 #ifdef CONFIG_MSHV
         &vmstate_mshv_synic_vp_state,
         &vmstate_mshv_synthetic_timers,
