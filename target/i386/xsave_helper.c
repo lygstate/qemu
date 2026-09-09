@@ -41,7 +41,7 @@ void x86_cpu_xsave_all_areas(X86CPU *cpu, void *buf, uint32_t buflen)
            sizeof(env->fpregs));
     legacy->mxcsr = env->mxcsr;
 
-    for (i = 0; i < CPU_NB_REGS; i++) {
+    for (i = 0; i < cpu_nb_regs(); i++) {
         uint8_t *xmm = legacy->xmm_regs[i];
 
         stq_p(xmm,     env->xmm_regs[i].ZMM_Q(0));
@@ -56,7 +56,7 @@ void x86_cpu_xsave_all_areas(X86CPU *cpu, void *buf, uint32_t buflen)
 
         avx = buf + e->offset;
 
-        for (i = 0; i < CPU_NB_REGS; i++) {
+        for (i = 0; i < cpu_nb_regs(); i++) {
             uint8_t *ymmh = avx->ymmh[i];
 
             stq_p(ymmh,     env->xmm_regs[i].ZMM_Q(2));
@@ -99,7 +99,7 @@ void x86_cpu_xsave_all_areas(X86CPU *cpu, void *buf, uint32_t buflen)
         memcpy(&opmask->opmask_regs, env->opmask_regs,
                sizeof(env->opmask_regs));
 
-        for (i = 0; i < CPU_NB_REGS; i++) {
+        for (i = 0; i < cpu_nb_regs(); i++) {
             uint8_t *zmmh = zmm_hi256->zmm_hi256[i];
 
             stq_p(zmmh,      env->xmm_regs[i].ZMM_Q(4));
@@ -146,8 +146,8 @@ void x86_cpu_xsave_all_areas(X86CPU *cpu, void *buf, uint32_t buflen)
     if (e->size && e->offset && buflen) {
         XSaveAPX *apx = buf + e->offset;
 
-        memcpy(apx, &env->regs[CPU_NB_REGS],
-               sizeof(env->regs[CPU_NB_REGS]) * (CPU_NB_EREGS - CPU_NB_REGS));
+        memcpy(apx->egprs, &env->regs.u64[CPU_NB_REGS64],
+               sizeof(apx->egprs));
     }
 #endif
 }
@@ -183,7 +183,7 @@ void x86_cpu_xrstor_all_areas(X86CPU *cpu, const void *buf, uint32_t buflen)
     memcpy(env->fpregs, &legacy->fpregs,
            sizeof(env->fpregs));
 
-    for (i = 0; i < CPU_NB_REGS; i++) {
+    for (i = 0; i < cpu_nb_regs(); i++) {
         const uint8_t *xmm = legacy->xmm_regs[i];
 
         env->xmm_regs[i].ZMM_Q(0) = ldq_p(xmm);
@@ -197,7 +197,7 @@ void x86_cpu_xrstor_all_areas(X86CPU *cpu, const void *buf, uint32_t buflen)
         const XSaveAVX *avx;
 
         avx = buf + e->offset;
-        for (i = 0; i < CPU_NB_REGS; i++) {
+        for (i = 0; i < cpu_nb_regs(); i++) {
             const uint8_t *ymmh = avx->ymmh[i];
 
             env->xmm_regs[i].ZMM_Q(2) = ldq_p(ymmh);
@@ -247,7 +247,7 @@ void x86_cpu_xrstor_all_areas(X86CPU *cpu, const void *buf, uint32_t buflen)
         memcpy(env->opmask_regs, &opmask->opmask_regs,
                sizeof(env->opmask_regs));
 
-        for (i = 0; i < CPU_NB_REGS; i++) {
+        for (i = 0; i < cpu_nb_regs(); i++) {
             const uint8_t *zmmh = zmm_hi256->zmm_hi256[i];
 
             env->xmm_regs[i].ZMM_Q(4) = ldq_p(zmmh);
@@ -289,8 +289,8 @@ void x86_cpu_xrstor_all_areas(X86CPU *cpu, const void *buf, uint32_t buflen)
     if (e->size && e->offset) {
         const XSaveAPX *apx = buf + e->offset;
 
-        memcpy(&env->regs[CPU_NB_REGS], apx,
-               sizeof(env->regs[CPU_NB_REGS]) * (CPU_NB_EREGS - CPU_NB_REGS));
+        memcpy(&env->regs.u64[CPU_NB_REGS64], apx->egprs,
+               sizeof(apx->egprs));
     }
 #endif
 }

@@ -80,9 +80,9 @@ static void vmmouse_get_data(uint64_t *data)
     X86CPU *cpu = X86_CPU(current_cpu);
     CPUX86State *env = &cpu->env;
 
-    data[0] = env->regs[R_EAX]; data[1] = env->regs[R_EBX];
-    data[2] = env->regs[R_ECX]; data[3] = env->regs[R_EDX];
-    data[4] = env->regs[R_ESI]; data[5] = env->regs[R_EDI];
+    data[0] = target_ulong_array_val(&env->regs.rec, R_EAX); data[1] = target_ulong_array_val(&env->regs.rec, R_EBX);
+    data[2] = target_ulong_array_val(&env->regs.rec, R_ECX); data[3] = target_ulong_array_val(&env->regs.rec, R_EDX);
+    data[4] = target_ulong_array_val(&env->regs.rec, R_ESI); data[5] = target_ulong_array_val(&env->regs.rec, R_EDI);
 }
 
 static void vmmouse_set_data(const uint64_t *data)
@@ -90,9 +90,9 @@ static void vmmouse_set_data(const uint64_t *data)
     X86CPU *cpu = X86_CPU(current_cpu);
     CPUX86State *env = &cpu->env;
 
-    env->regs[R_EAX] = data[0]; env->regs[R_EBX] = data[1];
-    env->regs[R_ECX] = data[2]; env->regs[R_EDX] = data[3];
-    env->regs[R_ESI] = data[4]; env->regs[R_EDI] = data[5];
+    target_ulong_array_set(&env->regs.rec, R_EAX, data[0]); target_ulong_array_set(&env->regs.rec, R_EBX, data[1]);
+    target_ulong_array_set(&env->regs.rec, R_ECX, data[2]); target_ulong_array_set(&env->regs.rec, R_EDX, data[3]);
+    target_ulong_array_set(&env->regs.rec, R_ESI, data[4]); target_ulong_array_set(&env->regs.rec, R_EDI, data[5]);
 }
 
 static uint32_t vmmouse_get_status(VMMouseState *s)

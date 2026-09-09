@@ -195,7 +195,7 @@ typedef struct x86_segment_selector {
 } __attribute__ ((__packed__)) x86_segment_selector;
 
 /* useful register access  macros */
-#define x86_reg(cpu, reg) ((x86_register *) &cpu->regs[reg])
+#define x86_reg(cpu, reg) ((x86_register *) target_ulong_array_elem(&cpu->regs.rec, reg))
 
 #define RRX(cpu, reg)   (x86_reg(cpu, reg)->rrx)
 #define RAX(cpu)        RRX(cpu, R_EAX)

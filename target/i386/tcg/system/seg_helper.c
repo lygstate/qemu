@@ -39,8 +39,8 @@ void helper_syscall(CPUX86State *env, int next_eip_addend)
     if (env->hflags & HF_LMA_MASK) {
         int code64;
 
-        env->regs[R_ECX] = env->eip + next_eip_addend;
-        env->regs[11] = cpu_compute_eflags(env) & ~RF_MASK;
+        target_ulong_array_set(&env->regs.rec, R_ECX, env->eip + next_eip_addend);
+        target_ulong_array_set(&env->regs.rec, 11, cpu_compute_eflags(env) & ~RF_MASK);
 
         code64 = env->hflags & HF_CS64_MASK;
 
@@ -65,7 +65,7 @@ void helper_syscall(CPUX86State *env, int next_eip_addend)
     } else
 #endif
     {
-        env->regs[R_ECX] = (uint32_t)(env->eip + next_eip_addend);
+        target_ulong_array_set(&env->regs.rec, R_ECX, (uint32_t)(env->eip + next_eip_addend));
 
         env->eflags &= ~(IF_MASK | RF_MASK | VM_MASK);
         cpu_x86_load_seg_cache(env, R_CS, selector & 0xfffc,

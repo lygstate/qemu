@@ -9439,7 +9439,7 @@ static void x86_cpu_reset_hold(Object *obj, ResetType type)
                            DESC_A_MASK);
 
     env->eip = 0xfff0;
-    env->regs[R_EDX] = env->cpuid_version;
+    target_ulong_array_set(&env->regs.rec, R_EDX, env->cpuid_version);
 
     env->eflags = 0x2;
 

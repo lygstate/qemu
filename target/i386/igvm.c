@@ -100,23 +100,23 @@ static void qigvm_x86_load_context(struct IgvmNativeVpContextX64 *context,
     env->idt.base = context->idtr_base;
     env->idt.limit = context->idtr_limit;
 
-    env->regs[R_EAX] = context->rax;
-    env->regs[R_ECX] = context->rcx;
-    env->regs[R_EDX] = context->rdx;
-    env->regs[R_EBX] = context->rbx;
-    env->regs[R_ESP] = context->rsp;
-    env->regs[R_EBP] = context->rbp;
-    env->regs[R_ESI] = context->rsi;
-    env->regs[R_EDI] = context->rdi;
+    target_ulong_array_set(&env->regs.rec, R_EAX, context->rax);
+    target_ulong_array_set(&env->regs.rec, R_ECX, context->rcx);
+    target_ulong_array_set(&env->regs.rec, R_EDX, context->rdx);
+    target_ulong_array_set(&env->regs.rec, R_EBX, context->rbx);
+    target_ulong_array_set(&env->regs.rec, R_ESP, context->rsp);
+    target_ulong_array_set(&env->regs.rec, R_EBP, context->rbp);
+    target_ulong_array_set(&env->regs.rec, R_ESI, context->rsi);
+    target_ulong_array_set(&env->regs.rec, R_EDI, context->rdi);
 #ifdef TARGET_X86_64
-    env->regs[R_R8] = context->r8;
-    env->regs[R_R9] = context->r9;
-    env->regs[R_R10] = context->r10;
-    env->regs[R_R11] = context->r11;
-    env->regs[R_R12] = context->r12;
-    env->regs[R_R13] = context->r13;
-    env->regs[R_R14] = context->r14;
-    env->regs[R_R15] = context->r15;
+    target_ulong_array_set(&env->regs.rec, R_R8, context->r8);
+    target_ulong_array_set(&env->regs.rec, R_R9, context->r9);
+    target_ulong_array_set(&env->regs.rec, R_R10, context->r10);
+    target_ulong_array_set(&env->regs.rec, R_R11, context->r11);
+    target_ulong_array_set(&env->regs.rec, R_R12, context->r12);
+    target_ulong_array_set(&env->regs.rec, R_R13, context->r13);
+    target_ulong_array_set(&env->regs.rec, R_R14, context->r14);
+    target_ulong_array_set(&env->regs.rec, R_R15, context->r15);
 #endif
     env->eip = context->rip;
     env->eflags = context->rflags;

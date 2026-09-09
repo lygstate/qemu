@@ -52,22 +52,22 @@ static int x86_64_write_elf64_note(WriteCoreDumpFunction f,
     const char *name = "CORE";
     int ret;
 
-    regs.r15 = env->regs[15];
-    regs.r14 = env->regs[14];
-    regs.r13 = env->regs[13];
-    regs.r12 = env->regs[12];
-    regs.r11 = env->regs[11];
-    regs.r10 = env->regs[10];
-    regs.r9  = env->regs[9];
-    regs.r8  = env->regs[8];
-    regs.rbp = env->regs[R_EBP];
-    regs.rsp = env->regs[R_ESP];
-    regs.rdi = env->regs[R_EDI];
-    regs.rsi = env->regs[R_ESI];
-    regs.rdx = env->regs[R_EDX];
-    regs.rcx = env->regs[R_ECX];
-    regs.rbx = env->regs[R_EBX];
-    regs.rax = env->regs[R_EAX];
+    regs.r15 = target_ulong_array_val(&env->regs.rec, 15);
+    regs.r14 = target_ulong_array_val(&env->regs.rec, 14);
+    regs.r13 = target_ulong_array_val(&env->regs.rec, 13);
+    regs.r12 = target_ulong_array_val(&env->regs.rec, 12);
+    regs.r11 = target_ulong_array_val(&env->regs.rec, 11);
+    regs.r10 = target_ulong_array_val(&env->regs.rec, 10);
+    regs.r9  = target_ulong_array_val(&env->regs.rec, 9);
+    regs.r8  = target_ulong_array_val(&env->regs.rec, 8);
+    regs.rbp = target_ulong_array_val(&env->regs.rec, R_EBP);
+    regs.rsp = target_ulong_array_val(&env->regs.rec, R_ESP);
+    regs.rdi = target_ulong_array_val(&env->regs.rec, R_EDI);
+    regs.rsi = target_ulong_array_val(&env->regs.rec, R_ESI);
+    regs.rdx = target_ulong_array_val(&env->regs.rec, R_EDX);
+    regs.rcx = target_ulong_array_val(&env->regs.rec, R_ECX);
+    regs.rbx = target_ulong_array_val(&env->regs.rec, R_EBX);
+    regs.rax = target_ulong_array_val(&env->regs.rec, R_EAX);
     regs.rip = env->eip;
     regs.eflags = env->eflags;
 
@@ -127,14 +127,14 @@ static void x86_fill_elf_prstatus(x86_elf_prstatus *prstatus, CPUX86State *env,
                                   int id)
 {
     memset(prstatus, 0, sizeof(x86_elf_prstatus));
-    prstatus->regs.ebp = env->regs[R_EBP] & 0xffffffff;
-    prstatus->regs.esp = env->regs[R_ESP] & 0xffffffff;
-    prstatus->regs.edi = env->regs[R_EDI] & 0xffffffff;
-    prstatus->regs.esi = env->regs[R_ESI] & 0xffffffff;
-    prstatus->regs.edx = env->regs[R_EDX] & 0xffffffff;
-    prstatus->regs.ecx = env->regs[R_ECX] & 0xffffffff;
-    prstatus->regs.ebx = env->regs[R_EBX] & 0xffffffff;
-    prstatus->regs.eax = env->regs[R_EAX] & 0xffffffff;
+    prstatus->regs.ebp = target_ulong_array_val(&env->regs.rec, R_EBP) & 0xffffffff;
+    prstatus->regs.esp = target_ulong_array_val(&env->regs.rec, R_ESP) & 0xffffffff;
+    prstatus->regs.edi = target_ulong_array_val(&env->regs.rec, R_EDI) & 0xffffffff;
+    prstatus->regs.esi = target_ulong_array_val(&env->regs.rec, R_ESI) & 0xffffffff;
+    prstatus->regs.edx = target_ulong_array_val(&env->regs.rec, R_EDX) & 0xffffffff;
+    prstatus->regs.ecx = target_ulong_array_val(&env->regs.rec, R_ECX) & 0xffffffff;
+    prstatus->regs.ebx = target_ulong_array_val(&env->regs.rec, R_EBX) & 0xffffffff;
+    prstatus->regs.eax = target_ulong_array_val(&env->regs.rec, R_EAX) & 0xffffffff;
     prstatus->regs.eip = env->eip & 0xffffffff;
     prstatus->regs.eflags = env->eflags & 0xffffffff;
 
@@ -285,23 +285,23 @@ static void qemu_get_cpustate(QEMUCPUState *s, CPUX86State *env)
     s->version = QEMUCPUSTATE_VERSION;
     s->size = sizeof(QEMUCPUState);
 
-    s->rax = env->regs[R_EAX];
-    s->rbx = env->regs[R_EBX];
-    s->rcx = env->regs[R_ECX];
-    s->rdx = env->regs[R_EDX];
-    s->rsi = env->regs[R_ESI];
-    s->rdi = env->regs[R_EDI];
-    s->rsp = env->regs[R_ESP];
-    s->rbp = env->regs[R_EBP];
+    s->rax = target_ulong_array_val(&env->regs.rec, R_EAX);
+    s->rbx = target_ulong_array_val(&env->regs.rec, R_EBX);
+    s->rcx = target_ulong_array_val(&env->regs.rec, R_ECX);
+    s->rdx = target_ulong_array_val(&env->regs.rec, R_EDX);
+    s->rsi = target_ulong_array_val(&env->regs.rec, R_ESI);
+    s->rdi = target_ulong_array_val(&env->regs.rec, R_EDI);
+    s->rsp = target_ulong_array_val(&env->regs.rec, R_ESP);
+    s->rbp = target_ulong_array_val(&env->regs.rec, R_EBP);
 #ifdef TARGET_X86_64
-    s->r8  = env->regs[8];
-    s->r9  = env->regs[9];
-    s->r10 = env->regs[10];
-    s->r11 = env->regs[11];
-    s->r12 = env->regs[12];
-    s->r13 = env->regs[13];
-    s->r14 = env->regs[14];
-    s->r15 = env->regs[15];
+    s->r8  = target_ulong_array_val(&env->regs.rec, 8);
+    s->r9  = target_ulong_array_val(&env->regs.rec, 9);
+    s->r10 = target_ulong_array_val(&env->regs.rec, 10);
+    s->r11 = target_ulong_array_val(&env->regs.rec, 11);
+    s->r12 = target_ulong_array_val(&env->regs.rec, 12);
+    s->r13 = target_ulong_array_val(&env->regs.rec, 13);
+    s->r14 = target_ulong_array_val(&env->regs.rec, 14);
+    s->r15 = target_ulong_array_val(&env->regs.rec, 15);
 #endif
     s->rip = env->eip;
     s->rflags = env->eflags;

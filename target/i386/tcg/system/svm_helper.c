@@ -168,9 +168,9 @@ void helper_vmrun(CPUX86State *env, int aflag, int next_eip_addend)
     uint64_t new_dr7;
 
     if (aflag == 2) {
-        addr = env->regs[R_EAX];
+        addr = target_ulong_array_val(&env->regs.rec, R_EAX);
     } else {
-        addr = (uint32_t)env->regs[R_EAX];
+        addr = (uint32_t)target_ulong_array_val(&env->regs.rec, R_EAX);
     }
 
     /* Exceptions are checked before the intercept.  */
@@ -230,9 +230,9 @@ void helper_vmrun(CPUX86State *env, int aflag, int next_eip_addend)
     x86_stq_phys(cs, env->vm_hsave + offsetof(struct vmcb, save.rip),
              env->eip + next_eip_addend);
     x86_stq_phys(cs,
-             env->vm_hsave + offsetof(struct vmcb, save.rsp), env->regs[R_ESP]);
+             env->vm_hsave + offsetof(struct vmcb, save.rsp), target_ulong_array_val(&env->regs.rec, R_ESP));
     x86_stq_phys(cs,
-             env->vm_hsave + offsetof(struct vmcb, save.rax), env->regs[R_EAX]);
+             env->vm_hsave + offsetof(struct vmcb, save.rax), target_ulong_array_val(&env->regs.rec, R_EAX));
 
     /* load the interception bitmaps so we do not need to access the
        vmcb in svm mode */
@@ -367,10 +367,10 @@ void helper_vmrun(CPUX86State *env, int aflag, int next_eip_addend)
     env->eip = x86_ldq_phys(cs,
                         env->vm_vmcb + offsetof(struct vmcb, save.rip));
 
-    env->regs[R_ESP] = x86_ldq_phys(cs,
-                                env->vm_vmcb + offsetof(struct vmcb, save.rsp));
-    env->regs[R_EAX] = x86_ldq_phys(cs,
-                                env->vm_vmcb + offsetof(struct vmcb, save.rax));
+    target_ulong_array_set(&env->regs.rec, R_ESP, x86_ldq_phys(cs,
+                                env->vm_vmcb + offsetof(struct vmcb, save.rsp)));
+    target_ulong_array_set(&env->regs.rec, R_EAX, x86_ldq_phys(cs,
+                                env->vm_vmcb + offsetof(struct vmcb, save.rax)));
 
     new_dr7 = x86_ldq_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.dr7));
     new_dr6 = x86_ldq_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.dr6));
@@ -481,9 +481,9 @@ void helper_vmload(CPUX86State *env, int aflag)
     target_ulong addr;
 
     if (aflag == 2) {
-        addr = env->regs[R_EAX];
+        addr = target_ulong_array_val(&env->regs.rec, R_EAX);
     } else {
-        addr = (uint32_t)env->regs[R_EAX];
+        addr = (uint32_t)target_ulong_array_val(&env->regs.rec, R_EAX);
     }
 
     /* Exceptions are checked before the intercept.  */
@@ -545,9 +545,9 @@ void helper_vmsave(CPUX86State *env, int aflag)
     target_ulong addr;
 
     if (aflag == 2) {
-        addr = env->regs[R_EAX];
+        addr = target_ulong_array_val(&env->regs.rec, R_EAX);
     } else {
-        addr = (uint32_t)env->regs[R_EAX];
+        addr = (uint32_t)target_ulong_array_val(&env->regs.rec, R_EAX);
     }
 
     /* Exceptions are checked before the intercept.  */
@@ -671,18 +671,18 @@ void cpu_svm_check_intercept_param(CPUX86State *env, uint32_t type,
                                             control.msrpm_base_pa));
         uint32_t t0, t1;
 
-        switch ((uint32_t)env->regs[R_ECX]) {
+        switch ((uint32_t)target_ulong_array_val(&env->regs.rec, R_ECX)) {
         case 0 ... 0x1fff:
-            t0 = (env->regs[R_ECX] * 2) % 8;
-            t1 = (env->regs[R_ECX] * 2) / 8;
+            t0 = (target_ulong_array_val(&env->regs.rec, R_ECX) * 2) % 8;
+            t1 = (target_ulong_array_val(&env->regs.rec, R_ECX) * 2) / 8;
             break;
         case 0xc0000000 ... 0xc0001fff:
-            t0 = (8192 + env->regs[R_ECX] - 0xc0000000) * 2;
+            t0 = (8192 + target_ulong_array_val(&env->regs.rec, R_ECX) - 0xc0000000) * 2;
             t1 = (t0 / 8);
             t0 %= 8;
             break;
         case 0xc0010000 ... 0xc0011fff:
-            t0 = (16384 + env->regs[R_ECX] - 0xc0010000) * 2;
+            t0 = (16384 + target_ulong_array_val(&env->regs.rec, R_ECX) - 0xc0010000) * 2;
             t1 = (t0 / 8);
             t0 %= 8;
             break;
@@ -811,9 +811,9 @@ void do_vmexit(CPUX86State *env)
     x86_stq_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.rip),
              env->eip);
     x86_stq_phys(cs,
-             env->vm_vmcb + offsetof(struct vmcb, save.rsp), env->regs[R_ESP]);
+             env->vm_vmcb + offsetof(struct vmcb, save.rsp), target_ulong_array_val(&env->regs.rec, R_ESP));
     x86_stq_phys(cs,
-             env->vm_vmcb + offsetof(struct vmcb, save.rax), env->regs[R_EAX]);
+             env->vm_vmcb + offsetof(struct vmcb, save.rax), target_ulong_array_val(&env->regs.rec, R_EAX));
     x86_stq_phys(cs,
              env->vm_vmcb + offsetof(struct vmcb, save.dr7), env->dr[7]);
     x86_stq_phys(cs,
@@ -887,10 +887,10 @@ void do_vmexit(CPUX86State *env)
 
     env->eip = x86_ldq_phys(cs,
                         env->vm_hsave + offsetof(struct vmcb, save.rip));
-    env->regs[R_ESP] = x86_ldq_phys(cs, env->vm_hsave +
-                                offsetof(struct vmcb, save.rsp));
-    env->regs[R_EAX] = x86_ldq_phys(cs, env->vm_hsave +
-                                offsetof(struct vmcb, save.rax));
+    target_ulong_array_set(&env->regs.rec, R_ESP, x86_ldq_phys(cs, env->vm_hsave +
+                                offsetof(struct vmcb, save.rsp)));
+    target_ulong_array_set(&env->regs.rec, R_EAX, x86_ldq_phys(cs, env->vm_hsave +
+                                offsetof(struct vmcb, save.rax)));
 
     env->dr[6] = x86_ldq_phys(cs,
                           env->vm_hsave + offsetof(struct vmcb, save.dr6));

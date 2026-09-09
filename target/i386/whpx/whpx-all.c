@@ -547,8 +547,8 @@ void whpx_set_registers(CPUState *cpu, WHPXStateLevel level)
 
     /* Indexes for first 16 registers match between HV and QEMU definitions */
     idx_next = 16;
-    for (idx = 0; idx < CPU_NB_REGS; idx += 1) {
-        vcxt.values[idx].Reg64 = (uint64_t)env->regs[idx];
+    for (idx = 0; idx < cpu_nb_regs(); idx += 1) {
+        vcxt.values[idx].Reg64 = (uint64_t)target_ulong_array_val(&env->regs.rec, idx);
     }
     idx = idx_next;
 
@@ -734,8 +734,8 @@ static void whpx_get_registers_for_vmexit(CPUState *cpu, WHPXStateLevel level)
 
     /* Indexes for first 16 registers match between HV and QEMU definitions */
     idx_next = 16;
-    for (idx = 0; idx < CPU_NB_REGS; idx += 1) {
-        env->regs[idx] = vcxt.values[idx].Reg64;
+    for (idx = 0; idx < cpu_nb_regs(); idx += 1) {
+        target_ulong_array_set(&env->regs.rec, idx, vcxt.values[idx].Reg64);
     }
     idx = idx_next;
 
@@ -890,8 +890,8 @@ void whpx_get_registers(CPUState *cpu, WHPXStateLevel level)
 
     /* Indexes for first 16 registers match between HV and QEMU definitions */
     idx_next = 16;
-    for (idx = 0; idx < CPU_NB_REGS; idx += 1) {
-        env->regs[idx] = vcxt.values[idx].Reg64;
+    for (idx = 0; idx < cpu_nb_regs(); idx += 1) {
+        target_ulong_array_set(&env->regs.rec, idx, vcxt.values[idx].Reg64);
     }
     idx = idx_next;
 
@@ -1154,7 +1154,7 @@ static int whpx_handle_portio(CPUState *cpu,
             whpx_set_reg(cpu, WHvX64RegisterRax, reg);
         } else {
             env->eip = exit_ctx->VpContext.Rip + exit_ctx->VpContext.InstructionLength;
-            env->regs[R_EAX] = reg.Reg64;
+            target_ulong_array_set(&env->regs.rec, R_EAX, reg.Reg64);
         }
         return 0;
     } else if (!ctx->AccessInfo.StringOp && ctx->AccessInfo.IsWrite) {

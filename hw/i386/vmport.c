@@ -106,12 +106,12 @@ static uint64_t vmport_ioport_read(void *opaque, hwaddr addr,
     env = &cpu->env;
     cpu_synchronize_state(cs);
 
-    eax = env->regs[R_EAX];
+    eax = target_ulong_array_val(&env->regs.rec, R_EAX);
     if (eax != VMPORT_MAGIC) {
         goto err;
     }
 
-    command = env->regs[R_ECX];
+    command = target_ulong_array_val(&env->regs.rec, R_ECX);
     trace_vmport_command(command);
     if (command >= VMPORT_ENTRIES || !s->func[command]) {
         qemu_log_mask(LOG_UNIMP, "vmport: unknown command %x\n", command);
@@ -137,7 +137,7 @@ out:
      * guest EAX, we need to explicitly update QEMU EAX register value.
      */
     if (s->compat_flags & VMPORT_COMPAT_READ_SET_EAX) {
-        cpu->env.regs[R_EAX] = eax;
+        target_ulong_array_set(&cpu->env.regs.rec, R_EAX, eax);
     }
 
     return eax;
@@ -151,7 +151,7 @@ static void vmport_ioport_write(void *opaque, hwaddr addr,
     if (qtest_enabled()) {
         return;
     }
-    cpu->env.regs[R_EAX] = vmport_ioport_read(opaque, addr, 4);
+    target_ulong_array_set(&cpu->env.regs.rec, R_EAX, vmport_ioport_read(opaque, addr, 4));
 }
 
 static uint32_t vmport_cmd_get_version(void *opaque, uint32_t addr)
@@ -161,9 +161,9 @@ static uint32_t vmport_cmd_get_version(void *opaque, uint32_t addr)
     if (qtest_enabled()) {
         return -1;
     }
-    cpu->env.regs[R_EBX] = VMPORT_MAGIC;
+    target_ulong_array_set(&cpu->env.regs.rec, R_EBX, VMPORT_MAGIC);
     if (port_state->compat_flags & VMPORT_COMPAT_REPORT_VMX_TYPE) {
-        cpu->env.regs[R_ECX] = port_state->vmware_vmx_type;
+        target_ulong_array_set(&cpu->env.regs.rec, R_ECX, port_state->vmware_vmx_type);
     }
     return port_state->vmware_vmx_version;
 }
@@ -173,11 +173,11 @@ static uint32_t vmport_cmd_get_bios_uuid(void *opaque, uint32_t addr)
     X86CPU *cpu = X86_CPU(current_cpu);
     uint32_t *uuid_parts = (uint32_t *)(qemu_uuid.data);
 
-    cpu->env.regs[R_EAX] = le32_to_cpu(uuid_parts[0]);
-    cpu->env.regs[R_EBX] = le32_to_cpu(uuid_parts[1]);
-    cpu->env.regs[R_ECX] = le32_to_cpu(uuid_parts[2]);
-    cpu->env.regs[R_EDX] = le32_to_cpu(uuid_parts[3]);
-    return cpu->env.regs[R_EAX];
+    target_ulong_array_set(&cpu->env.regs.rec, R_EAX, le32_to_cpu(uuid_parts[0]));
+    target_ulong_array_set(&cpu->env.regs.rec, R_EBX, le32_to_cpu(uuid_parts[1]));
+    target_ulong_array_set(&cpu->env.regs.rec, R_ECX, le32_to_cpu(uuid_parts[2]));
+    target_ulong_array_set(&cpu->env.regs.rec, R_EDX, le32_to_cpu(uuid_parts[3]));
+    return target_ulong_array_val(&cpu->env.regs.rec, R_EAX);
 }
 
 static uint32_t vmport_cmd_ram_size(void *opaque, uint32_t addr)
@@ -187,7 +187,7 @@ static uint32_t vmport_cmd_ram_size(void *opaque, uint32_t addr)
     if (qtest_enabled()) {
         return -1;
     }
-    cpu->env.regs[R_EBX] = 0x1177;
+    target_ulong_array_set(&cpu->env.regs.rec, R_EBX, 0x1177);
     return current_machine->ram_size;
 }
 
@@ -198,15 +198,15 @@ static uint32_t vmport_cmd_get_hz(void *opaque, uint32_t addr)
     if (cpu->env.tsc_khz && cpu->env.apic_bus_freq) {
         uint64_t tsc_freq = (uint64_t)cpu->env.tsc_khz * 1000;
 
-        cpu->env.regs[R_ECX] = cpu->env.apic_bus_freq;
-        cpu->env.regs[R_EBX] = (uint32_t)(tsc_freq >> 32);
-        cpu->env.regs[R_EAX] = (uint32_t)tsc_freq;
+        target_ulong_array_set(&cpu->env.regs.rec, R_ECX, cpu->env.apic_bus_freq);
+        target_ulong_array_set(&cpu->env.regs.rec, R_EBX, (uint32_t)(tsc_freq >> 32));
+        target_ulong_array_set(&cpu->env.regs.rec, R_EAX, (uint32_t)tsc_freq);
     } else {
         /* Signal cmd as not supported */
-        cpu->env.regs[R_EBX] = UINT32_MAX;
+        target_ulong_array_set(&cpu->env.regs.rec, R_EBX, UINT32_MAX);
     }
 
-    return cpu->env.regs[R_EAX];
+    return target_ulong_array_val(&cpu->env.regs.rec, R_EAX);
 }
 
 static uint32_t vmport_cmd_get_vcpu_info(void *opaque, uint32_t addr)
