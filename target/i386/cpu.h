@@ -1753,15 +1753,6 @@ typedef struct {
 #define CPU_NB_REGS64 16
 #define CPU_NB_REGS32 8
 
-#ifdef TARGET_X86_64
-#define CPU_NB_EREGS CPU_NB_EREGS64
-#define CPU_NB_REGS CPU_NB_REGS64
-#else
-#define CPU_NB_EREGS CPU_NB_REGS32
-#define CPU_NB_REGS CPU_NB_REGS32
-#endif
-
-/* TARGET-independent max; use these to replace CPU_NB_EREGS / CPU_NB_REGS. */
 #define CPU_NB_EREGS_MAX CPU_NB_EREGS64
 #define CPU_NB_REGS_MAX CPU_NB_REGS64
 
