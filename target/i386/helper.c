@@ -158,7 +158,7 @@ void cpu_x86_update_cr0(CPUX86State *env, uint32_t new_cr0)
         /* exit long mode */
         env->efer &= ~MSR_EFER_LMA;
         env->hflags &= ~(HF_LMA_MASK | HF_CS64_MASK);
-        env->eip &= 0xffffffff;
+        target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) &  0xffffffff);
     }
 #endif
     env->cr[0] = new_cr0 | CR0_ET_MASK;
@@ -555,12 +555,12 @@ static inline target_ulong get_memio_eip(CPUX86State *env)
     CPUState *cs = env_cpu(env);
 
     if (!cpu_unwind_state_data(cs, cs->mem_io_pc, data)) {
-        return env->eip;
+        return target_ulong_val(&(env)->eip);
     }
 
     /* Per x86_restore_state_to_opc. */
     if (tcg_cflags_has(cs, CF_PCREL)) {
-        return (env->eip & TARGET_PAGE_MASK) | data[0];
+        return (target_ulong_val(&(env)->eip) & TARGET_PAGE_MASK) | data[0];
     } else {
         return data[0] - env->segs[R_CS].base;
     }

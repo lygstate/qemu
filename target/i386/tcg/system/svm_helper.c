@@ -61,8 +61,7 @@ static void svm_load_seg(CPUX86State *env, int mmu_idx, hwaddr addr,
     sc->selector =
         cpu_lduw_le_mmuidx_ra(env, addr + offsetof(struct vmcb_seg, selector),
                            mmu_idx, 0);
-    sc->base =
-        cpu_ldq_le_mmuidx_ra(env, addr + offsetof(struct vmcb_seg, base),
+    sc->base = cpu_ldq_le_mmuidx_ra(env, addr + offsetof(struct vmcb_seg, base),
                           mmu_idx, 0);
     sc->limit =
         cpu_ldl_le_mmuidx_ra(env, addr + offsetof(struct vmcb_seg, limit),
@@ -72,7 +71,11 @@ static void svm_load_seg(CPUX86State *env, int mmu_idx, hwaddr addr,
                            mmu_idx, 0);
     sc->flags = ((flags & 0xff) << 8) | ((flags & 0x0f00) << 12);
 
-    svm_canonicalization(env, &sc->base);
+    {
+        target_ulong tmp = sc->base;
+        svm_canonicalization(env, &tmp);
+        sc->base = tmp;
+    }
 }
 
 static void svm_load_seg_cache(CPUX86State *env, int mmu_idx,
@@ -228,7 +231,7 @@ void helper_vmrun(CPUX86State *env, int aflag, int next_eip_addend)
                  &env->segs[R_DS]);
 
     x86_stq_phys(cs, env->vm_hsave + offsetof(struct vmcb, save.rip),
-             env->eip + next_eip_addend);
+             target_ulong_val(&(env)->eip) + next_eip_addend);
     x86_stq_phys(cs,
              env->vm_hsave + offsetof(struct vmcb, save.rsp), target_ulong_array_val(&env->regs.rec, R_ESP));
     x86_stq_phys(cs,
@@ -337,7 +340,7 @@ void helper_vmrun(CPUX86State *env, int aflag, int next_eip_addend)
     env->hflags2 &= ~(HF2_HIF_MASK | HF2_VINTR_MASK);
     if (env->int_ctl & V_INTR_MASKING_MASK) {
         env->hflags2 |= HF2_VINTR_MASK;
-        if (env->eflags & IF_MASK) {
+        if (target_ulong_val(&(env)->eflags) & IF_MASK) {
             env->hflags2 |= HF2_HIF_MASK;
         }
     }
@@ -345,7 +348,7 @@ void helper_vmrun(CPUX86State *env, int aflag, int next_eip_addend)
     cpu_load_efer(env,
                   x86_ldq_phys(cs,
                            env->vm_vmcb + offsetof(struct vmcb, save.efer)));
-    env->eflags = 0;
+    target_ulong_set(&(env)->eflags,  0);
     cpu_load_eflags(env, x86_ldq_phys(cs,
                                   env->vm_vmcb + offsetof(struct vmcb,
                                                           save.rflags)),
@@ -364,8 +367,8 @@ void helper_vmrun(CPUX86State *env, int aflag, int next_eip_addend)
     svm_load_seg(env, MMU_PHYS_IDX,
                  env->vm_vmcb + offsetof(struct vmcb, save.gdtr), &env->gdt);
 
-    env->eip = x86_ldq_phys(cs,
-                        env->vm_vmcb + offsetof(struct vmcb, save.rip));
+    target_ulong_set(&(env)->eip,  x86_ldq_phys(cs,
+                        env->vm_vmcb + offsetof(struct vmcb, save.rip)));
 
     target_ulong_array_set(&env->regs.rec, R_ESP, x86_ldq_phys(cs,
                                 env->vm_vmcb + offsetof(struct vmcb, save.rsp)));
@@ -437,7 +440,7 @@ void helper_vmrun(CPUX86State *env, int aflag, int next_eip_addend)
             cs->exception_index = EXCP02_NMI;
             env->error_code = event_inj_err;
             env->exception_is_int = 0;
-            env->exception_next_eip = env->eip;
+            env->exception_next_eip = target_ulong_val(&(env)->eip);
             qemu_log_mask(CPU_LOG_TB_IN_ASM, "NMI");
             cpu_loop_exit(cs);
             break;
@@ -456,7 +459,7 @@ void helper_vmrun(CPUX86State *env, int aflag, int next_eip_addend)
             cs->exception_index = vector;
             env->error_code = event_inj_err;
             env->exception_is_int = 1;
-            env->exception_next_eip = env->eip;
+            env->exception_next_eip = target_ulong_val(&(env)->eip);
             qemu_log_mask(CPU_LOG_TB_IN_ASM, "SOFT");
             cpu_loop_exit(cs);
             break;
@@ -529,12 +532,10 @@ void helper_vmload(CPUX86State *env, int aflag)
         cpu_ldq_le_mmuidx_ra(env,
                              addr + offsetof(struct vmcb, save.sysenter_cs),
                              mmu_idx, 0);
-    env->sysenter_esp =
-        cpu_ldq_le_mmuidx_ra(env,
+    env->sysenter_esp = cpu_ldq_le_mmuidx_ra(env,
                              addr + offsetof(struct vmcb, save.sysenter_esp),
                              mmu_idx, 0);
-    env->sysenter_eip =
-        cpu_ldq_le_mmuidx_ra(env,
+    env->sysenter_eip = cpu_ldq_le_mmuidx_ra(env,
                              addr + offsetof(struct vmcb, save.sysenter_eip),
                              mmu_idx, 0);
 }
@@ -721,7 +722,7 @@ void helper_svm_check_io(CPUX86State *env, uint32_t port, uint32_t param,
             /* next env->eip */
             x86_stq_phys(cs,
                      env->vm_vmcb + offsetof(struct vmcb, control.exit_info_2),
-                     env->eip + next_eip_addend);
+                     target_ulong_val(&(env)->eip) + next_eip_addend);
             cpu_vmexit(env, SVM_EXIT_IOIO, param | (port << 16), GETPC());
         }
     }
@@ -735,11 +736,11 @@ void cpu_vmexit(CPUX86State *env, uint64_t exit_code, uint64_t exit_info_1,
     cpu_restore_state(cs, retaddr);
 
     qemu_log_mask(CPU_LOG_TB_IN_ASM, "vmexit(%08x, %016" PRIx64 ", %016"
-                  PRIx64 ", " TARGET_FMT_lx ")!\n",
+                  PRIx64 ", " "%016" PRIx64 ")!\n",
                   (uint32_t)exit_code, exit_info_1,
                   x86_ldq_phys(cs, env->vm_vmcb + offsetof(struct vmcb,
                                                    control.exit_info_2)),
-                  env->eip);
+                  target_ulong_val(&(env)->eip));
 
     cs->exception_index = EXCP_VMEXIT;
     x86_stq_phys(cs, env->vm_vmcb + offsetof(struct vmcb, control.exit_code),
@@ -809,7 +810,7 @@ void do_vmexit(CPUX86State *env)
     x86_stq_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.rflags),
              cpu_compute_eflags(env));
     x86_stq_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.rip),
-             env->eip);
+             target_ulong_val(&(env)->eip));
     x86_stq_phys(cs,
              env->vm_vmcb + offsetof(struct vmcb, save.rsp), target_ulong_array_val(&env->regs.rec, R_ESP));
     x86_stq_phys(cs,
@@ -834,12 +835,12 @@ void do_vmexit(CPUX86State *env)
     /* Clears the TSC_OFFSET inside the processor. */
     env->tsc_offset = 0;
 
-    env->gdt.base  = x86_ldq_phys(cs, env->vm_hsave + offsetof(struct vmcb,
+    env->gdt.base = x86_ldq_phys(cs, env->vm_hsave + offsetof(struct vmcb,
                                                        save.gdtr.base));
     env->gdt.limit = x86_ldl_phys(cs, env->vm_hsave + offsetof(struct vmcb,
                                                        save.gdtr.limit));
 
-    env->idt.base  = x86_ldq_phys(cs, env->vm_hsave + offsetof(struct vmcb,
+    env->idt.base = x86_ldq_phys(cs, env->vm_hsave + offsetof(struct vmcb,
                                                        save.idtr.base));
     env->idt.limit = x86_ldl_phys(cs, env->vm_hsave + offsetof(struct vmcb,
                                                        save.idtr.limit));
@@ -869,7 +870,7 @@ void do_vmexit(CPUX86State *env)
                                                          save.efer)));
 
     /* Completion of the VMRUN instruction clears the host EFLAGS.RF bit.  */
-    env->eflags = 0;
+    target_ulong_set(&(env)->eflags,  0);
     cpu_load_eflags(env, x86_ldq_phys(cs,
                                   env->vm_hsave + offsetof(struct vmcb,
                                                            save.rflags)),
@@ -885,8 +886,8 @@ void do_vmexit(CPUX86State *env)
     svm_load_seg_cache(env, MMU_PHYS_IDX,
                        env->vm_hsave + offsetof(struct vmcb, save.ds), R_DS);
 
-    env->eip = x86_ldq_phys(cs,
-                        env->vm_hsave + offsetof(struct vmcb, save.rip));
+    target_ulong_set(&(env)->eip,  x86_ldq_phys(cs,
+                        env->vm_hsave + offsetof(struct vmcb, save.rip)));
     target_ulong_array_set(&env->regs.rec, R_ESP, x86_ldq_phys(cs, env->vm_hsave +
                                 offsetof(struct vmcb, save.rsp)));
     target_ulong_array_set(&env->regs.rec, R_EAX, x86_ldq_phys(cs, env->vm_hsave +
@@ -923,8 +924,8 @@ void do_vmexit(CPUX86State *env)
      * side (i.e., after the #VMEXIT from the guest). Since we're running
      * in the main loop, call do_interrupt_all directly.
      */
-    if ((env->eflags & TF_MASK) != 0) {
-        env->dr[6] |= DR6_BS;
-        do_interrupt_all(X86_CPU(cs), EXCP01_DB, 0, 0, env->eip, 0);
+    if ((target_ulong_val(&(env)->eflags) & TF_MASK) != 0) {
+        env->dr[6] = env->dr[6] | (DR6_BS);
+        do_interrupt_all(X86_CPU(cs), EXCP01_DB, 0, 0, target_ulong_val(&(env)->eip), 0);
     }
 }

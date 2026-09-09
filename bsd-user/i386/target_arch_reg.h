@@ -45,22 +45,22 @@ static inline void target_copy_regs(target_reg_t *regs, const CPUX86State *env)
     regs->r_es = env->segs[R_ES].selector & 0xffff;
     regs->r_ds = env->segs[R_DS].selector & 0xffff;
 
-    regs->r_edi = env->regs[R_EDI];
-    regs->r_esi = env->regs[R_ESI];
-    regs->r_ebp = env->regs[R_EBP];
-    /* regs->r_isp = env->regs[R_ISP]; XXX */
-    regs->r_ebx = env->regs[R_EBX];
-    regs->r_edx = env->regs[R_EDX];
-    regs->r_ecx = env->regs[R_ECX];
-    regs->r_eax = env->regs[R_EAX];
-    /* regs->r_trapno = env->regs[R_TRAPNO]; XXX */
+    regs->r_edi = target_ulong_array_val(&env->regs.rec, R_EDI);
+    regs->r_esi = target_ulong_array_val(&env->regs.rec, R_ESI);
+    regs->r_ebp = target_ulong_array_val(&env->regs.rec, R_EBP);
+    /* regs->r_isp = target_ulong_array_val(&env->regs.rec, R_ISP); XXX */
+    regs->r_ebx = target_ulong_array_val(&env->regs.rec, R_EBX);
+    regs->r_edx = target_ulong_array_val(&env->regs.rec, R_EDX);
+    regs->r_ecx = target_ulong_array_val(&env->regs.rec, R_ECX);
+    regs->r_eax = target_ulong_array_val(&env->regs.rec, R_EAX);
+    /* regs->r_trapno = target_ulong_array_val(&env->regs.rec, R_TRAPNO); XXX */
     regs->r_err = env->error_code;  /* XXX ? */
-    regs->r_eip = env->eip;
+    regs->r_eip = target_ulong_val(&env->eip);
 
     regs->r_cs = env->segs[R_CS].selector & 0xffff;
 
-    regs->r_eflags = env->eflags;
-    regs->r_esp = env->regs[R_ESP];
+    regs->r_eflags = target_ulong_val(&env->eflags);
+    regs->r_esp = target_ulong_array_val(&env->regs.rec, R_ESP);
 
     regs->r_ss = env->segs[R_SS].selector & 0xffff;
     regs->r_gs = env->segs[R_GS].selector & 0xffff;

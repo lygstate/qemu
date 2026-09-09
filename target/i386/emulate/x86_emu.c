@@ -308,56 +308,56 @@ static bool exec_mov(CPUX86State *env, struct x86_decode *decode)
         return 1;
     }
 
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
 static bool exec_add(CPUX86State *env, struct x86_decode *decode)
 {
     EXEC_2OP_FLAGS_CMD(env, decode, +, SET_FLAGS_OSZAPC_ADD, true);
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
 static bool exec_or(CPUX86State *env, struct x86_decode *decode)
 {
     EXEC_2OP_FLAGS_CMD(env, decode, |, SET_FLAGS_OSZAPC_LOGIC, true);
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
 static bool exec_adc(CPUX86State *env, struct x86_decode *decode)
 {
     EXEC_2OP_FLAGS_CMD(env, decode, +get_CF(env)+, SET_FLAGS_OSZAPC_ADD, true);
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
 static bool exec_sbb(CPUX86State *env, struct x86_decode *decode)
 {
     EXEC_2OP_FLAGS_CMD(env, decode, -get_CF(env)-, SET_FLAGS_OSZAPC_SUB, true);
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
 static bool exec_and(CPUX86State *env, struct x86_decode *decode)
 {
     EXEC_2OP_FLAGS_CMD(env, decode, &, SET_FLAGS_OSZAPC_LOGIC, true);
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
 static bool exec_sub(CPUX86State *env, struct x86_decode *decode)
 {
     EXEC_2OP_FLAGS_CMD(env, decode, -, SET_FLAGS_OSZAPC_SUB, true);
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
 static bool exec_xor(CPUX86State *env, struct x86_decode *decode)
 {
     EXEC_2OP_FLAGS_CMD(env, decode, ^, SET_FLAGS_OSZAPC_LOGIC, true);
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -381,14 +381,14 @@ static bool exec_neg(CPUX86State *env, struct x86_decode *decode)
     }
 
     /*lflags_to_rflags(env);*/
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
 static bool exec_cmp(CPUX86State *env, struct x86_decode *decode)
 {
     EXEC_2OP_FLAGS_CMD(env, decode, -, SET_FLAGS_OSZAPC_SUB, false);
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -399,7 +399,7 @@ static bool exec_inc(CPUX86State *env, struct x86_decode *decode)
 
     EXEC_2OP_FLAGS_CMD(env, decode, +1+, SET_FLAGS_OSZAP_ADD, true);
 
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -409,14 +409,14 @@ static bool exec_dec(CPUX86State *env, struct x86_decode *decode)
     decode->op[1].val = 0;
 
     EXEC_2OP_FLAGS_CMD(env, decode, -1-, SET_FLAGS_OSZAP_SUB, true);
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
 static bool exec_tst(CPUX86State *env, struct x86_decode *decode)
 {
     EXEC_2OP_FLAGS_CMD(env, decode, &, SET_FLAGS_OSZAPC_LOGIC, false);
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -426,7 +426,7 @@ static bool exec_not(CPUX86State *env, struct x86_decode *decode)
 
     write_val_ext(env, &decode->op[0], ~decode->op[0].val,
                   decode->operand_size);
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -449,7 +449,7 @@ bool exec_movzx(CPUX86State *env, struct x86_decode *decode)
     }
     write_val_ext(env, &decode->op[0], decode->op[1].val, op_size);
 
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -474,7 +474,7 @@ static bool exec_out(CPUX86State *env, struct x86_decode *decode)
         VM_PANIC("Bad out opcode\n");
         break;
     }
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -512,7 +512,7 @@ static bool exec_in(CPUX86State *env, struct x86_decode *decode)
         break;
     }
 
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -520,7 +520,7 @@ static inline void string_increment_reg(CPUX86State *env, int reg,
                                         struct x86_decode *decode)
 {
     target_ulong val = read_reg(env, reg, decode->addressing_size);
-    if (env->eflags & DF_MASK) {
+    if (target_ulong_val(&(env)->eflags) & DF_MASK) {
         val -= decode->operand_size;
     } else {
         val += decode->operand_size;
@@ -586,7 +586,7 @@ static bool exec_ins(CPUX86State *env, struct x86_decode *decode)
     if (res) {
         return 1;
     }
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -615,7 +615,7 @@ static bool exec_outs(CPUX86State *env, struct x86_decode *decode)
     if (res) {
         return 1;
     }
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -655,7 +655,7 @@ static bool exec_movs(CPUX86State *env, struct x86_decode *decode)
     if (res) {
         return 1;
     }
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -691,7 +691,7 @@ static bool exec_cmps(CPUX86State *env, struct x86_decode *decode)
     } else {
         exec_cmps_single(env, decode);
     }
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -723,7 +723,7 @@ static bool exec_stos(CPUX86State *env, struct x86_decode *decode)
         exec_stos_single(env, decode);
     }
 
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -753,7 +753,7 @@ static bool exec_scas(CPUX86State *env, struct x86_decode *decode)
         exec_scas_single(env, decode);
     }
 
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -778,7 +778,7 @@ static bool exec_lods(CPUX86State *env, struct x86_decode *decode)
         exec_lods_single(env, decode);
     }
 
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -793,7 +793,7 @@ void x86_emul_raise_exception(CPUX86State *env, int exception_index, int error_c
 static bool exec_rdmsr(CPUX86State *env, struct x86_decode *decode)
 {
     if (!emul_ops->simulate_rdmsr(env_cpu(env))) {
-        env->eip += decode->len;
+        target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     }
     return 0;
 }
@@ -801,7 +801,7 @@ static bool exec_rdmsr(CPUX86State *env, struct x86_decode *decode)
 static bool exec_wrmsr(CPUX86State *env, struct x86_decode *decode)
 {
     if (!emul_ops->simulate_wrmsr(env_cpu(env))) {
-        env->eip += decode->len;
+        target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     }
     return 0;
 }
@@ -868,7 +868,7 @@ static bool exec_bt(CPUX86State *env, struct x86_decode *decode)
     if (do_bt(env, decode, 0)) {
         return 1;
     }
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -877,7 +877,7 @@ static bool exec_btc(CPUX86State *env, struct x86_decode *decode)
     if (do_bt(env, decode, 1)) {
         return 1;
     }
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -886,7 +886,7 @@ static bool exec_btr(CPUX86State *env, struct x86_decode *decode)
     if (do_bt(env, decode, 3)) {
         return 1;
     }
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -895,7 +895,7 @@ static bool exec_bts(CPUX86State *env, struct x86_decode *decode)
     if (do_bt(env, decode, 2)) {
         return 1;
     }
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -962,7 +962,7 @@ bool exec_shl(CPUX86State *env, struct x86_decode *decode)
 
 exit:
     /* lflags_to_rflags(env); */
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -989,7 +989,7 @@ bool exec_movsx(CPUX86State *env, struct x86_decode *decode)
 
     write_val_ext(env, &decode->op[0], decode->op[1].val, op_size);
 
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -1068,7 +1068,7 @@ bool exec_ror(CPUX86State *env, struct x86_decode *decode)
         break;
         }
     }
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -1150,7 +1150,7 @@ bool exec_rol(CPUX86State *env, struct x86_decode *decode)
         break;
         }
     }
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -1237,7 +1237,7 @@ bool exec_rcl(CPUX86State *env, struct x86_decode *decode)
         break;
         }
     }
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -1313,7 +1313,7 @@ bool exec_rcr(CPUX86State *env, struct x86_decode *decode)
         break;
         }
     }
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -1326,7 +1326,7 @@ static bool exec_xchg(CPUX86State *env, struct x86_decode *decode)
     write_val_ext(env, &decode->op[1], decode->op[0].val,
                   decode->operand_size);
 
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -1336,7 +1336,7 @@ static bool exec_xadd(CPUX86State *env, struct x86_decode *decode)
     write_val_ext(env, &decode->op[1], decode->op[0].val,
                   decode->operand_size);
 
-    env->eip += decode->len;
+    target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  decode->len);
     return 0;
 }
 
@@ -1401,11 +1401,11 @@ static void init_cmd_handler(void)
 bool exec_instruction(CPUX86State *env, struct x86_decode *ins)
 {
     if (!_cmd_handler[ins->cmd].handler) {
-        printf("Unimplemented handler (" TARGET_FMT_lx ") for %s - %d (%x %x)\n",
-                env->eip, decode_cmd_to_string(ins->cmd),
+        printf("Unimplemented handler (" "%016" PRIx64 ") for %s - %d (%x %x)\n",
+                target_ulong_val(&(env)->eip), decode_cmd_to_string(ins->cmd),
                 ins->cmd, ins->opcode[0],
                 ins->opcode_len > 1 ? ins->opcode[1] : 0);
-        env->eip += ins->len;
+        target_ulong_set(&(env)->eip, target_ulong_val(&(env)->eip) +  ins->len);
         return true;
     }
 

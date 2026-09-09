@@ -74,7 +74,7 @@ static void sm_state_init_64(X86CPU *cpu)
     for (i = 8; i < 16; i++) {
         x86_stq_phys(cs, sm_state + 0x7ff8 - i * 8, target_ulong_array_val(&env->regs.rec, i));
     }
-    x86_stq_phys(cs, sm_state + 0x7f78, env->eip);
+    x86_stq_phys(cs, sm_state + 0x7f78, target_ulong_val(&(env)->eip));
     x86_stl_phys(cs, sm_state + 0x7f70, cpu_compute_eflags(env));
     x86_stl_phys(cs, sm_state + 0x7f68, env->dr[6]);
     x86_stl_phys(cs, sm_state + 0x7f60, env->dr[7]);
@@ -101,7 +101,7 @@ static void sm_state_init_32(X86CPU *cpu)
     x86_stl_phys(cs, sm_state + 0x7ffc, env->cr[0]);
     x86_stl_phys(cs, sm_state + 0x7ff8, env->cr[3]);
     x86_stl_phys(cs, sm_state + 0x7ff4, cpu_compute_eflags(env));
-    x86_stl_phys(cs, sm_state + 0x7ff0, env->eip);
+    x86_stl_phys(cs, sm_state + 0x7ff0, target_ulong_val(&(env)->eip));
     x86_stl_phys(cs, sm_state + 0x7fec, target_ulong_array_val(&env->regs.rec, R_EDI));
     x86_stl_phys(cs, sm_state + 0x7fe8, target_ulong_array_val(&env->regs.rec, R_ESI));
     x86_stl_phys(cs, sm_state + 0x7fe4, target_ulong_array_val(&env->regs.rec, R_EBP));
@@ -173,7 +173,7 @@ void do_smm_enter(X86CPU *cpu)
 
     cpu_load_eflags(env, 0, ~(CC_O | CC_S | CC_Z | CC_A | CC_P | CC_C |
                               DF_MASK));
-    env->eip = 0x00008000;
+    target_ulong_set(&(env)->eip,  0x00008000);
     cpu_x86_update_cr0(env,
                        env->cr[0] & ~(CR0_PE_MASK | CR0_EM_MASK | CR0_TS_MASK |
                                       CR0_PG_MASK));
@@ -240,7 +240,7 @@ static void rsm_load_regs_64(CPUX86State *env)
     for (i = 8; i < 16; i++) {
         target_ulong_array_set(&env->regs.rec, i, x86_ldq_phys(cs, sm_state + 0x7ff8 - i * 8));
     }
-    env->eip = x86_ldq_phys(cs, sm_state + 0x7f78);
+    target_ulong_set(&(env)->eip,  x86_ldq_phys(cs, sm_state + 0x7f78));
     cpu_load_eflags(env, x86_ldl_phys(cs, sm_state + 0x7f70),
                     ~(CC_O | CC_S | CC_Z | CC_A | CC_P | CC_C | DF_MASK));
     helper_set_dr(env, 6, x86_ldl_phys(cs, sm_state + 0x7f68));
@@ -282,7 +282,7 @@ static void rsm_load_regs_32(CPUX86State *env)
     cpu_x86_update_cr3(env, x86_ldl_phys(cs, sm_state + 0x7ff8));
     cpu_load_eflags(env, x86_ldl_phys(cs, sm_state + 0x7ff4),
                     ~(CC_O | CC_S | CC_Z | CC_A | CC_P | CC_C | DF_MASK));
-    env->eip = x86_ldl_phys(cs, sm_state + 0x7ff0);
+    target_ulong_set(&(env)->eip,  x86_ldl_phys(cs, sm_state + 0x7ff0));
     target_ulong_array_set(&env->regs.rec, R_EDI, x86_ldl_phys(cs, sm_state + 0x7fec));
     target_ulong_array_set(&env->regs.rec, R_ESI, x86_ldl_phys(cs, sm_state + 0x7fe8));
     target_ulong_array_set(&env->regs.rec, R_EBP, x86_ldl_phys(cs, sm_state + 0x7fe4));

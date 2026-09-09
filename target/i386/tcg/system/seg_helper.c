@@ -39,13 +39,13 @@ void helper_syscall(CPUX86State *env, int next_eip_addend)
     if (env->hflags & HF_LMA_MASK) {
         int code64;
 
-        target_ulong_array_set(&env->regs.rec, R_ECX, env->eip + next_eip_addend);
+        target_ulong_array_set(&env->regs.rec, R_ECX, target_ulong_val(&(env)->eip) + next_eip_addend);
         target_ulong_array_set(&env->regs.rec, 11, cpu_compute_eflags(env) & ~RF_MASK);
 
         code64 = env->hflags & HF_CS64_MASK;
 
-        env->eflags &= ~(env->fmask | RF_MASK);
-        cpu_load_eflags(env, env->eflags, 0);
+        target_ulong_set(&(env)->eflags, target_ulong_val(&(env)->eflags) &  ~(env->fmask | RF_MASK));
+        cpu_load_eflags(env, target_ulong_val(&(env)->eflags), 0);
         cpu_x86_load_seg_cache(env, R_CS, selector & 0xfffc,
                            0, 0xffffffff,
                                DESC_G_MASK | DESC_P_MASK |
@@ -58,16 +58,16 @@ void helper_syscall(CPUX86State *env, int next_eip_addend)
                                DESC_S_MASK |
                                DESC_W_MASK | DESC_A_MASK);
         if (code64) {
-            env->eip = env->lstar;
+            target_ulong_set(&(env)->eip,  env->lstar);
         } else {
-            env->eip = env->cstar;
+            target_ulong_set(&(env)->eip,  env->cstar);
         }
     } else
 #endif
     {
-        target_ulong_array_set(&env->regs.rec, R_ECX, (uint32_t)(env->eip + next_eip_addend));
+        target_ulong_array_set(&env->regs.rec, R_ECX, (uint32_t)(target_ulong_val(&(env)->eip) + next_eip_addend));
 
-        env->eflags &= ~(IF_MASK | RF_MASK | VM_MASK);
+        target_ulong_set(&(env)->eflags, target_ulong_val(&(env)->eflags) &  ~(IF_MASK | RF_MASK | VM_MASK));
         cpu_x86_load_seg_cache(env, R_CS, selector & 0xfffc,
                            0, 0xffffffff,
                                DESC_G_MASK | DESC_B_MASK | DESC_P_MASK |
@@ -78,7 +78,7 @@ void helper_syscall(CPUX86State *env, int next_eip_addend)
                                DESC_G_MASK | DESC_B_MASK | DESC_P_MASK |
                                DESC_S_MASK |
                                DESC_W_MASK | DESC_A_MASK);
-        env->eip = (uint32_t)env->star;
+        target_ulong_set(&(env)->eip,  (uint32_t)env->star);
     }
 }
 
@@ -145,9 +145,9 @@ bool x86_cpu_exec_halt(CPUState *cpu)
     }
 
     /* Complete HLT instruction.  */
-    if (env->eflags & TF_MASK) {
-        env->dr[6] |= DR6_BS;
-        do_interrupt_all(x86_cpu, EXCP01_DB, 0, 0, env->eip, 0);
+    if (target_ulong_val(&(env)->eflags) & TF_MASK) {
+        env->dr[6] = env->dr[6] | (DR6_BS);
+        do_interrupt_all(x86_cpu, EXCP01_DB, 0, 0, target_ulong_val(&(env)->eip), 0);
     }
     return true;
 }
