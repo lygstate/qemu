@@ -266,6 +266,12 @@ struct VMStateField {
     int version_id;
     int struct_version_id;
     bool (*field_exists)(void *opaque, int version_id);
+    /*
+     * Optional TypeIsAvailable check (target_is_*). Used when the
+     * field depends on the selected TargetInfo rather than @opaque.
+     * Combined with field_exists when both are set.
+     */
+    TypeIsAvailable *is_available;
 };
 
 struct VMStateDescription {
@@ -445,6 +451,17 @@ extern const VMStateInfo vmstate_info_g_byte_array;
     .offset       = vmstate_offset_value(_state, _field, _type),     \
 }
 
+#define VMSTATE_SINGLE_AVAILABLE(_field, _state, _avail, _version, _info, \
+                                 _type) {                            \
+    .name          = (stringify(_field)),                            \
+    .version_id    = (_version),                                     \
+    .is_available  = (_avail),                                       \
+    .size          = sizeof(_type),                                  \
+    .info          = &(_info),                                       \
+    .flags         = VMS_SINGLE,                                     \
+    .offset        = vmstate_offset_value(_state, _field, _type),    \
+}
+
 #define VMSTATE_SINGLE_FULL(_field, _state, _test, _version, _info,  \
                             _type) {                      \
     .name         = (stringify(_field)),                             \
@@ -491,6 +508,18 @@ extern const VMStateInfo vmstate_info_g_byte_array;
     .offset     = vmstate_offset_array(_state, _field, _type, _num), \
 }
 
+#define VMSTATE_ARRAY_AVAILABLE(_field, _state, _num, _avail, _version, \
+                                _info, _type) {                      \
+    .name          = (stringify(_field)),                            \
+    .version_id    = (_version),                                     \
+    .is_available  = (_avail),                                       \
+    .num           = (_num),                                         \
+    .info          = &(_info),                                       \
+    .size          = sizeof(_type),                                  \
+    .flags         = VMS_ARRAY,                                      \
+    .offset        = vmstate_offset_array(_state, _field, _type, _num), \
+}
+
 #define VMSTATE_2DARRAY(_field, _state, _n1, _n2, _version, _info, _type) { \
     .name       = (stringify(_field)),                                      \
     .version_id = (_version),                                               \
@@ -509,6 +538,19 @@ extern const VMStateInfo vmstate_info_g_byte_array;
     .size       = sizeof(_type),                                     \
     .flags      = VMS_ARRAY,                                         \
     .offset     = vmstate_offset_sub_array(_state, _field, _type, _start), \
+}
+
+#define VMSTATE_SUB_ARRAY_AVAILABLE(_field, _state, _start, _num, _avail, \
+                                    _version, _info, _type) {        \
+    .name          = (stringify(_field)),                            \
+    .version_id    = (_version),                                     \
+    .is_available  = (_avail),                                       \
+    .num           = (_num),                                         \
+    .info          = &(_info),                                       \
+    .size          = sizeof(_type),                                  \
+    .flags         = VMS_ARRAY,                                      \
+    .offset        = vmstate_offset_sub_array(_state, _field, _type, \
+                                              _start),               \
 }
 
 #define VMSTATE_VARRAY(_field, _state, _field_num, _version, _info, _type) {\
@@ -1120,8 +1162,14 @@ extern const VMStateInfo vmstate_info_g_byte_array;
 #define VMSTATE_UINT32_TEST(_f, _s, _t)                                  \
     VMSTATE_SINGLE_TEST(_f, _s, _t, 0, vmstate_info_uint32, uint32_t)
 
+#define VMSTATE_UINT32_AVAILABLE(_f, _s, _a)                             \
+    VMSTATE_SINGLE_AVAILABLE(_f, _s, _a, 0, vmstate_info_uint32, uint32_t)
+
 #define VMSTATE_UINT64_TEST(_f, _s, _t)                                  \
     VMSTATE_SINGLE_TEST(_f, _s, _t, 0, vmstate_info_uint64, uint64_t)
+
+#define VMSTATE_UINT64_AVAILABLE(_f, _s, _a)                             \
+    VMSTATE_SINGLE_AVAILABLE(_f, _s, _a, 0, vmstate_info_uint64, uint64_t)
 
 #define VMSTATE_TIMER_PTR_V(_f, _s, _v)                                   \
     VMSTATE_POINTER(_f, _s, _v, vmstate_info_timer, QEMUTimer *)
@@ -1189,8 +1237,16 @@ extern const VMStateInfo vmstate_info_g_byte_array;
 #define VMSTATE_UINT32_ARRAY(_f, _s, _n)                              \
     VMSTATE_UINT32_ARRAY_V(_f, _s, _n, 0)
 
+#define VMSTATE_UINT32_ARRAY_AVAILABLE(_f, _s, _n, _a)                \
+    VMSTATE_ARRAY_AVAILABLE(_f, _s, _n, _a, 0, vmstate_info_uint32,   \
+                            uint32_t)
+
 #define VMSTATE_UINT32_SUB_ARRAY(_f, _s, _start, _num)                \
     VMSTATE_SUB_ARRAY(_f, _s, _start, _num, 0, vmstate_info_uint32, uint32_t)
+
+#define VMSTATE_UINT32_SUB_ARRAY_AVAILABLE(_f, _s, _start, _num, _a)  \
+    VMSTATE_SUB_ARRAY_AVAILABLE(_f, _s, _start, _num, _a, 0,          \
+                                vmstate_info_uint32, uint32_t)
 
 #define VMSTATE_UINT32_2DARRAY(_f, _s, _n1, _n2)                      \
     VMSTATE_UINT32_2DARRAY_V(_f, _s, _n1, _n2, 0)
@@ -1198,11 +1254,23 @@ extern const VMStateInfo vmstate_info_g_byte_array;
 #define VMSTATE_UINT64_ARRAY_V(_f, _s, _n, _v)                        \
     VMSTATE_ARRAY(_f, _s, _n, _v, vmstate_info_uint64, uint64_t)
 
+#define VMSTATE_UINT64_ARRAY_AVAILABLE(_f, _s, _n, _a)                \
+    VMSTATE_ARRAY_AVAILABLE(_f, _s, _n, _a, 0, vmstate_info_uint64,   \
+                            uint64_t)
+
+#define VMSTATE_UINT64_ARRAY_AVAILABLE_V(_f, _s, _n, _a, _v)          \
+    VMSTATE_ARRAY_AVAILABLE(_f, _s, _n, _a, _v, vmstate_info_uint64,  \
+                            uint64_t)
+
 #define VMSTATE_UINT64_ARRAY(_f, _s, _n)                              \
     VMSTATE_UINT64_ARRAY_V(_f, _s, _n, 0)
 
 #define VMSTATE_UINT64_SUB_ARRAY(_f, _s, _start, _num)                \
     VMSTATE_SUB_ARRAY(_f, _s, _start, _num, 0, vmstate_info_uint64, uint64_t)
+
+#define VMSTATE_UINT64_SUB_ARRAY_AVAILABLE(_f, _s, _start, _num, _a)  \
+    VMSTATE_SUB_ARRAY_AVAILABLE(_f, _s, _start, _num, _a, 0,          \
+                                vmstate_info_uint64, uint64_t)
 
 #define VMSTATE_UINT64_2DARRAY(_f, _s, _n1, _n2)                      \
     VMSTATE_UINT64_2DARRAY_V(_f, _s, _n1, _n2, 0)

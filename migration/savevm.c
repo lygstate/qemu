@@ -575,6 +575,8 @@ static void dump_vmstate_vmsf(FILE *out_file, const VMStateField *field,
             field->version_id);
     fprintf(out_file, "%*s\"field_exists\": %s,\n", indent, "",
             field->field_exists ? "true" : "false");
+    fprintf(out_file, "%*s\"is_available\": %s,\n", indent, "",
+            field->is_available ? "true" : "false");
     if (field->flags & VMS_ARRAY) {
         fprintf(out_file, "%*s\"num\": %d,\n", indent, "", field->num);
     }

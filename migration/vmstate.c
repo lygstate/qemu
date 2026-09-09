@@ -51,6 +51,13 @@ vmstate_field_exists(const VMStateDescription *vmsd, const VMStateField *field,
         result = field->version_id <= version_id;
     }
 
+    /* Optional TargetInfo filter; applied after field_exists / version. */
+    if (result && field->is_available) {
+        result = field->is_available(target_info());
+        trace_vmstate_field_exists(vmsd->name, field->name, field->version_id,
+                                   version_id, result);
+    }
+
     return result;
 }
 
@@ -511,6 +518,12 @@ static bool vmsd_can_compress(const VMStateField *field)
         /* Dynamically existing fields mess up compression */
         return false;
     }
+    /*
+     * is_available is TargetInfo-global for the whole save: the field
+     * is omitted entirely, or every array element is written. It does
+     * not need to block JSON array_len compression the way
+     * field_exists does.
+     */
 
     if (field->flags & VMS_ARRAY_OF_POINTER_AUTO_ALLOC) {
         /*

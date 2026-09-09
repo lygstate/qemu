@@ -1494,13 +1494,12 @@ static const VMStateDescription vmstate_svm_guest = {
     }
 };
 
-#ifndef TARGET_X86_64
 static bool intel_efer32_needed(void *opaque)
 {
     X86CPU *cpu = opaque;
     CPUX86State *env = &cpu->env;
 
-    return env->efer != 0;
+    return target_i386() && env->efer != 0;
 }
 
 static const VMStateDescription vmstate_efer32 = {
@@ -1513,7 +1512,6 @@ static const VMStateDescription vmstate_efer32 = {
         VMSTATE_END_OF_LIST()
     }
 };
-#endif
 
 static bool msr_tsx_ctrl_needed(void *opaque)
 {
@@ -1620,13 +1618,13 @@ static const VMStateDescription vmstate_msr_hwcr = {
     }
 };
 
-#ifdef TARGET_X86_64
 static bool intel_fred_msrs_needed(void *opaque)
 {
     X86CPU *cpu = opaque;
     CPUX86State *env = &cpu->env;
 
-    return !!(env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_FRED);
+    return target_x86_64() &&
+           !!(env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_FRED);
 }
 
 static const VMStateDescription vmstate_msr_fred = {
@@ -1653,7 +1651,8 @@ static bool amx_xtile_needed(void *opaque)
     X86CPU *cpu = opaque;
     CPUX86State *env = &cpu->env;
 
-    return !!(env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_AMX_TILE);
+    return target_x86_64() &&
+           !!(env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_AMX_TILE);
 }
 
 static const VMStateDescription vmstate_amx_xtile = {
@@ -1667,7 +1666,6 @@ static const VMStateDescription vmstate_amx_xtile = {
         VMSTATE_END_OF_LIST()
     }
 };
-#endif
 
 static bool arch_lbr_needed(void *opaque)
 {
@@ -1749,9 +1747,7 @@ static const VMStateDescription vmstate_shstk = {
         VMSTATE_UINT64(env.pl1_ssp, X86CPU),
         VMSTATE_UINT64(env.pl2_ssp, X86CPU),
         VMSTATE_UINT64(env.pl3_ssp, X86CPU),
-#ifdef TARGET_X86_64
-        VMSTATE_UINT64(env.int_ssp_table, X86CPU),
-#endif
+        VMSTATE_UINT64_AVAILABLE(env.int_ssp_table, X86CPU, target_is_x86_64),
         VMSTATE_UINT64(env.guest_ssp, X86CPU),
         VMSTATE_END_OF_LIST()
     }
@@ -1844,14 +1840,13 @@ const VMStateDescription vmstate_x86_cpu = {
         VMSTATE_UINT32(env.mxcsr, X86CPU),
         VMSTATE_XMM_REGS(env.xmm_regs, X86CPU, 0),
 
-#ifdef TARGET_X86_64
-        VMSTATE_UINT64(env.efer, X86CPU),
-        VMSTATE_UINT64(env.star, X86CPU),
-        VMSTATE_UINT64(env.lstar, X86CPU),
-        VMSTATE_UINT64(env.cstar, X86CPU),
-        VMSTATE_UINT64(env.fmask, X86CPU),
-        VMSTATE_UINT64(env.kernelgsbase, X86CPU),
-#endif
+        VMSTATE_UINT64_AVAILABLE(env.efer, X86CPU, target_is_long_bits_64),
+        VMSTATE_UINT64_AVAILABLE(env.star, X86CPU, target_is_long_bits_64),
+        VMSTATE_UINT64_AVAILABLE(env.lstar, X86CPU, target_is_long_bits_64),
+        VMSTATE_UINT64_AVAILABLE(env.cstar, X86CPU, target_is_long_bits_64),
+        VMSTATE_UINT64_AVAILABLE(env.fmask, X86CPU, target_is_long_bits_64),
+        VMSTATE_UINT64_AVAILABLE(env.kernelgsbase, X86CPU,
+                                 target_is_long_bits_64),
         VMSTATE_UINT32(env.smbase, X86CPU),
 
         VMSTATE_UINT64(env.pat, X86CPU),
@@ -1935,9 +1930,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_msr_virt_ssbd,
         &vmstate_svm_npt,
         &vmstate_svm_guest,
-#ifndef TARGET_X86_64
         &vmstate_efer32,
-#endif
 #ifdef CONFIG_KVM
         &vmstate_nested_state,
         &vmstate_xen_vcpu,
@@ -1947,10 +1940,8 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_pdptrs,
         &vmstate_msr_xfd,
         &vmstate_msr_hwcr,
-#ifdef TARGET_X86_64
         &vmstate_msr_fred,
         &vmstate_amx_xtile,
-#endif
         &vmstate_arch_lbr,
         &vmstate_triple_fault,
         &vmstate_pl0_ssp,
