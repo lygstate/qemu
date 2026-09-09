@@ -26,17 +26,23 @@
 #include "linux-user/qemu.h"
 #endif
 
-#ifdef TARGET_X86_64
-static const int gpr_map[CPU_NB_EREGS] = {
+static const int gpr_map64[CPU_NB_EREGS_MAX] = {
     R_EAX, R_EBX, R_ECX, R_EDX, R_ESI, R_EDI, R_EBP, R_ESP,
     R_R8, R_R9, R_R10, R_R11, R_R12, R_R13, R_R14, R_R15,
     R_R16, R_R17, R_R18, R_R19, R_R20, R_R21, R_R22, R_R23,
     R_R24, R_R25, R_R26, R_R27, R_R28, R_R29, R_R30, R_R31,
 };
-#else
-#define gpr_map gpr_map32
-#endif
-static const int gpr_map32[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+static const int gpr_map32[CPU_NB_REGS32] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+
+static const int *gpr_map(void)
+{
+    return target_long_bits() == 64 ? gpr_map64 : gpr_map32;
+}
+
+static int gdb_reg(int x)
+{
+    return x + cpu_nb_regs();
+}
 
 /*
  * Keep these in sync with the machine description
@@ -62,13 +68,13 @@ static const int gpr_map32[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
  *          total ----> 8+1+1+9+6+16+8+1=50 or 16+1+1+9+6+16+16+1=66
  */
 
-#define IDX_IP_REG      CPU_NB_REGS
+#define IDX_IP_REG      0
 #define IDX_FLAGS_REG   (IDX_IP_REG + IDX_NB_IP)
 #define IDX_SEG_REGS    (IDX_FLAGS_REG + IDX_NB_FLAGS)
 #define IDX_CTL_REGS    (IDX_SEG_REGS + IDX_NB_SEG)
 #define IDX_FP_REGS     (IDX_CTL_REGS + IDX_NB_CTL)
 #define IDX_XMM_REGS    (IDX_FP_REGS + IDX_NB_FP)
-#define IDX_MXCSR_REG   (IDX_XMM_REGS + CPU_NB_REGS)
+#define IDX_MXCSR_REG   (IDX_XMM_REGS + cpu_nb_regs())
 
 #define IDX_CTL_CR0_REG     (IDX_CTL_REGS + 0)
 #define IDX_CTL_CR2_REG     (IDX_CTL_REGS + 1)
@@ -119,35 +125,40 @@ int x86_cpu_gdb_read_register(CPUState *cs, GByteArray *mem_buf, int n)
        of a session. So if we're in 32-bit mode on a 64-bit cpu, still act
        as if we're on a 64-bit cpu. */
 
-    if (n < CPU_NB_REGS) {
-        if (TARGET_LONG_BITS == 64) {
+    if (n < cpu_nb_regs()) {
+        if (target_long_bits() == 64) {
             if (env->hflags & HF_CS64_MASK) {
-                return gdb_get_reg64(mem_buf, target_ulong_array_val(&env->regs.rec, gpr_map[n]));
+                return gdb_get_reg64(mem_buf, target_ulong_array_val(&env->regs.rec, gpr_map()[n]));
             } else if (n < CPU_NB_REGS32) {
                 return gdb_get_reg64(mem_buf,
-                                     target_ulong_array_val(&env->regs.rec, gpr_map[n]) & 0xffffffffUL);
+                                     target_ulong_array_val(&env->regs.rec, gpr_map()[n]) & 0xffffffffUL);
             } else {
                 return gdb_get_reg64(mem_buf, 0);
             }
         } else {
-            return gdb_get_reg32(mem_buf, target_ulong_array_val(&env->regs.rec, gpr_map32[n]));
+            return gdb_get_reg32(mem_buf, target_ulong_array_val(&env->regs.rec, gpr_map()[n]));
         }
-    } else if (n >= IDX_FP_REGS && n < IDX_FP_REGS + 8) {
-        int st_index = n - IDX_FP_REGS;
+    } else if (n >= gdb_reg(IDX_FP_REGS) && n < gdb_reg(IDX_FP_REGS) + 8) {
+        int st_index = n - gdb_reg(IDX_FP_REGS);
         int r_index = (st_index + env->fpstt) % 8;
         floatx80 *fp = &env->fpregs[r_index].d;
         int len = gdb_get_reg64(mem_buf, cpu_to_le64(fp->low));
         len += gdb_get_reg16(mem_buf, cpu_to_le16(fp->high));
         return len;
-    } else if (n >= IDX_XMM_REGS && n < IDX_XMM_REGS + CPU_NB_REGS) {
-        n -= IDX_XMM_REGS;
-        if (n < CPU_NB_REGS32 || TARGET_LONG_BITS == 64) {
+    } else if (n >= gdb_reg(IDX_XMM_REGS) &&
+               n < gdb_reg(IDX_XMM_REGS) + cpu_nb_regs()) {
+        n -= gdb_reg(IDX_XMM_REGS);
+        if (n < CPU_NB_REGS32 || target_long_bits() == 64) {
             return gdb_get_reg128(mem_buf,
                                   env->xmm_regs[n].ZMM_Q(1),
                                   env->xmm_regs[n].ZMM_Q(0));
         }
     } else {
-        switch (n) {
+        if (n == gdb_reg(IDX_MXCSR_REG)) {
+            update_mxcsr_from_sse_status(env);
+            return gdb_get_reg32(mem_buf, env->mxcsr);
+        }
+        switch (n - cpu_nb_regs()) {
         case IDX_IP_REG:
             return gdb_get_reg(env, mem_buf, env->eip);
         case IDX_FLAGS_REG:
@@ -194,10 +205,6 @@ int x86_cpu_gdb_read_register(CPUState *cs, GByteArray *mem_buf, int n)
             return gdb_get_reg32(mem_buf, 0); /* fooff */
         case IDX_FP_REGS + 15:
             return gdb_get_reg32(mem_buf, 0); /* fop */
-
-        case IDX_MXCSR_REG:
-            update_mxcsr_from_sse_status(env);
-            return gdb_get_reg32(mem_buf, env->mxcsr);
 
         case IDX_CTL_CR0_REG:
             return gdb_read_reg_cs64(env->hflags, mem_buf, env->cr[0]);
@@ -278,36 +285,41 @@ int x86_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
        of a session. So if we're in 32-bit mode on a 64-bit cpu, still act
        as if we're on a 64-bit cpu. */
 
-    if (n < CPU_NB_REGS) {
-        if (TARGET_LONG_BITS == 64) {
+    if (n < cpu_nb_regs()) {
+        if (target_long_bits() == 64) {
             if (env->hflags & HF_CS64_MASK) {
-                target_ulong_array_set(&env->regs.rec, gpr_map[n], ldq_p(mem_buf));
+                target_ulong_array_set(&env->regs.rec, gpr_map()[n], ldq_p(mem_buf));
             } else if (n < CPU_NB_REGS32) {
-                target_ulong_array_set(&env->regs.rec, gpr_map[n], ldq_p(mem_buf) & 0xffffffffUL);
+                target_ulong_array_set(&env->regs.rec, gpr_map()[n], ldq_p(mem_buf) & 0xffffffffUL);
             }
             return sizeof(target_ulong);
         } else if (n < CPU_NB_REGS32) {
-            n = gpr_map32[n];
+            n = gpr_map()[n];
             target_ulong_array_set(&env->regs.rec, n,
                 target_ulong_array_val(&env->regs.rec, n) & ~0xffffffffUL);
             target_ulong_array_set(&env->regs.rec, n,
                 target_ulong_array_val(&env->regs.rec, n) | (uint32_t)ldl_p(mem_buf));
             return 4;
         }
-    } else if (n >= IDX_FP_REGS && n < IDX_FP_REGS + 8) {
-        floatx80 *fp = (floatx80 *) &env->fpregs[n - IDX_FP_REGS];
+    } else if (n >= gdb_reg(IDX_FP_REGS) && n < gdb_reg(IDX_FP_REGS) + 8) {
+        floatx80 *fp = (floatx80 *) &env->fpregs[n - gdb_reg(IDX_FP_REGS)];
         fp->low = le64_to_cpu(* (uint64_t *) mem_buf);
         fp->high = le16_to_cpu(* (uint16_t *) (mem_buf + 8));
         return 10;
-    } else if (n >= IDX_XMM_REGS && n < IDX_XMM_REGS + CPU_NB_REGS) {
-        n -= IDX_XMM_REGS;
-        if (n < CPU_NB_REGS32 || TARGET_LONG_BITS == 64) {
+    } else if (n >= gdb_reg(IDX_XMM_REGS) &&
+               n < gdb_reg(IDX_XMM_REGS) + cpu_nb_regs()) {
+        n -= gdb_reg(IDX_XMM_REGS);
+        if (n < CPU_NB_REGS32 || target_long_bits() == 64) {
             env->xmm_regs[n].ZMM_Q(0) = ldq_p(mem_buf);
             env->xmm_regs[n].ZMM_Q(1) = ldq_p(mem_buf + 8);
             return 16;
         }
     } else {
-        switch (n) {
+        if (n == gdb_reg(IDX_MXCSR_REG)) {
+            cpu_set_mxcsr(env, ldl_p(mem_buf));
+            return 4;
+        }
+        switch (n - cpu_nb_regs()) {
         case IDX_IP_REG:
             return gdb_write_reg(env, mem_buf, &env->eip);
         case IDX_FLAGS_REG:
@@ -355,10 +367,6 @@ int x86_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
         case IDX_FP_REGS + 14: /* fooff */
             return 4;
         case IDX_FP_REGS + 15: /* fop */
-            return 4;
-
-        case IDX_MXCSR_REG:
-            cpu_set_mxcsr(env, ldl_p(mem_buf));
             return 4;
 
         case IDX_CTL_CR0_REG:
@@ -448,7 +456,7 @@ static int i386_cpu_gdb_get_egprs(CPUState *cs, GByteArray *mem_buf, int n)
     if (n >= 0 && n < EGPR_NUM) {
         /* EGPRs can be only directly accessible in 64-bit mode. */
         if (env->hflags & HF_CS64_MASK) {
-            return gdb_get_reg64(mem_buf, target_ulong_array_val(&env->regs.rec, gpr_map[n + CPU_NB_REGS]));
+            return gdb_get_reg64(mem_buf, target_ulong_array_val(&env->regs.rec, gpr_map64[n + CPU_NB_REGS64]));
         } else if (TARGET_LONG_BITS == 64) {
             return gdb_get_reg64(mem_buf, 0);
         } else {
@@ -470,7 +478,7 @@ static int i386_cpu_gdb_set_egprs(CPUState *cs, uint8_t *mem_buf, int n)
          * XCR0[APX_F] (at least for modification in gdbstub) to be enabled.
          */
         if (env->hflags & HF_CS64_MASK && env->xcr0 & XSTATE_APX_MASK) {
-            target_ulong_array_set(&env->regs.rec, gpr_map[n + CPU_NB_REGS], ldn_p(mem_buf, regsz));
+            target_ulong_array_set(&env->regs.rec, gpr_map64[n + CPU_NB_REGS64], ldn_p(mem_buf, regsz));
 
             /*
              * Per SDM Vol 1, "Processor Tracking of XSAVE-Managed State",
