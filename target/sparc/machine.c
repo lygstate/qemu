@@ -3,7 +3,7 @@
 #include "qemu/target-info.h"
 #include "qemu/timer.h"
 
-#include "migration/cpu.h"
+#include "migration/vmstate.h"
 #include "migration/qemu-file-types.h"
 
 #ifdef TARGET_SPARC64
@@ -231,13 +231,22 @@ const VMStateDescription vmstate_sparc_cpu = {
     .minimum_version_id = SPARC_VMSTATE_VER,
     .pre_save = cpu_pre_save,
     .fields = (const VMStateField[]) {
-        VMSTATE_UINTTL_ARRAY(env.gregs, SPARCCPU, 8),
+        VMSTATE_UINT32_ARRAY_AVAILABLE(env.gregs.u32, SPARCCPU, 8,
+                                       target_is_long_bits_32),
+        VMSTATE_UINT64_ARRAY_AVAILABLE(env.gregs.u64, SPARCCPU, 8,
+                                       target_is_long_bits_64),
         VMSTATE_UINT32(env.nwindows, SPARCCPU),
-        VMSTATE_UINTTL_ARRAY(env.regbase, SPARCCPU, MAX_NWINDOWS * 16 + 8),
+        VMSTATE_UINT32_ARRAY_AVAILABLE(env.regbase.u32, SPARCCPU, MAX_NWINDOWS * 16 + 8,
+                                       target_is_long_bits_32),
+        VMSTATE_UINT64_ARRAY_AVAILABLE(env.regbase.u64, SPARCCPU, MAX_NWINDOWS * 16 + 8,
+                                       target_is_long_bits_64),
         VMSTATE_CPUDOUBLE_ARRAY(env.fpr, SPARCCPU, TARGET_DPREGS),
-        VMSTATE_UINTTL(env.pc, SPARCCPU),
-        VMSTATE_UINTTL(env.npc, SPARCCPU),
-        VMSTATE_UINTTL(env.y, SPARCCPU),
+        VMSTATE_UINT32_AVAILABLE(env.pc.u32, SPARCCPU, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.pc.u64, SPARCCPU, target_is_long_bits_64),
+        VMSTATE_UINT32_AVAILABLE(env.npc.u32, SPARCCPU, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.npc.u64, SPARCCPU, target_is_long_bits_64),
+        VMSTATE_UINT32_AVAILABLE(env.y.u32, SPARCCPU, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.y.u64, SPARCCPU, target_is_long_bits_64),
         {
             .name = "psr",
             .version_id = 0,
@@ -254,7 +263,8 @@ const VMStateDescription vmstate_sparc_cpu = {
             .flags = VMS_SINGLE,
             .offset = 0,
         },
-        VMSTATE_UINTTL(env.tbr, SPARCCPU),
+        VMSTATE_UINT32_AVAILABLE(env.tbr.u32, SPARCCPU, target_is_long_bits_32),
+        VMSTATE_UINT64_AVAILABLE(env.tbr.u64, SPARCCPU, target_is_long_bits_64),
         VMSTATE_INT32(env.interrupt_index, SPARCCPU),
         VMSTATE_UINT32(env.pil_in, SPARCCPU),
 #ifndef TARGET_SPARC64
