@@ -21,7 +21,6 @@
 #include "qemu/log.h"
 #include "elf.h"
 #include "cpu.h"
-#include "migration/cpu.h"
 #include "system/system.h"
 #include "target/hexagon/internal.h"
 #include "system/physmem.h"
