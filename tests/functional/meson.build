@@ -89,7 +89,9 @@ foreach speed : ['quick', 'thorough']
     endif
 
     foreach test : target_tests
-      testname = '@0@-@1@'.format(target_base, test)
+      # Use dir (riscv32-softmmu vs riscv32-be-softmmu), not target_base.
+      # split('-')[0] is "riscv32" for both, which duplicates this target.
+      testname = '@0@-@1@'.format(dir, test)
       if fs.exists('generic' / 'test_' + test + '.py')
         testfile = 'generic' / 'test_' + test + '.py'
       else
