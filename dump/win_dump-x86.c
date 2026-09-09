@@ -337,7 +337,7 @@ static void patch_and_save_context(WinDumpHeader *h, bool x64,
                 .R14 = target_ulong_array_val(&env->regs.rec, 14),
                 .R15 = target_ulong_array_val(&env->regs.rec, 15),
 
-                .Rip = env->eip,
+                .Rip = target_ulong_val(&env->eip),
                 .FltSave = {
                     .MxCsr = env->mxcsr,
                 },
@@ -370,7 +370,7 @@ static void patch_and_save_context(WinDumpHeader *h, bool x64,
                 .Esi = target_ulong_array_val(&env->regs.rec, R_ESI),
                 .Edi = target_ulong_array_val(&env->regs.rec, R_EDI),
 
-                .Eip = env->eip,
+                .Eip = target_ulong_val(&env->eip),
             };
         }
 

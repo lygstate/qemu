@@ -48,31 +48,31 @@ typedef struct target_fpreg {
 static inline void target_copy_regs(target_reg_t *regs, const CPUX86State *env)
 {
 
-    regs->r_r15 = env->regs[15];
-    regs->r_r14 = env->regs[14];
-    regs->r_r13 = env->regs[13];
-    regs->r_r12 = env->regs[12];
-    regs->r_r11 = env->regs[11];
-    regs->r_r10 = env->regs[10];
-    regs->r_r9 = env->regs[9];
-    regs->r_r8 = env->regs[8];
-    regs->r_rdi = env->regs[R_EDI];
-    regs->r_rsi = env->regs[R_ESI];
-    regs->r_rbp = env->regs[R_EBP];
-    regs->r_rbx = env->regs[R_EBX];
-    regs->r_rdx = env->regs[R_EDX];
-    regs->r_rcx = env->regs[R_ECX];
-    regs->r_rax = env->regs[R_EAX];
-    /* regs->r_trapno = env->regs[R_TRAPNO]; XXX */
+    regs->r_r15 = target_ulong_array_val(&env->regs.rec, 15);
+    regs->r_r14 = target_ulong_array_val(&env->regs.rec, 14);
+    regs->r_r13 = target_ulong_array_val(&env->regs.rec, 13);
+    regs->r_r12 = target_ulong_array_val(&env->regs.rec, 12);
+    regs->r_r11 = target_ulong_array_val(&env->regs.rec, 11);
+    regs->r_r10 = target_ulong_array_val(&env->regs.rec, 10);
+    regs->r_r9 = target_ulong_array_val(&env->regs.rec, 9);
+    regs->r_r8 = target_ulong_array_val(&env->regs.rec, 8);
+    regs->r_rdi = target_ulong_array_val(&env->regs.rec, R_EDI);
+    regs->r_rsi = target_ulong_array_val(&env->regs.rec, R_ESI);
+    regs->r_rbp = target_ulong_array_val(&env->regs.rec, R_EBP);
+    regs->r_rbx = target_ulong_array_val(&env->regs.rec, R_EBX);
+    regs->r_rdx = target_ulong_array_val(&env->regs.rec, R_EDX);
+    regs->r_rcx = target_ulong_array_val(&env->regs.rec, R_ECX);
+    regs->r_rax = target_ulong_array_val(&env->regs.rec, R_EAX);
+    /* regs->r_trapno = target_ulong_array_val(&env->regs.rec, R_TRAPNO); XXX */
     regs->r_fs = env->segs[R_FS].selector & 0xffff;
     regs->r_gs = env->segs[R_GS].selector & 0xffff;
     regs->r_err = env->error_code;  /* XXX ? */
     regs->r_es = env->segs[R_ES].selector & 0xffff;
     regs->r_ds = env->segs[R_DS].selector & 0xffff;
-    regs->r_rip = env->eip;
+    regs->r_rip = target_ulong_val(&env->eip);
     regs->r_cs = env->segs[R_CS].selector & 0xffff;
-    regs->r_rflags = env->eflags;
-    regs->r_rsp = env->regs[R_ESP];
+    regs->r_rflags = target_ulong_val(&env->eflags);
+    regs->r_rsp = target_ulong_array_val(&env->regs.rec, R_ESP);
     regs->r_ss = env->segs[R_SS].selector & 0xffff;
 }
 

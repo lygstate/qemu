@@ -178,7 +178,7 @@ bool check_hw_breakpoints(CPUX86State *env, bool force_dr6_update)
 
         switch (hw_breakpoint_type(env->dr[7], reg)) {
         case DR7_TYPE_BP_INST:
-            if (env->dr[reg] == env->eip) {
+            if (env->dr[reg] == target_ulong_val(&(env)->eip)) {
                 bp_match = true;
             }
             break;
@@ -228,7 +228,7 @@ void breakpoint_handler(CPUState *cs)
             }
         }
     } else {
-        if (cpu_breakpoint_test(cs, env->eip, BP_CPU)) {
+        if (cpu_breakpoint_test(cs, target_ulong_val(&(env)->eip), BP_CPU)) {
             check_hw_breakpoints(env, true);
             raise_exception(env, EXCP01_DB);
         }
@@ -246,8 +246,8 @@ target_ulong helper_get_dr(CPUX86State *env, int reg)
     }
 
     if (env->dr[7] & DR7_GD) {
-        env->dr[7] &= ~DR7_GD;
-        env->dr[6] |= DR6_BD;
+        env->dr[7] = env->dr[7] & (~DR7_GD);
+        env->dr[6] = env->dr[6] | (DR6_BD);
         raise_exception_ra(env, EXCP01_DB, GETPC());
     }
 
@@ -265,8 +265,8 @@ void helper_set_dr(CPUX86State *env, int reg, target_ulong t0)
     }
 
     if (env->dr[7] & DR7_GD) {
-        env->dr[7] &= ~DR7_GD;
-        env->dr[6] |= DR6_BD;
+        env->dr[7] = env->dr[7] & (~DR7_GD);
+        env->dr[6] = env->dr[6] | (DR6_BD);
         raise_exception_ra(env, EXCP01_DB, GETPC());
     }
 
@@ -311,7 +311,7 @@ void helper_bpt_io(CPUX86State *env, uint32_t port,
 
     if (hit) {
         env->dr[6] = (env->dr[6] & ~0xf) | hit;
-        env->eip = next_eip;
+        target_ulong_set(&(env)->eip,  next_eip);
         raise_exception(env, EXCP01_DB);
     }
 }

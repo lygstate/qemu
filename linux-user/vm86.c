@@ -57,38 +57,40 @@ void save_v86_state(CPUX86State *env)
         /* FIXME - should return an error */
         return;
     /* put the VM86 registers in the userspace register structure */
-    target_v86->regs.eax = tswap32(env->regs[R_EAX]);
-    target_v86->regs.ebx = tswap32(env->regs[R_EBX]);
-    target_v86->regs.ecx = tswap32(env->regs[R_ECX]);
-    target_v86->regs.edx = tswap32(env->regs[R_EDX]);
-    target_v86->regs.esi = tswap32(env->regs[R_ESI]);
-    target_v86->regs.edi = tswap32(env->regs[R_EDI]);
-    target_v86->regs.ebp = tswap32(env->regs[R_EBP]);
-    target_v86->regs.esp = tswap32(env->regs[R_ESP]);
-    target_v86->regs.eip = tswap32(env->eip);
+    target_v86->regs.eax = tswap32(target_ulong_array_val(&env->regs.rec, R_EAX));
+    target_v86->regs.ebx = tswap32(target_ulong_array_val(&env->regs.rec, R_EBX));
+    target_v86->regs.ecx = tswap32(target_ulong_array_val(&env->regs.rec, R_ECX));
+    target_v86->regs.edx = tswap32(target_ulong_array_val(&env->regs.rec, R_EDX));
+    target_v86->regs.esi = tswap32(target_ulong_array_val(&env->regs.rec, R_ESI));
+    target_v86->regs.edi = tswap32(target_ulong_array_val(&env->regs.rec, R_EDI));
+    target_v86->regs.ebp = tswap32(target_ulong_array_val(&env->regs.rec, R_EBP));
+    target_v86->regs.esp = tswap32(target_ulong_array_val(&env->regs.rec, R_ESP));
+    target_v86->regs.eip = tswap32(target_ulong_val(&env->eip));
     target_v86->regs.cs = tswap16(env->segs[R_CS].selector);
     target_v86->regs.ss = tswap16(env->segs[R_SS].selector);
     target_v86->regs.ds = tswap16(env->segs[R_DS].selector);
     target_v86->regs.es = tswap16(env->segs[R_ES].selector);
     target_v86->regs.fs = tswap16(env->segs[R_FS].selector);
     target_v86->regs.gs = tswap16(env->segs[R_GS].selector);
-    set_flags(env->eflags, ts->v86flags, VIF_MASK | ts->v86mask);
-    target_v86->regs.eflags = tswap32(env->eflags);
+    target_ulong_set(&env->eflags,
+                     (target_ulong_val(&env->eflags) & ~(VIF_MASK | ts->v86mask))
+                     | (ts->v86flags & (VIF_MASK | ts->v86mask)));
+    target_v86->regs.eflags = tswap32(target_ulong_val(&env->eflags));
     unlock_user_struct(target_v86, ts->target_v86, 1);
     LOG_VM86("save_v86_state: eflags=%08x cs:ip=%04x:%04x\n",
-             env->eflags, env->segs[R_CS].selector, env->eip);
+             target_ulong_val(&env->eflags), env->segs[R_CS].selector, target_ulong_val(&env->eip));
 
     /* restore 32 bit registers */
-    env->regs[R_EAX] = ts->vm86_saved_regs.eax;
-    env->regs[R_EBX] = ts->vm86_saved_regs.ebx;
-    env->regs[R_ECX] = ts->vm86_saved_regs.ecx;
-    env->regs[R_EDX] = ts->vm86_saved_regs.edx;
-    env->regs[R_ESI] = ts->vm86_saved_regs.esi;
-    env->regs[R_EDI] = ts->vm86_saved_regs.edi;
-    env->regs[R_EBP] = ts->vm86_saved_regs.ebp;
-    env->regs[R_ESP] = ts->vm86_saved_regs.esp;
-    env->eflags = ts->vm86_saved_regs.eflags;
-    env->eip = ts->vm86_saved_regs.eip;
+    target_ulong_array_set(&env->regs.rec, R_EAX, ts->vm86_saved_regs.eax);
+    target_ulong_array_set(&env->regs.rec, R_EBX, ts->vm86_saved_regs.ebx);
+    target_ulong_array_set(&env->regs.rec, R_ECX, ts->vm86_saved_regs.ecx);
+    target_ulong_array_set(&env->regs.rec, R_EDX, ts->vm86_saved_regs.edx);
+    target_ulong_array_set(&env->regs.rec, R_ESI, ts->vm86_saved_regs.esi);
+    target_ulong_array_set(&env->regs.rec, R_EDI, ts->vm86_saved_regs.edi);
+    target_ulong_array_set(&env->regs.rec, R_EBP, ts->vm86_saved_regs.ebp);
+    target_ulong_array_set(&env->regs.rec, R_ESP, ts->vm86_saved_regs.esp);
+    target_ulong_set(&env->eflags, ts->vm86_saved_regs.eflags);
+    target_ulong_set(&env->eip, ts->vm86_saved_regs.eip);
 
     cpu_x86_load_seg(env, R_CS, ts->vm86_saved_regs.cs);
     cpu_x86_load_seg(env, R_SS, ts->vm86_saved_regs.ss);
@@ -104,7 +106,7 @@ static inline void return_to_32bit(CPUX86State *env, int retval)
 {
     LOG_VM86("return_to_32bit: ret=0x%x\n", retval);
     save_v86_state(env);
-    env->regs[R_EAX] = retval;
+    target_ulong_array_set(&env->regs.rec, R_EAX, retval);
 }
 
 static inline void clear_IF(CPUX86State *env)
@@ -117,12 +119,12 @@ static inline void clear_IF(CPUX86State *env)
 
 static inline void clear_TF(CPUX86State *env)
 {
-    env->eflags &= ~TF_MASK;
+    target_ulong_set(&env->eflags, target_ulong_val(&env->eflags) & ~TF_MASK);
 }
 
 static inline void clear_AC(CPUX86State *env)
 {
-    env->eflags &= ~AC_MASK;
+    target_ulong_set(&env->eflags, target_ulong_val(&env->eflags) & ~AC_MASK);
 }
 
 static inline unsigned int get_vflags(CPUX86State *env)
@@ -131,7 +133,7 @@ static inline unsigned int get_vflags(CPUX86State *env)
     TaskState *ts = get_task_state(cs);
     unsigned int flags;
 
-    flags = env->eflags & RETURN_MASK;
+    flags = target_ulong_val(&env->eflags) & RETURN_MASK;
     if (ts->v86flags & VIF_MASK)
         flags |= IF_MASK;
     flags |= IOPL_MASK;
@@ -153,7 +155,7 @@ static void do_int(CPUX86State *env, int intno)
         goto cannot_handle;
     if (is_revectored(intno, &ts->vm86plus.int_revectored))
         goto cannot_handle;
-    if (intno == 0x21 && is_revectored((env->regs[R_EAX] >> 8) & 0xff,
+    if (intno == 0x21 && is_revectored((target_ulong_array_val(&env->regs.rec, R_EAX) >> 8) & 0xff,
                                        &ts->vm86plus.int21_revectored))
         goto cannot_handle;
     int_addr = (intno << 2);
@@ -164,13 +166,13 @@ static void do_int(CPUX86State *env, int intno)
              intno, segoffs >> 16, segoffs & 0xffff);
     /* save old state */
     ssp = env->segs[R_SS].selector << 4;
-    sp = env->regs[R_ESP] & 0xffff;
+    sp = target_ulong_array_val(&env->regs.rec, R_ESP) & 0xffff;
     vm_putw(env, ssp, sp - 2, get_vflags(env));
     vm_putw(env, ssp, sp - 4, env->segs[R_CS].selector);
-    vm_putw(env, ssp, sp - 6, env->eip);
-    ADD16(env->regs[R_ESP], -6);
+    vm_putw(env, ssp, sp - 6, target_ulong_val(&env->eip));
+    ADD16(target_ulong_array_val(&env->regs.rec, R_ESP), -6);
     /* goto interrupt handler */
-    env->eip = segoffs & 0xffff;
+    target_ulong_set(&env->eip, segoffs & 0xffff);
     cpu_x86_load_seg(env, R_CS, segoffs >> 16);
     clear_TF(env);
     clear_IF(env);
@@ -218,15 +220,15 @@ int do_vm86(CPUX86State *env, long subfunction, abi_ulong vm86_addr)
 
     /* save current CPU regs */
     ts->vm86_saved_regs.eax = 0; /* default vm86 syscall return code */
-    ts->vm86_saved_regs.ebx = env->regs[R_EBX];
-    ts->vm86_saved_regs.ecx = env->regs[R_ECX];
-    ts->vm86_saved_regs.edx = env->regs[R_EDX];
-    ts->vm86_saved_regs.esi = env->regs[R_ESI];
-    ts->vm86_saved_regs.edi = env->regs[R_EDI];
-    ts->vm86_saved_regs.ebp = env->regs[R_EBP];
-    ts->vm86_saved_regs.esp = env->regs[R_ESP];
-    ts->vm86_saved_regs.eflags = env->eflags;
-    ts->vm86_saved_regs.eip  = env->eip;
+    ts->vm86_saved_regs.ebx = target_ulong_array_val(&env->regs.rec, R_EBX);
+    ts->vm86_saved_regs.ecx = target_ulong_array_val(&env->regs.rec, R_ECX);
+    ts->vm86_saved_regs.edx = target_ulong_array_val(&env->regs.rec, R_EDX);
+    ts->vm86_saved_regs.esi = target_ulong_array_val(&env->regs.rec, R_ESI);
+    ts->vm86_saved_regs.edi = target_ulong_array_val(&env->regs.rec, R_EDI);
+    ts->vm86_saved_regs.ebp = target_ulong_array_val(&env->regs.rec, R_EBP);
+    ts->vm86_saved_regs.esp = target_ulong_array_val(&env->regs.rec, R_ESP);
+    ts->vm86_saved_regs.eflags = target_ulong_val(&env->eflags);
+    ts->vm86_saved_regs.eip  = target_ulong_val(&env->eip);
     ts->vm86_saved_regs.cs = env->segs[R_CS].selector;
     ts->vm86_saved_regs.ss = env->segs[R_SS].selector;
     ts->vm86_saved_regs.ds = env->segs[R_DS].selector;
@@ -239,8 +241,8 @@ int do_vm86(CPUX86State *env, long subfunction, abi_ulong vm86_addr)
         return -TARGET_EFAULT;
     /* build vm86 CPU state */
     ts->v86flags = tswap32(target_v86->regs.eflags);
-    env->eflags = (env->eflags & ~SAFE_MASK) |
-        (tswap32(target_v86->regs.eflags) & SAFE_MASK) | VM_MASK;
+    target_ulong_set(&env->eflags, (target_ulong_val(&env->eflags) & ~SAFE_MASK) |
+        (tswap32(target_v86->regs.eflags) & SAFE_MASK) | VM_MASK);
 
     ts->vm86plus.cpu_type = tswapal(target_v86->cpu_type);
     switch (ts->vm86plus.cpu_type) {
@@ -258,14 +260,14 @@ int do_vm86(CPUX86State *env, long subfunction, abi_ulong vm86_addr)
         break;
     }
 
-    env->regs[R_EBX] = tswap32(target_v86->regs.ebx);
-    env->regs[R_ECX] = tswap32(target_v86->regs.ecx);
-    env->regs[R_EDX] = tswap32(target_v86->regs.edx);
-    env->regs[R_ESI] = tswap32(target_v86->regs.esi);
-    env->regs[R_EDI] = tswap32(target_v86->regs.edi);
-    env->regs[R_EBP] = tswap32(target_v86->regs.ebp);
-    env->regs[R_ESP] = tswap32(target_v86->regs.esp);
-    env->eip = tswap32(target_v86->regs.eip);
+    target_ulong_array_set(&env->regs.rec, R_EBX, tswap32(target_v86->regs.ebx));
+    target_ulong_array_set(&env->regs.rec, R_ECX, tswap32(target_v86->regs.ecx));
+    target_ulong_array_set(&env->regs.rec, R_EDX, tswap32(target_v86->regs.edx));
+    target_ulong_array_set(&env->regs.rec, R_ESI, tswap32(target_v86->regs.esi));
+    target_ulong_array_set(&env->regs.rec, R_EDI, tswap32(target_v86->regs.edi));
+    target_ulong_array_set(&env->regs.rec, R_EBP, tswap32(target_v86->regs.ebp));
+    target_ulong_array_set(&env->regs.rec, R_ESP, tswap32(target_v86->regs.esp));
+    target_ulong_set(&env->eip, tswap32(target_v86->regs.eip));
     cpu_x86_load_seg(env, R_CS, tswap16(target_v86->regs.cs));
     cpu_x86_load_seg(env, R_SS, tswap16(target_v86->regs.ss));
     cpu_x86_load_seg(env, R_DS, tswap16(target_v86->regs.ds));
@@ -284,7 +286,7 @@ int do_vm86(CPUX86State *env, long subfunction, abi_ulong vm86_addr)
     unlock_user_struct(target_v86, vm86_addr, 0);
 
     LOG_VM86("do_vm86: cs:ip=%04x:%04x\n",
-             env->segs[R_CS].selector, env->eip);
+             env->segs[R_CS].selector, target_ulong_val(&env->eip));
     /* now the virtual CPU is ready for vm86 execution ! */
  out:
     return ret;

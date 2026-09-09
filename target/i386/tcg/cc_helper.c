@@ -418,12 +418,12 @@ target_ulong helper_read_eflags(CPUX86State *env)
     CC_OP = CC_OP_EFLAGS;
 
     eflags |= (env->df & DF_MASK);
-    eflags |= env->eflags & ~(VM_MASK | RF_MASK);
+    eflags |= target_ulong_val(&(env)->eflags) & ~(VM_MASK | RF_MASK);
     return eflags;
 }
 
 void helper_clts(CPUX86State *env)
 {
-    env->cr[0] &= ~CR0_TS_MASK;
+    env->cr[0] = env->cr[0] & (~CR0_TS_MASK);
     env->hflags &= ~HF_TS_MASK;
 }
