@@ -122,15 +122,15 @@ int x86_cpu_gdb_read_register(CPUState *cs, GByteArray *mem_buf, int n)
     if (n < CPU_NB_REGS) {
         if (TARGET_LONG_BITS == 64) {
             if (env->hflags & HF_CS64_MASK) {
-                return gdb_get_reg64(mem_buf, env->regs[gpr_map[n]]);
+                return gdb_get_reg64(mem_buf, target_ulong_array_val(&env->regs.rec, gpr_map[n]));
             } else if (n < CPU_NB_REGS32) {
                 return gdb_get_reg64(mem_buf,
-                                     env->regs[gpr_map[n]] & 0xffffffffUL);
+                                     target_ulong_array_val(&env->regs.rec, gpr_map[n]) & 0xffffffffUL);
             } else {
                 return gdb_get_reg64(mem_buf, 0);
             }
         } else {
-            return gdb_get_reg32(mem_buf, env->regs[gpr_map32[n]]);
+            return gdb_get_reg32(mem_buf, target_ulong_array_val(&env->regs.rec, gpr_map32[n]));
         }
     } else if (n >= IDX_FP_REGS && n < IDX_FP_REGS + 8) {
         int st_index = n - IDX_FP_REGS;
@@ -281,15 +281,17 @@ int x86_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
     if (n < CPU_NB_REGS) {
         if (TARGET_LONG_BITS == 64) {
             if (env->hflags & HF_CS64_MASK) {
-                env->regs[gpr_map[n]] = ldq_p(mem_buf);
+                target_ulong_array_set(&env->regs.rec, gpr_map[n], ldq_p(mem_buf));
             } else if (n < CPU_NB_REGS32) {
-                env->regs[gpr_map[n]] = ldq_p(mem_buf) & 0xffffffffUL;
+                target_ulong_array_set(&env->regs.rec, gpr_map[n], ldq_p(mem_buf) & 0xffffffffUL);
             }
             return sizeof(target_ulong);
         } else if (n < CPU_NB_REGS32) {
             n = gpr_map32[n];
-            env->regs[n] &= ~0xffffffffUL;
-            env->regs[n] |= (uint32_t)ldl_p(mem_buf);
+            target_ulong_array_set(&env->regs.rec, n,
+                target_ulong_array_val(&env->regs.rec, n) & ~0xffffffffUL);
+            target_ulong_array_set(&env->regs.rec, n,
+                target_ulong_array_val(&env->regs.rec, n) | (uint32_t)ldl_p(mem_buf));
             return 4;
         }
     } else if (n >= IDX_FP_REGS && n < IDX_FP_REGS + 8) {
@@ -446,7 +448,7 @@ static int i386_cpu_gdb_get_egprs(CPUState *cs, GByteArray *mem_buf, int n)
     if (n >= 0 && n < EGPR_NUM) {
         /* EGPRs can be only directly accessible in 64-bit mode. */
         if (env->hflags & HF_CS64_MASK) {
-            return gdb_get_reg64(mem_buf, env->regs[gpr_map[n + CPU_NB_REGS]]);
+            return gdb_get_reg64(mem_buf, target_ulong_array_val(&env->regs.rec, gpr_map[n + CPU_NB_REGS]));
         } else if (TARGET_LONG_BITS == 64) {
             return gdb_get_reg64(mem_buf, 0);
         } else {
@@ -468,7 +470,7 @@ static int i386_cpu_gdb_set_egprs(CPUState *cs, uint8_t *mem_buf, int n)
          * XCR0[APX_F] (at least for modification in gdbstub) to be enabled.
          */
         if (env->hflags & HF_CS64_MASK && env->xcr0 & XSTATE_APX_MASK) {
-            env->regs[gpr_map[n + CPU_NB_REGS]] = ldn_p(mem_buf, regsz);
+            target_ulong_array_set(&env->regs.rec, gpr_map[n + CPU_NB_REGS], ldn_p(mem_buf, regsz));
 
             /*
              * Per SDM Vol 1, "Processor Tracking of XSAVE-Managed State",

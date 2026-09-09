@@ -232,7 +232,7 @@ static int evaluate_tpr_instruction(VAPICROMState *s, X86CPU *cpu,
      * RSP, used by the patched instruction, is zero, so the guest gets a
      * double fault and dies.
      */
-    if (cpu->env.regs[R_ESP] == 0) {
+    if (target_ulong_array_val(&cpu->env.regs.rec, R_ESP) == 0) {
         return -1;
     }
 

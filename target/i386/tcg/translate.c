@@ -77,7 +77,7 @@
 static TCGv cpu_cc_dst, cpu_cc_src, cpu_cc_src2;
 static TCGv cpu_eip;
 static TCGv_i32 cpu_cc_op;
-static TCGv cpu_regs[CPU_NB_REGS];
+static TCGv cpu_regs[CPU_NB_REGS_MAX];
 static TCGv cpu_seg_base[6];
 static TCGv_i64 cpu_bndl[4];
 static TCGv_i64 cpu_bndu[4];
@@ -3335,8 +3335,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
 
 void tcg_x86_init(void)
 {
-    static const char reg_names[CPU_NB_REGS][4] = {
-#ifdef TARGET_X86_64
+    static const char reg_names64[CPU_NB_REGS64][4] = {
         [R_EAX] = "rax",
         [R_EBX] = "rbx",
         [R_ECX] = "rcx",
@@ -3353,7 +3352,8 @@ void tcg_x86_init(void)
         [13] = "r13",
         [14] = "r14",
         [15] = "r15",
-#else
+    };
+    static const char reg_names32[CPU_NB_REGS32][4] = {
         [R_EAX] = "eax",
         [R_EBX] = "ebx",
         [R_ECX] = "ecx",
@@ -3362,8 +3362,9 @@ void tcg_x86_init(void)
         [R_EDI] = "edi",
         [R_EBP] = "ebp",
         [R_ESP] = "esp",
-#endif
     };
+    const char (*reg_names)[4] = target_long_bits() == 64 ? reg_names64
+                                                          : reg_names32;
     static const char eip_name[] = {
 #ifdef TARGET_X86_64
         "rip"
@@ -3397,10 +3398,10 @@ void tcg_x86_init(void)
                                      "cc_src2");
     cpu_eip = tcg_global_mem_new(tcg_env, offsetof(CPUX86State, eip), eip_name);
 
-    for (i = 0; i < CPU_NB_REGS; ++i) {
-        cpu_regs[i] = tcg_global_mem_new(tcg_env,
-                                         offsetof(CPUX86State, regs[i]),
-                                         reg_names[i]);
+    for (i = 0; i < cpu_nb_regs(); ++i) {
+        size_t regs_off = offsetof(CPUX86State, regs) +
+                          i * (target_long_bits() / 8);
+        cpu_regs[i] = tcg_global_mem_new(tcg_env, regs_off, reg_names[i]);
     }
 
     for (i = 0; i < 6; ++i) {

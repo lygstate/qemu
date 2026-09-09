@@ -1908,9 +1908,9 @@ static inline int pcmp_elen(CPUX86State *env, int reg, uint32_t ctrl)
 
     /* Presence of REX.W is indicated by a bit higher than 7 set */
     if (ctrl >> 8) {
-        val = (target_long)env->regs[reg];
+        val = (target_long)target_ulong_array_val(&env->regs.rec, reg);
     } else {
-        val = (int32_t)env->regs[reg];
+        val = (int32_t)target_ulong_array_val(&env->regs.rec, reg);
     }
     if (ctrl & 1) {
         limit = 8;
@@ -2041,9 +2041,9 @@ void glue(helper_pcmpestri, SUFFIX)(CPUX86State *env, Reg *d, Reg *s,
                                  pcmp_elen(env, R_EAX, ctrl));
 
     if (res) {
-        env->regs[R_ECX] = (ctrl & (1 << 6)) ? 31 - clz32(res) : ctz32(res);
+        target_ulong_array_set(&env->regs.rec, R_ECX, (ctrl & (1 << 6)) ? 31 - clz32(res) : ctz32(res));
     } else {
-        env->regs[R_ECX] = 16 >> (ctrl & (1 << 0));
+        target_ulong_array_set(&env->regs.rec, R_ECX, 16 >> (ctrl & (1 << 0)));
     }
 }
 
@@ -2079,9 +2079,9 @@ void glue(helper_pcmpistri, SUFFIX)(CPUX86State *env, Reg *d, Reg *s,
                                  pcmp_ilen(d, ctrl));
 
     if (res) {
-        env->regs[R_ECX] = (ctrl & (1 << 6)) ? 31 - clz32(res) : ctz32(res);
+        target_ulong_array_set(&env->regs.rec, R_ECX, (ctrl & (1 << 6)) ? 31 - clz32(res) : ctz32(res));
     } else {
-        env->regs[R_ECX] = 16 >> (ctrl & (1 << 0));
+        target_ulong_array_set(&env->regs.rec, R_ECX, 16 >> (ctrl & (1 << 0)));
     }
 }
 
