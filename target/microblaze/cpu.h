@@ -30,6 +30,10 @@ typedef struct CPUArchState CPUMBState;
 #include "mmu.h"
 #endif
 
+/*
+ * Guest trap numbers in cs->exception_index. TCG loop codes such as
+ * EXCP_INTERRUPT start at 0x10000 in cpu-common.h and do not overlap these.
+ */
 #define EXCP_MMU        1
 #define EXCP_IRQ        2
 #define EXCP_SYSCALL    3  /* user-only */
