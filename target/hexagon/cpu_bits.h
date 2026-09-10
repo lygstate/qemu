@@ -32,6 +32,10 @@ typedef struct HexagonCPUConfig {
 #define PCALIGN 4
 #define PCALIGN_MASK (PCALIGN - 1)
 
+/*
+ * Guest trap numbers in cs->exception_index. TCG loop codes such as
+ * EXCP_INTERRUPT start at 0x10000 in cpu-common.h and do not overlap these.
+ */
 enum hex_event {
     HEX_EVENT_NONE = -1,
     HEX_EVENT_RESET = 0x0,
