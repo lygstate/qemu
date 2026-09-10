@@ -529,7 +529,6 @@ struct CPUArchState {
     hwaddr kernel_addr;
     hwaddr fdt_addr;
 
-#ifdef CONFIG_KVM
     /* kvm timer */
     bool kvm_timer_dirty;
     uint64_t kvm_timer_time;
@@ -540,7 +539,6 @@ struct CPUArchState {
     /* KVM multiprocessor state */
     uint32_t kvm_mp_state;
     bool kvm_mp_state_loaded;
-#endif /* CONFIG_KVM */
 };
 
 /*
