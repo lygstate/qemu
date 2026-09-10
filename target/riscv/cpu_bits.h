@@ -761,6 +761,10 @@ typedef enum {
 /* Default RNMI Exception Vector address */
 #define DEFAULT_RNMI_EXCPVEC    0x0
 
+/*
+ * Guest trap numbers in cs->exception_index. TCG loop codes such as
+ * EXCP_INTERRUPT start at 0x10000 in cpu-common.h and do not overlap these.
+ */
 /* Exception causes */
 typedef enum RISCVException {
     RISCV_EXCP_NONE = -1, /* sentinel value */
