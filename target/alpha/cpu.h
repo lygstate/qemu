@@ -295,6 +295,10 @@ enum {
     FEATURE_TBCHK  = 0x00000008,
 };
 
+/*
+ * Guest trap numbers in cs->exception_index. TCG loop codes such as
+ * EXCP_INTERRUPT start at 0x10000 in cpu-common.h and do not overlap these.
+ */
 enum {
     EXCP_RESET,
     EXCP_MCHK,
