@@ -30,6 +30,7 @@
 #include "qemu/cpu-float.h"
 #include "qom/object.h"
 #include "qemu/int128.h"
+#include "qemu/target-info.h"
 #include "cpu_bits.h"
 #include "cpu_cfg.h"
 #include "qapi/qapi-types-common.h"
@@ -39,11 +40,8 @@ typedef struct CPUArchState CPURISCVState;
 
 #define CPU_RESOLVING_TYPE TYPE_RISCV_CPU
 
-#if defined(TARGET_RISCV32)
-# define TYPE_RISCV_CPU_BASE            TYPE_RISCV_CPU_BASE32
-#elif defined(TARGET_RISCV64)
-# define TYPE_RISCV_CPU_BASE            TYPE_RISCV_CPU_BASE64
-#endif
+#define TYPE_RISCV_CPU_BASE (target_riscv32() ? \
+                             TYPE_RISCV_CPU_BASE32 : TYPE_RISCV_CPU_BASE64)
 
 /*
  * b0: Whether a instruction always raise a store AMO or not.
@@ -749,14 +747,13 @@ FIELD(EXT_TB_FLAGS, MISA_EXT, 0, 32)
 FIELD(EXT_TB_FLAGS, ALTFMT, 32, 1)
 FIELD(EXT_TB_FLAGS, BIG_ENDIAN, 33, 1)
 
-#ifdef TARGET_RISCV32
-#define riscv_cpu_mxl(env)  ((void)(env), MXL_RV32)
-#else
 static inline RISCVMXL riscv_cpu_mxl(CPURISCVState *env)
 {
+    if (target_riscv32()) {
+        return MXL_RV32;
+    }
     return env->misa_mxl;
 }
-#endif
 #define riscv_cpu_mxl_bits(env) (1UL << (4 + riscv_cpu_mxl(env)))
 
 static inline const RISCVCPUConfig *riscv_cpu_cfg(CPURISCVState *env)
@@ -800,24 +797,23 @@ static inline RISCVMXL cpu_get_xl(CPURISCVState *env, privilege_mode_t mode)
 }
 #endif
 
-#if defined(TARGET_RISCV32)
-#define cpu_recompute_xl(env)  ((void)(env), MXL_RV32)
-#else
 static inline RISCVMXL cpu_recompute_xl(CPURISCVState *env)
 {
+    if (target_riscv32()) {
+        return MXL_RV32;
+    }
 #if !defined(CONFIG_USER_ONLY)
     return cpu_get_xl(env, env->priv);
 #else
     return env->misa_mxl;
 #endif
 }
-#endif
 
-#if defined(TARGET_RISCV32)
-#define cpu_address_xl(env)  ((void)(env), MXL_RV32)
-#else
 static inline RISCVMXL cpu_address_xl(CPURISCVState *env)
 {
+    if (target_riscv32()) {
+        return MXL_RV32;
+    }
 #ifdef CONFIG_USER_ONLY
     return env->xl;
 #else
@@ -826,18 +822,17 @@ static inline RISCVMXL cpu_address_xl(CPURISCVState *env)
     return cpu_get_xl(env, mode);
 #endif
 }
-#endif
 
 static inline uint16_t riscv_cpu_xlen(CPURISCVState *env)
 {
     return 16 << env->xl;
 }
 
-#ifdef TARGET_RISCV32
-#define riscv_cpu_sxl(env)  ((void)(env), MXL_RV32)
-#else
 static inline RISCVMXL riscv_cpu_sxl(CPURISCVState *env)
 {
+    if (target_riscv32()) {
+        return MXL_RV32;
+    }
 #ifdef CONFIG_USER_ONLY
     return env->misa_mxl;
 #else
@@ -847,7 +842,6 @@ static inline RISCVMXL riscv_cpu_sxl(CPURISCVState *env)
 #endif
     return MXL_RV32;
 }
-#endif
 
 /*
  * Returns the current effective privilege mode.
