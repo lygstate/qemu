@@ -136,7 +136,10 @@ enum {
     FPCSR_DZF = (1 << 11),
 };
 
-/* Exceptions indices */
+/*
+ * Guest trap numbers in cs->exception_index. TCG loop codes such as
+ * EXCP_INTERRUPT start at 0x10000 in cpu-common.h and do not overlap these.
+ */
 enum {
     EXCP_RESET    = 0x1,
     EXCP_BUSERR   = 0x2,
