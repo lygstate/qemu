@@ -241,6 +241,10 @@ enum {
 #define PAGE_CACHE_WB      0x400
 #define PAGE_CACHE_ISOLATE 0x600
 
+/*
+ * Guest trap numbers in cs->exception_index. TCG loop codes such as
+ * EXCP_INTERRUPT start at 0x10000 in cpu-common.h and do not overlap these.
+ */
 enum {
     /* Static vectors */
     EXC_RESET0,
@@ -601,6 +605,7 @@ int xtensa_cpu_gdb_write_register(CPUState *cpu, uint8_t *buf, int reg);
 G_NORETURN void xtensa_cpu_do_unaligned_access(CPUState *cpu, vaddr addr,
                                                MMUAccessType access_type, int mmu_idx,
                                                uintptr_t retaddr);
+G_NORETURN void xtensa_exception(CPUXtensaState *env, uint32_t excp);
 
 #define CPU_RESOLVING_TYPE TYPE_XTENSA_CPU
 
