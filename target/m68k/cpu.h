@@ -35,6 +35,10 @@
 #define OS_PACKED   6
 #define OS_UNSIZED  7
 
+/*
+ * Guest trap numbers in cs->exception_index. TCG loop codes such as
+ * EXCP_INTERRUPT start at 0x10000 in cpu-common.h and do not overlap these.
+ */
 #define EXCP_ACCESS         2   /* Access (MMU) error.  */
 #define EXCP_ADDRESS        3   /* Address error.  */
 #define EXCP_ILLEGAL        4   /* Illegal instruction.  */
