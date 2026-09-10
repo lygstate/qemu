@@ -57,6 +57,46 @@ bool target_is_long_bits_64(const TargetInfo *ti)
     return ti->long_bits == 64;
 }
 
+bool target_is_config_kvm(const TargetInfo *ti)
+{
+    return ti->config_kvm;
+}
+
+bool target_is_config_xen(const TargetInfo *ti)
+{
+    return ti->config_xen;
+}
+
+bool target_is_config_hvf(const TargetInfo *ti)
+{
+    return ti->config_hvf;
+}
+
+bool target_is_config_nitro(const TargetInfo *ti)
+{
+    return ti->config_nitro;
+}
+
+bool target_is_config_whpx(const TargetInfo *ti)
+{
+    return ti->config_whpx;
+}
+
+bool target_is_config_nvmm(const TargetInfo *ti)
+{
+    return ti->config_nvmm;
+}
+
+bool target_is_config_mshv(const TargetInfo *ti)
+{
+    return ti->config_mshv;
+}
+
+bool target_is_config_tcg(const TargetInfo *ti)
+{
+    return ti->config_tcg;
+}
+
 SysEmuTarget target_arch(void)
 {
     return target_info()->target_arch;

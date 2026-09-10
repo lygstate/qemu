@@ -39,6 +39,30 @@ static const TargetInfo target_info_stub = {
     .page_bits_vary = false,
     .page_bits_init = TARGET_PAGE_BITS,
 #endif
+#ifdef CONFIG_KVM
+    .config_kvm = true,
+#endif
+#ifdef CONFIG_XEN
+    .config_xen = true,
+#endif
+#ifdef CONFIG_HVF
+    .config_hvf = true,
+#endif
+#ifdef CONFIG_NITRO
+    .config_nitro = true,
+#endif
+#ifdef CONFIG_WHPX
+    .config_whpx = true,
+#endif
+#ifdef CONFIG_NVMM
+    .config_nvmm = true,
+#endif
+#ifdef CONFIG_MSHV
+    .config_mshv = true,
+#endif
+#ifdef CONFIG_TCG
+    .config_tcg = true,
+#endif
 };
 
 target_info_init(target_info_stub)
