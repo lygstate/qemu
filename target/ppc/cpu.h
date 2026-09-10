@@ -63,6 +63,10 @@
         (((v) & ~(m)) | ((((typeof(v))(val)) << MASK_TO_LSH(m)) & (m)))
 
 /*****************************************************************************/
+/*
+ * Guest trap numbers in cs->exception_index. TCG loop codes such as
+ * EXCP_INTERRUPT start at 0x10000 in cpu-common.h and do not overlap these.
+ */
 /* Exception vectors definitions                                             */
 enum {
     POWERPC_EXCP_NONE    = -1,
@@ -2818,9 +2822,6 @@ void cpu_write_xer(CPUPPCState *env, target_ulong xer);
  * have PPC_SEGMENT_64B.
  */
 #define is_book3s_arch2x(ctx) (!!((ctx)->insns_flags & PPC_SEGMENT_64B))
-
-G_NORETURN void raise_exception_err_ra(CPUPPCState *env, uint32_t exception,
-                                       uint32_t error_code, uintptr_t raddr);
 
 /* PERFM EBB helper*/
 #if defined(TARGET_PPC64) && !defined(CONFIG_USER_ONLY)
