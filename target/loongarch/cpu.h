@@ -63,6 +63,10 @@ FIELD(FCSR0, CAUSE, 24, 5)
 #define FP_DIV0           8
 #define FP_INVALID        16
 
+/*
+ * Guest trap numbers in cs->exception_index. TCG loop codes such as
+ * EXCP_INTERRUPT start at 0x10000 in cpu-common.h and do not overlap these.
+ */
 #define EXCODE(code, subcode) ( ((subcode) << 6) | (code) )
 #define EXCODE_MCODE(code)    ( (code) & 0x3f )
 #define EXCODE_SUBCODE(code)  ( (code) >> 6 )
