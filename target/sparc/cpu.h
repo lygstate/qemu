@@ -50,7 +50,10 @@ enum {
     WREG_FP = WREG_I6,
 };
 
-/* trap definitions */
+/*
+ * Guest trap numbers in cs->exception_index. TCG loop codes such as
+ * EXCP_INTERRUPT start at 0x10000 in cpu-common.h and do not overlap these.
+ */
 #ifndef TARGET_SPARC64
 #define TT_TFAULT   0x01
 #define TT_ILL_INSN 0x02
