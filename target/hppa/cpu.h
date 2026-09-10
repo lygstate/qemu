@@ -60,6 +60,10 @@
         (1 << MMU_KERNEL_P_IDX | 1 << MMU_PL1_P_IDX  |  \
          1 << MMU_PL2_P_IDX    | 1 << MMU_USER_P_IDX)
 
+/*
+ * Guest trap numbers in cs->exception_index. TCG loop codes such as
+ * EXCP_INTERRUPT start at 0x10000 in cpu-common.h and do not overlap these.
+ */
 /* Hardware exceptions, interrupts, faults, and traps.  */
 #define EXCP_HPMC                1  /* high priority machine check */
 #define EXCP_POWER_FAIL          2
