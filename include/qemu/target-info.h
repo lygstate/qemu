@@ -61,6 +61,78 @@ bool target_is_long_bits_32(const TargetInfo *ti);
 bool target_is_long_bits_64(const TargetInfo *ti);
 
 /**
+ * target_is_config_kvm:
+ * @ti: TargetInfo to inspect
+ *
+ * Returns whether @ti was built with CONFIG_KVM.
+ * Usable as TypeInfo.is_available and VMStateField.is_available.
+ */
+bool target_is_config_kvm(const TargetInfo *ti);
+
+/**
+ * target_is_config_xen:
+ * @ti: TargetInfo to inspect
+ *
+ * Returns whether @ti was built with CONFIG_XEN.
+ * Usable as TypeInfo.is_available and VMStateField.is_available.
+ */
+bool target_is_config_xen(const TargetInfo *ti);
+
+/**
+ * target_is_config_hvf:
+ * @ti: TargetInfo to inspect
+ *
+ * Returns whether @ti was built with CONFIG_HVF.
+ * Usable as TypeInfo.is_available and VMStateField.is_available.
+ */
+bool target_is_config_hvf(const TargetInfo *ti);
+
+/**
+ * target_is_config_nitro:
+ * @ti: TargetInfo to inspect
+ *
+ * Returns whether @ti was built with CONFIG_NITRO.
+ * Usable as TypeInfo.is_available and VMStateField.is_available.
+ */
+bool target_is_config_nitro(const TargetInfo *ti);
+
+/**
+ * target_is_config_whpx:
+ * @ti: TargetInfo to inspect
+ *
+ * Returns whether @ti was built with CONFIG_WHPX.
+ * Usable as TypeInfo.is_available and VMStateField.is_available.
+ */
+bool target_is_config_whpx(const TargetInfo *ti);
+
+/**
+ * target_is_config_nvmm:
+ * @ti: TargetInfo to inspect
+ *
+ * Returns whether @ti was built with CONFIG_NVMM.
+ * Usable as TypeInfo.is_available and VMStateField.is_available.
+ */
+bool target_is_config_nvmm(const TargetInfo *ti);
+
+/**
+ * target_is_config_mshv:
+ * @ti: TargetInfo to inspect
+ *
+ * Returns whether @ti was built with CONFIG_MSHV.
+ * Usable as TypeInfo.is_available and VMStateField.is_available.
+ */
+bool target_is_config_mshv(const TargetInfo *ti);
+
+/**
+ * target_is_config_tcg:
+ * @ti: TargetInfo to inspect
+ *
+ * Returns whether @ti was built with CONFIG_TCG.
+ * Usable as TypeInfo.is_available and VMStateField.is_available.
+ */
+bool target_is_config_tcg(const TargetInfo *ti);
+
+/**
  * target_cpu_type:
  *
  * Returns: target CPU base QOM type name (i.e. TYPE_X86_CPU).
