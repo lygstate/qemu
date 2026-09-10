@@ -47,6 +47,16 @@ unsigned target_long_bits(void)
     return target_info()->long_bits;
 }
 
+bool target_is_long_bits_32(const TargetInfo *ti)
+{
+    return ti->long_bits == 32;
+}
+
+bool target_is_long_bits_64(const TargetInfo *ti)
+{
+    return ti->long_bits == 64;
+}
+
 SysEmuTarget target_arch(void)
 {
     return target_info()->target_arch;
