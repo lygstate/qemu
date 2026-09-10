@@ -1305,6 +1305,10 @@ static inline int mips_env_mmu_index(const CPUMIPSState *env)
     return hflags_mmu_index(env->hflags);
 }
 
+/*
+ * Guest trap numbers in cs->exception_index. TCG loop codes such as
+ * EXCP_INTERRUPT start at 0x10000 in cpu-common.h and do not overlap these.
+ */
 /* Exceptions */
 enum {
     EXCP_NONE          = -1,
