@@ -43,6 +43,24 @@ const char *target_name(void);
 unsigned target_long_bits(void);
 
 /**
+ * target_is_long_bits_32:
+ * @ti: TargetInfo to inspect
+ *
+ * Returns whether @ti uses a 32-bit target long.
+ * Usable as TypeInfo.is_available and VMStateField.is_available.
+ */
+bool target_is_long_bits_32(const TargetInfo *ti);
+
+/**
+ * target_is_long_bits_64:
+ * @ti: TargetInfo to inspect
+ *
+ * Returns whether @ti uses a 64-bit target long.
+ * Usable as TypeInfo.is_available and VMStateField.is_available.
+ */
+bool target_is_long_bits_64(const TargetInfo *ti);
+
+/**
  * target_cpu_type:
  *
  * Returns: target CPU base QOM type name (i.e. TYPE_X86_CPU).
