@@ -180,7 +180,10 @@ typedef tcg_target_ulong TCGArg;
     * TCGv_vec  : a host vector type; the exact size is not exposed
                   to the CPU front-end code.
     * TCGv      : an integer type the same size as target_ulong
-                  (an alias for either TCGv_i32 or TCGv_i64)
+    * TCGv_tl   : alias of TCGv for helper-head glue(TCGv_, tl)
+   Per-target compiles keep TCGv as TCGv_i32 or TCGv_i64 so existing
+   mixed i32/i64 call sites type-check. Common-system compiles use a
+   distinct opaque TCGv; use tcg_gen_*_tl.
    The compiler's type checking will complain if you mix them
    up and pass the wrong sized TCGv to a function.
 
@@ -203,6 +206,21 @@ typedef struct TCGv_i64_d *TCGv_i64;
 typedef struct TCGv_i128_d *TCGv_i128;
 typedef struct TCGv_ptr_d *TCGv_ptr;
 typedef struct TCGv_vec_d *TCGv_vec;
+#ifdef COMPILING_PER_TARGET
+# include "exec/target_long.h"
+# if TARGET_LONG_BITS == 32
+typedef TCGv_i32 TCGv;
+# elif TARGET_LONG_BITS == 64
+typedef TCGv_i64 TCGv;
+# else
+#  error Unhandled TARGET_LONG_BITS value
+# endif
+typedef target_long tcg_imm_tl;
+#else
+typedef struct TCGv_d *TCGv;
+typedef int64_t tcg_imm_tl;
+#endif
+typedef TCGv TCGv_tl;
 typedef TCGv_ptr TCGv_env;
 
 #if __SIZEOF_POINTER__ == 4
@@ -517,6 +535,11 @@ static inline TCGTemp *tcgv_vec_temp(TCGv_vec v)
     return tcgv_i32_temp((TCGv_i32)v);
 }
 
+static inline TCGTemp *tcgv_tl_temp(TCGv v)
+{
+    return tcgv_i32_temp((TCGv_i32)v);
+}
+
 static inline TCGArg tcgv_i32_arg(TCGv_i32 v)
 {
     return temp_arg(tcgv_i32_temp(v));
@@ -540,6 +563,11 @@ static inline TCGArg tcgv_ptr_arg(TCGv_ptr v)
 static inline TCGArg tcgv_vec_arg(TCGv_vec v)
 {
     return temp_arg(tcgv_vec_temp(v));
+}
+
+static inline TCGArg tcgv_tl_arg(TCGv v)
+{
+    return temp_arg(tcgv_tl_temp(v));
 }
 
 static inline TCGv_i32 temp_tcgv_i32(TCGTemp *t)
@@ -571,6 +599,16 @@ static inline TCGv_vaddr temp_tcgv_vaddr(TCGTemp *t)
 static inline TCGv_vec temp_tcgv_vec(TCGTemp *t)
 {
     return (TCGv_vec)temp_tcgv_i32(t);
+}
+
+static inline TCGv temp_tcgv(TCGTemp *t)
+{
+    return (TCGv)temp_tcgv_i32(t);
+}
+
+static inline TCGv temp_tcgv_tl(TCGTemp *t)
+{
+    return temp_tcgv(t);
 }
 
 static inline TCGArg tcg_get_insn_param(TCGOp *op, unsigned arg)

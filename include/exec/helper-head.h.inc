@@ -45,16 +45,29 @@
 #define dh_ctype_noreturn G_NORETURN void
 #define dh_ctype(t) dh_ctype_##t
 
+#define dh_alias_tl tl
 #ifdef COMPILING_PER_TARGET
 # include "exec/target_long.h"
 # if TARGET_LONG_BITS == 32
-#  define dh_alias_tl i32
 #  define dh_typecode_tl dh_typecode_i32
 # else
-#  define dh_alias_tl i64
 #  define dh_typecode_tl dh_typecode_i64
 # endif
 # define dh_ctype_tl target_ulong
+#else
+/*
+ * Common-system helper FFI only: helper_info.typemask is compile-time
+ * and shared by 32- and 64-bit guests, so the C/libffi slot is
+ * max(i32, i64) -- always i64 / uint64_t. This is not the TCG temp
+ * width. TCGv_tl stays dynamic (I32 or I64 via tcg_type_tl());
+ * tcgv_tl_temp() is the handle-to-TCGTemp accessor and is valid for
+ * either size. Call lowering zero-extends an I32 temp into this
+ * unsigned i64 slot (dh_typecode_tl is i64, not s64). A helper C
+ * body that needs a signed guest value must narrow to XLEN and
+ * sign-extend itself; (int64_t)arg is not a 32-bit sign-extend.
+ */
+# define dh_typecode_tl dh_typecode_i64
+# define dh_ctype_tl uint64_t
 #endif /* COMPILING_PER_TARGET */
 
 #if __SIZEOF_POINTER__ == 4
@@ -76,6 +89,7 @@
 #define dh_retvar_decl0_i64 TCGv_i64 retval
 #define dh_retval_decl0_i128 TCGv_i128 retval
 #define dh_retvar_decl0_ptr TCGv_ptr retval
+#define dh_retvar_decl0_tl TCGv_tl retval
 #define dh_retvar_decl0(t) glue(dh_retvar_decl0_, dh_alias(t))
 
 #define dh_retvar_decl_void
@@ -84,6 +98,7 @@
 #define dh_retvar_decl_i64 TCGv_i64 retval,
 #define dh_retvar_decl_i128 TCGv_i128 retval,
 #define dh_retvar_decl_ptr TCGv_ptr retval,
+#define dh_retvar_decl_tl TCGv_tl retval,
 #define dh_retvar_decl(t) glue(dh_retvar_decl_, dh_alias(t))
 
 #define dh_retvar_void NULL
@@ -92,6 +107,7 @@
 #define dh_retvar_i64 tcgv_i64_temp(retval)
 #define dh_retvar_i128 tcgv_i128_temp(retval)
 #define dh_retvar_ptr tcgv_ptr_temp(retval)
+#define dh_retvar_tl tcgv_tl_temp(retval)
 #define dh_retvar(t) glue(dh_retvar_, dh_alias(t))
 
 #define dh_typecode_void 0
@@ -115,6 +131,7 @@
 #define dh_callflag_i64  0
 #define dh_callflag_i128 0
 #define dh_callflag_ptr  0
+#define dh_callflag_tl   0
 #define dh_callflag_void 0
 #define dh_callflag_noreturn TCG_CALL_NO_RETURN
 #define dh_callflag(t) glue(dh_callflag_, dh_alias(t))
