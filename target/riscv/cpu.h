@@ -598,6 +598,13 @@ typedef struct RISCVCPUDef {
 #endif
     /* This is just a setter for env->num_triggers.  */
     uint32_t num_triggers;
+
+    /*
+     * Optional per-CPU callback run from riscv_cpu_class_base_init
+     * after the static def is merged. Use it to adjust fields that
+     * depend on the build target (e.g. clamp misa_mxl_max for RV32).
+     */
+    void (*target_init)(struct RISCVCPUClass *mcc);
 } RISCVCPUDef;
 
 /**
