@@ -446,17 +446,14 @@ static TCGv_i64 get_fpr_hs(DisasContext *ctx, int reg_num)
     }
     switch (get_xl(ctx)) {
     case MXL_RV32:
-#ifdef TARGET_RISCV32
-    {
-        TCGv_i64 t = tcg_temp_new_i64();
-        tcg_gen_ext_i32_i64(t, cpu_gpr[reg_num]);
-        return t;
-    }
-#else
-    /* fall through */
+        if (!tcg_tl_is_64()) {
+            TCGv_i64 t = tcg_temp_new_i64();
+            tcg_gen_ext_tl_i64(t, cpu_gpr[reg_num]);
+            return t;
+        }
+        /* fall through */
     case MXL_RV64:
-        return cpu_gpr[reg_num];
-#endif
+        return tcg_i64_from_tl(cpu_gpr[reg_num]);
     default:
         g_assert_not_reached();
     }
@@ -478,10 +475,8 @@ static TCGv_i64 get_fpr_d(DisasContext *ctx, int reg_num)
         tcg_gen_concat_tl_i64(t, cpu_gpr[reg_num], cpu_gpr[reg_num + 1]);
         return t;
     }
-#ifdef TARGET_RISCV64
     case MXL_RV64:
-        return cpu_gpr[reg_num];
-#endif
+        return tcg_i64_from_tl(cpu_gpr[reg_num]);
     default:
         g_assert_not_reached();
     }
@@ -500,10 +495,8 @@ static TCGv_i64 dest_fpr(DisasContext *ctx, int reg_num)
     switch (get_xl(ctx)) {
     case MXL_RV32:
         return tcg_temp_new_i64();
-#ifdef TARGET_RISCV64
     case MXL_RV64:
-        return cpu_gpr[reg_num];
-#endif
+        return tcg_i64_from_tl(cpu_gpr[reg_num]);
     default:
         g_assert_not_reached();
     }
@@ -519,15 +512,14 @@ static void gen_set_fpr_hs(DisasContext *ctx, int reg_num, TCGv_i64 t)
     if (reg_num != 0) {
         switch (get_xl(ctx)) {
         case MXL_RV32:
-#ifdef TARGET_RISCV32
-            tcg_gen_extrl_i64_i32(cpu_gpr[reg_num], t);
-            break;
-#else
-        /* fall through */
+            if (!tcg_tl_is_64()) {
+                tcg_gen_trunc_i64_tl(cpu_gpr[reg_num], t);
+                break;
+            }
+            /* fall through */
         case MXL_RV64:
-            tcg_gen_mov_i64(cpu_gpr[reg_num], t);
+            tcg_gen_mov_i64(tcg_i64_from_tl(cpu_gpr[reg_num]), t);
             break;
-#endif
         default:
             g_assert_not_reached();
         }
@@ -544,17 +536,16 @@ static void gen_set_fpr_d(DisasContext *ctx, int reg_num, TCGv_i64 t)
     if (reg_num != 0) {
         switch (get_xl(ctx)) {
         case MXL_RV32:
-#ifdef TARGET_RISCV32
-            tcg_gen_extr_i64_i32(cpu_gpr[reg_num], cpu_gpr[reg_num + 1], t);
-            break;
-#else
-            tcg_gen_ext32s_i64(cpu_gpr[reg_num], t);
-            tcg_gen_sari_i64(cpu_gpr[reg_num + 1], t, 32);
+            if (tcg_tl_is_64()) {
+                tcg_gen_ext32s_i64(tcg_i64_from_tl(cpu_gpr[reg_num]), t);
+                tcg_gen_sari_i64(tcg_i64_from_tl(cpu_gpr[reg_num + 1]), t, 32);
+            } else {
+                tcg_gen_extr_i64_tl(cpu_gpr[reg_num], cpu_gpr[reg_num + 1], t);
+            }
             break;
         case MXL_RV64:
-            tcg_gen_mov_i64(cpu_gpr[reg_num], t);
+            tcg_gen_mov_i64(tcg_i64_from_tl(cpu_gpr[reg_num]), t);
             break;
-#endif
         default:
             g_assert_not_reached();
         }
