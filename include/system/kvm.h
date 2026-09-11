@@ -17,8 +17,10 @@
 #define QEMU_KVM_H
 
 #include "exec/memattrs.h"
+#include "exec/vaddr.h"
 #include "gdbstub/enums.h"
 #include "qemu/accel.h"
+#include "qemu/queue.h"
 #include "accel/accel-route.h"
 #include "qom/object.h"
 
@@ -222,6 +224,7 @@ void kvm_irqchip_change_notify(void);
 
 #ifdef COMPILING_PER_TARGET
 #include "cpu.h"
+#endif
 
 /**
  * kvm_update_guest_debug(): ensure KVM debug structures updated
@@ -232,14 +235,7 @@ void kvm_irqchip_change_notify(void);
  * calling down to kvm_arch_update_guest_debug after the generic
  * fields have been set.
  */
-#ifdef TARGET_KVM_HAVE_GUEST_DEBUG
 int kvm_update_guest_debug(CPUState *cpu, unsigned long reinject_trap);
-#else
-static inline int kvm_update_guest_debug(CPUState *cpu, unsigned long reinject_trap)
-{
-    return -EINVAL;
-}
-#endif
 
 /* internal API */
 
@@ -361,8 +357,14 @@ int kvm_arch_pre_create_vcpu(CPUState *cpu, Error **errp);
 int kvm_arch_init_vcpu(CPUState *cpu);
 int kvm_arch_destroy_vcpu(CPUState *cpu);
 
+#ifdef COMPILING_PER_TARGET
 #ifdef TARGET_KVM_HAVE_RESET_PARKED_VCPU
 void kvm_arch_reset_parked_vcpu(unsigned long vcpu_id, int kvm_fd);
+#else
+static inline void kvm_arch_reset_parked_vcpu(unsigned long vcpu_id, int kvm_fd)
+{
+}
+#endif
 #else
 static inline void kvm_arch_reset_parked_vcpu(unsigned long vcpu_id, int kvm_fd)
 {
@@ -453,8 +455,6 @@ void kvm_set_sigmask_len(KVMState *s, unsigned int sigmask_len);
 
 int kvm_physical_memory_addr_from_host(KVMState *s, void *ram_addr,
                                        hwaddr *phys_addr);
-
-#endif /* COMPILING_PER_TARGET */
 
 bool kvm_arch_supports_vmfd_change(void);
 int kvm_arch_on_vmfd_change(MachineState *ms, KVMState *s);
