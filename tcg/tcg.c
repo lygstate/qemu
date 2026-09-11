@@ -2516,6 +2516,8 @@ static void tcg_gen_callN(void *func, TCGHelperInfo *info,
                           TCGTemp *ret, TCGTemp **args)
 {
     TCGv_i64 extend_free[MAX_CALL_IARGS];
+    TCGv_i64 ret_temp = NULL;
+    TCGTemp *orig_ret = ret;
     int n_extend = 0;
     TCGOp *op;
     int i, n, pi = 0, total_args;
@@ -2523,6 +2525,24 @@ static void tcg_gen_callN(void *func, TCGHelperInfo *info,
     if (unlikely(g_once_init_enter(HELPER_INFO_INIT(info)))) {
         init_call_layout(info);
         g_once_init_leave(HELPER_INFO_INIT(info), HELPER_INFO_INIT_VAL(info));
+    }
+
+    /*
+     * Common-system tl uses a fixed i64 FFI slot while the TCG temp
+     * may still be I32. An I32 temp against an i64/s64 typecode is
+     * that case: generated i64 wrappers take TCGv_i64, so they cannot
+     * supply I32. No separate tl identity is needed. The i64 tl slot
+     * is unsigned, so the I32 temp is zero-extended (s64 still
+     * sign-extends). The same test also quietly repairs a mismatched
+     * I32 temp passed to a real i64 helper.
+     */
+    if (ret != NULL && ret->type == TCG_TYPE_I32) {
+        unsigned typecode = info->typemask & 7;
+
+        if (typecode == dh_typecode_i64 || typecode == dh_typecode_s64) {
+            ret_temp = tcg_temp_ebb_new_i64();
+            ret = tcgv_i64_temp(ret_temp);
+        }
     }
 
     total_args = info->nr_out + info->nr_in + 2;
@@ -2561,8 +2581,19 @@ static void tcg_gen_callN(void *func, TCGHelperInfo *info,
     for (i = 0; i < n; i++) {
         const TCGCallArgumentLoc *loc = &info->in[i];
         TCGTemp *ts = args[loc->arg_idx] + loc->tmp_subindex;
+        TCGCallArgumentKind kind = loc->kind;
 
-        switch (loc->kind) {
+        if (kind == TCG_CALL_ARG_NORMAL && ts->type == TCG_TYPE_I32) {
+            unsigned typecode =
+                extract32(info->typemask, (loc->arg_idx + 1) * 3, 3);
+
+            if (typecode == dh_typecode_i64 ||
+                typecode == dh_typecode_s64) {
+                kind = TCG_CALL_ARG_EXTEND_U + (typecode & 1);
+            }
+        }
+
+        switch (kind) {
         case TCG_CALL_ARG_NORMAL:
         case TCG_CALL_ARG_BY_REF:
         case TCG_CALL_ARG_BY_REF_N:
@@ -2575,7 +2606,7 @@ static void tcg_gen_callN(void *func, TCGHelperInfo *info,
                 TCGv_i64 temp = tcg_temp_ebb_new_i64();
                 TCGv_i32 orig = temp_tcgv_i32(ts);
 
-                if (loc->kind == TCG_CALL_ARG_EXTEND_S) {
+                if (kind == TCG_CALL_ARG_EXTEND_S) {
                     tcg_gen_ext_i32_i64(temp, orig);
                 } else {
                     tcg_gen_extu_i32_i64(temp, orig);
@@ -2602,6 +2633,11 @@ static void tcg_gen_callN(void *func, TCGHelperInfo *info,
     tcg_debug_assert(n_extend <= ARRAY_SIZE(extend_free));
     for (i = 0; i < n_extend; ++i) {
         tcg_temp_free_i64(extend_free[i]);
+    }
+
+    if (ret_temp != NULL) {
+        tcg_gen_extrl_i64_i32(temp_tcgv_i32(orig_ret), ret_temp);
+        tcg_temp_free_i64(ret_temp);
     }
 }
 

@@ -8,24 +8,39 @@
 #ifndef TCG_TCG_OP_MEM_H
 #define TCG_TCG_OP_MEM_H
 
-#ifndef TCG_ADDRESS_BITS
-#error TCG_ADDRESS_BITS must be defined
-#endif
-
 #include "tcg/tcg-op-common.h"
 
-#if TCG_ADDRESS_BITS == 32
+#ifdef TCG_ADDRESS_BITS
+# define TCG_VA_BITS TCG_ADDRESS_BITS
+#elif defined(COMPILING_PER_TARGET)
+# define TCG_VA_BITS TARGET_LONG_BITS
+#endif
+
+#ifdef TCG_VA_BITS
+# if TCG_VA_BITS == 32
 typedef TCGv_i32 TCGv_va;
 #define TCG_TYPE_VA TCG_TYPE_I32
 #define tcgv_va_temp tcgv_i32_temp
 #define tcgv_va_temp_new tcg_temp_new_i32
-#elif TCG_ADDRESS_BITS == 64
+# elif TCG_VA_BITS == 64
 typedef TCGv_i64 TCGv_va;
 #define TCG_TYPE_VA TCG_TYPE_I64
 #define tcgv_va_temp tcgv_i64_temp
 #define tcgv_va_temp_new tcg_temp_new_i64
+# else
+#  error
+# endif
 #else
-#error
+/*
+ * Without a fixed TCG_ADDRESS_BITS, the VA width follows tcg_type_tl()
+ * at translation time. TCGv_va names the address role in APIs, but it
+ * aliases TCGv because their runtime widths are identical. This is
+ * semantic separation, not C type separation.
+ */
+typedef TCGv TCGv_va;
+#define TCG_TYPE_VA tcg_type_tl()
+#define tcgv_va_temp tcgv_tl_temp
+#define tcgv_va_temp_new tcg_temp_new
 #endif
 
 static inline void
@@ -124,5 +139,72 @@ DEF_ATOMIC2(tcg_gen_atomic_umax_fetch, i64)
 
 #undef DEF_ATOMIC2
 #undef DEF_ATOMIC3
+
+static inline void tcg_gen_qemu_ld_tl(TCGv v, TCGv_va a, TCGArg i, MemOp m)
+{
+    if (tcg_tl_is_64()) {
+        tcg_gen_qemu_ld_i64(tcg_i64_from_tl(v), a, i, m);
+    } else {
+        tcg_gen_qemu_ld_i32(tcg_i32_from_tl(v), a, i, m);
+    }
+}
+
+static inline void tcg_gen_qemu_st_tl(TCGv v, TCGv_va a, TCGArg i, MemOp m)
+{
+    if (tcg_tl_is_64()) {
+        tcg_gen_qemu_st_i64(tcg_i64_from_tl(v), a, i, m);
+    } else {
+        tcg_gen_qemu_st_i32(tcg_i32_from_tl(v), a, i, m);
+    }
+}
+
+#define DEF_ATOMIC2_TL(N)                                       \
+    static inline void N##_tl(TCGv r, TCGv_va a, TCGv v,        \
+                              TCGArg i, MemOp m)                \
+    {                                                           \
+        if (tcg_tl_is_64()) {                                   \
+            N##_i64(tcg_i64_from_tl(r), a, tcg_i64_from_tl(v),  \
+                    i, m);                                      \
+        } else {                                                \
+            N##_i32(tcg_i32_from_tl(r), a, tcg_i32_from_tl(v),  \
+                    i, m);                                      \
+        }                                                       \
+    }
+
+#define DEF_ATOMIC3_TL(N)                                       \
+    static inline void N##_tl(TCGv r, TCGv_va a, TCGv o,        \
+                              TCGv n, TCGArg i, MemOp m)        \
+    {                                                           \
+        if (tcg_tl_is_64()) {                                   \
+            N##_i64(tcg_i64_from_tl(r), a, tcg_i64_from_tl(o),  \
+                    tcg_i64_from_tl(n), i, m);                  \
+        } else {                                                \
+            N##_i32(tcg_i32_from_tl(r), a, tcg_i32_from_tl(o),  \
+                    tcg_i32_from_tl(n), i, m);                  \
+        }                                                       \
+    }
+
+DEF_ATOMIC3_TL(tcg_gen_atomic_cmpxchg)
+
+DEF_ATOMIC2_TL(tcg_gen_atomic_xchg)
+DEF_ATOMIC2_TL(tcg_gen_atomic_fetch_add)
+DEF_ATOMIC2_TL(tcg_gen_atomic_fetch_and)
+DEF_ATOMIC2_TL(tcg_gen_atomic_fetch_or)
+DEF_ATOMIC2_TL(tcg_gen_atomic_fetch_xor)
+DEF_ATOMIC2_TL(tcg_gen_atomic_fetch_smin)
+DEF_ATOMIC2_TL(tcg_gen_atomic_fetch_umin)
+DEF_ATOMIC2_TL(tcg_gen_atomic_fetch_smax)
+DEF_ATOMIC2_TL(tcg_gen_atomic_fetch_umax)
+DEF_ATOMIC2_TL(tcg_gen_atomic_add_fetch)
+DEF_ATOMIC2_TL(tcg_gen_atomic_and_fetch)
+DEF_ATOMIC2_TL(tcg_gen_atomic_or_fetch)
+DEF_ATOMIC2_TL(tcg_gen_atomic_xor_fetch)
+DEF_ATOMIC2_TL(tcg_gen_atomic_smin_fetch)
+DEF_ATOMIC2_TL(tcg_gen_atomic_umin_fetch)
+DEF_ATOMIC2_TL(tcg_gen_atomic_smax_fetch)
+DEF_ATOMIC2_TL(tcg_gen_atomic_umax_fetch)
+
+#undef DEF_ATOMIC2_TL
+#undef DEF_ATOMIC3_TL
 
 #endif /* TCG_TCG_OP_MEM_H */

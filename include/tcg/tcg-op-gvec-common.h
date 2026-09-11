@@ -8,6 +8,8 @@
 #ifndef TCG_TCG_OP_GVEC_COMMON_H
 #define TCG_TCG_OP_GVEC_COMMON_H
 
+#include "tcg/tcg-op-common.h"
+
 /*
  * "Generic" vectors.  All operands are given as offsets from ENV,
  * and therefore cannot also be allocated via tcg_global_mem_new_*.
@@ -483,5 +485,15 @@ void tcg_gen_vec_shr8i_i32(TCGv_i32 d, TCGv_i32 a, int32_t);
 void tcg_gen_vec_shr16i_i32(TCGv_i32 d, TCGv_i32 a, int32_t);
 void tcg_gen_vec_sar8i_i32(TCGv_i32 d, TCGv_i32 a, int32_t);
 void tcg_gen_vec_sar16i_i32(TCGv_i32 d, TCGv_i32 a, int32_t);
+
+static inline void tcg_gen_gvec_dup_tl(unsigned vece, uint32_t dofs,
+                                       uint32_t s, uint32_t m, TCGv c)
+{
+    if (tcg_tl_is_64()) {
+        tcg_gen_gvec_dup_i64(vece, dofs, s, m, tcg_i64_from_tl(c));
+    } else {
+        tcg_gen_gvec_dup_i32(vece, dofs, s, m, tcg_i32_from_tl(c));
+    }
+}
 
 #endif
