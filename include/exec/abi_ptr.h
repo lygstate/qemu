@@ -6,13 +6,12 @@
 #ifndef EXEC_ABI_PTR_H
 #define EXEC_ABI_PTR_H
 
-#include "cpu-param.h"
-
 #if defined(CONFIG_USER_ONLY)
 /*
  * sparc32plus has 64bit long but 32bit space address
  * this can make bad result with g2h() and h2g()
  */
+#include "cpu-param.h"
 #if TARGET_VIRT_ADDR_SPACE_BITS <= 32
 typedef uint32_t abi_ptr;
 #define TARGET_ABI_FMT_ptr "%x"
@@ -26,7 +25,11 @@ typedef uint64_t abi_ptr;
 #include "exec/target_long.h"
 
 typedef target_ulong abi_ptr;
+#ifdef COMPILING_PER_TARGET
 #define TARGET_ABI_FMT_ptr TARGET_FMT_lx
+#else
+#define TARGET_ABI_FMT_ptr "%" PRIx64
+#endif
 
 #endif /* !CONFIG_USER_ONLY */
 

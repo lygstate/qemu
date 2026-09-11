@@ -1,5 +1,5 @@
 /*
- *  Software MMU support (per-target)
+ *  Software MMU support
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -424,6 +424,7 @@ cpu_stq_le_data(CPUArchState *env, abi_ptr addr, uint64_t val)
 }
 
 #ifndef TARGET_NOT_USING_LEGACY_NATIVE_ENDIAN_API
+#ifdef COMPILING_PER_TARGET
 #if TARGET_BIG_ENDIAN
 # define cpu_lduw_data        cpu_lduw_be_data
 # define cpu_ldsw_data        cpu_ldsw_be_data
@@ -469,6 +470,7 @@ cpu_stq_le_data(CPUArchState *env, abi_ptr addr, uint64_t val)
 # define cpu_stl_mmuidx_ra    cpu_stl_le_mmuidx_ra
 # define cpu_stq_mmuidx_ra    cpu_stq_le_mmuidx_ra
 #endif
+#endif /* COMPILING_PER_TARGET */
 #endif /* TARGET_NOT_USING_LEGACY_NATIVE_ENDIAN_API */
 
 #endif /* ACCEL_TCG_CPU_LDST_H */
