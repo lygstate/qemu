@@ -24,7 +24,8 @@
 #include "exec/helper-gen.h"
 #include "exec/target_page.h"
 #include "exec/translator.h"
-#include "accel/tcg/cpu-ldst.h"
+#include "accel/tcg/cpu-ldst-common.h"
+#include "accel/tcg/cpu-mmu-index.h"
 #include "exec/translation-block.h"
 #include "exec/log.h"
 #include "semihosting/semihost.h"
@@ -130,21 +131,8 @@ static inline bool has_ext(DisasContext *ctx, uint32_t ext)
     return ctx->misa_ext & ext;
 }
 
-#ifdef TARGET_RISCV32
-#define get_xl(ctx)    MXL_RV32
-#elif defined(CONFIG_USER_ONLY)
-#define get_xl(ctx)    MXL_RV64
-#else
-#define get_xl(ctx)    ((ctx)->xl)
-#endif
-
-#ifdef TARGET_RISCV32
-#define get_address_xl(ctx)    MXL_RV32
-#elif defined(CONFIG_USER_ONLY)
-#define get_address_xl(ctx)    MXL_RV64
-#else
+#define get_xl(ctx)            ((ctx)->xl)
 #define get_address_xl(ctx)    ((ctx)->address_xl)
-#endif
 
 #define mxl_memop(ctx) ((get_xl(ctx) + 1) | (ctx)->mo_endianness)
 
@@ -155,11 +143,7 @@ static inline int __attribute__((unused)) get_xlen(DisasContext *ctx)
 }
 
 /* The operation length, as opposed to the xlen. */
-#ifdef TARGET_RISCV32
-#define get_ol(ctx)    MXL_RV32
-#else
 #define get_ol(ctx)    ((ctx)->ol)
-#endif
 
 static inline int get_olen(DisasContext *ctx)
 {
@@ -167,11 +151,7 @@ static inline int get_olen(DisasContext *ctx)
 }
 
 /* The maximum register length */
-#ifdef TARGET_RISCV32
-#define get_xl_max(ctx)    MXL_RV32
-#else
 #define get_xl_max(ctx)    ((ctx)->misa_mxl_max)
-#endif
 
 /*
  * RISC-V requires NaN-boxing of narrower width floating point values.
@@ -1473,11 +1453,11 @@ void riscv_translate_init(void)
      * to 32-bit TCGv globals.  An offset of 4 bytes is applied so the least
      * significant bytes are correctly written to.
      */
-#if HOST_BIG_ENDIAN && !defined(TARGET_RISCV64)
-    size_t field_offset = 4;
-#else
     size_t field_offset = 0;
-#endif
+
+    if (HOST_BIG_ENDIAN && !tcg_tl_is_64()) {
+        field_offset = 4;
+    }
 
     /* 32 bits in size, no offset needed */
     size_t vl_offset = offsetof(CPURISCVState, vl);
