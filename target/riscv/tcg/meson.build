@@ -4,7 +4,7 @@ endif
 
 riscv_ss.add(files(
   'bitmanip_helper.c',
- 'cpu_helper.c',
+  'cpu_helper.c',
   'csr.c',
   'crypto_helper.c',
   'fpu_helper.c',
@@ -15,10 +15,10 @@ riscv_ss.add(files(
   'vcrypto_helper.c',
   'vector_helper.c',
   'vector_internals.c',
-  'zce_helper.c'))
+  'zce_helper.c',
+))
 
-
-riscv_system_ss.add(files(
+riscv_common_system_ss.add(files(
   'debug.c',
   'mips_csr.c',
   'pmp.c',
