@@ -65,11 +65,13 @@ static bool cap_has_mp_state;
 #define KVM_RISCV_REG_ID_U64(type, idx) (KVM_REG_RISCV | KVM_REG_SIZE_U64 | \
                                          type | idx)
 
-#if defined(TARGET_RISCV64)
-#define KVM_RISCV_REG_ID_ULONG(type, idx) KVM_RISCV_REG_ID_U64(type, idx)
-#else
-#define KVM_RISCV_REG_ID_ULONG(type, idx) KVM_RISCV_REG_ID_U32(type, idx)
-#endif
+static uint64_t kvm_riscv_reg_id_ulong(uint64_t type, uint64_t idx)
+{
+    if (target_riscv64()) {
+        return KVM_RISCV_REG_ID_U64(type, idx);
+    }
+    return KVM_RISCV_REG_ID_U32(type, idx);
+}
 
 static uint64_t kvm_encode_reg_size_id(uint64_t id, size_t size_b)
 {
@@ -93,15 +95,15 @@ static uint64_t kvm_riscv_vector_reg_id(RISCVCPU *cpu,
 }
 
 #define RISCV_CORE_REG(name) \
-    KVM_RISCV_REG_ID_ULONG(KVM_REG_RISCV_CORE, \
+    kvm_riscv_reg_id_ulong(KVM_REG_RISCV_CORE, \
                            KVM_REG_RISCV_CORE_REG(name))
 
 #define RISCV_CSR_REG(name) \
-    KVM_RISCV_REG_ID_ULONG(KVM_REG_RISCV_CSR, \
+    kvm_riscv_reg_id_ulong(KVM_REG_RISCV_CSR, \
                            KVM_REG_RISCV_CSR_REG(name))
 
 #define RISCV_CONFIG_REG(name) \
-    KVM_RISCV_REG_ID_ULONG(KVM_REG_RISCV_CONFIG, \
+    kvm_riscv_reg_id_ulong(KVM_REG_RISCV_CONFIG, \
                            KVM_REG_RISCV_CONFIG_REG(name))
 
 #define RISCV_TIMER_REG(name)  KVM_RISCV_REG_ID_U64(KVM_REG_RISCV_TIMER, \
@@ -112,7 +114,7 @@ static uint64_t kvm_riscv_vector_reg_id(RISCVCPU *cpu,
 #define RISCV_FP_D_REG(idx)  KVM_RISCV_REG_ID_U64(KVM_REG_RISCV_FP_D, idx)
 
 #define RISCV_VECTOR_CSR_REG(name) \
-    KVM_RISCV_REG_ID_ULONG(KVM_REG_RISCV_VECTOR, \
+    kvm_riscv_reg_id_ulong(KVM_REG_RISCV_VECTOR, \
                            KVM_REG_RISCV_VECTOR_CSR_REG(name))
 
 #define KVM_RISCV_GET_TIMER(cs, name, reg) \
@@ -218,7 +220,7 @@ static void kvm_riscv_update_cpu_misa_ext(RISCVCPU *cpu, CPUState *cs)
 
         /* If we're here we're going to disable the MISA bit */
         reg = 0;
-        id = KVM_RISCV_REG_ID_ULONG(KVM_REG_RISCV_ISA_EXT,
+        id = kvm_riscv_reg_id_ulong(KVM_REG_RISCV_ISA_EXT,
                                     misa_cfg->kvm_reg_id);
         ret = kvm_set_one_reg(cs, id, &reg);
         if (ret != 0) {
@@ -237,24 +239,29 @@ static void kvm_riscv_update_cpu_misa_ext(RISCVCPU *cpu, CPUState *cs)
     }
 }
 
-#define KVM_CSR_CFG(_name, _env_prop, reg_id) \
+#define KVM_CSR_CFG(_name, _env_prop, _csr) \
     {.name = _name, .offset = ENV_CSR_OFFSET(_env_prop), \
      .prop_size = sizeof(((CPURISCVState *)0)->_env_prop), \
-     .kvm_reg_id = reg_id}
+     .kvm_reg_id = KVM_REG_RISCV_CSR_REG(_csr)}
 
 static KVMCPUConfig kvm_csr_cfgs[] = {
-    KVM_CSR_CFG("sstatus",    mstatus,    RISCV_CSR_REG(sstatus)),
-    KVM_CSR_CFG("sie",        mie,        RISCV_CSR_REG(sie)),
-    KVM_CSR_CFG("stvec",      stvec,      RISCV_CSR_REG(stvec)),
-    KVM_CSR_CFG("sscratch",   sscratch,   RISCV_CSR_REG(sscratch)),
-    KVM_CSR_CFG("sepc",       sepc,       RISCV_CSR_REG(sepc)),
-    KVM_CSR_CFG("scause",     scause,     RISCV_CSR_REG(scause)),
-    KVM_CSR_CFG("stval",      stval,      RISCV_CSR_REG(stval)),
-    KVM_CSR_CFG("sip",        mip,        RISCV_CSR_REG(sip)),
-    KVM_CSR_CFG("satp",       satp,       RISCV_CSR_REG(satp)),
-    KVM_CSR_CFG("scounteren", scounteren, RISCV_CSR_REG(scounteren)),
-    KVM_CSR_CFG("senvcfg",    senvcfg,    RISCV_CSR_REG(senvcfg)),
+    KVM_CSR_CFG("sstatus",    mstatus,    sstatus),
+    KVM_CSR_CFG("sie",        mie,        sie),
+    KVM_CSR_CFG("stvec",      stvec,      stvec),
+    KVM_CSR_CFG("sscratch",   sscratch,   sscratch),
+    KVM_CSR_CFG("sepc",       sepc,       sepc),
+    KVM_CSR_CFG("scause",     scause,     scause),
+    KVM_CSR_CFG("stval",      stval,      stval),
+    KVM_CSR_CFG("sip",        mip,        sip),
+    KVM_CSR_CFG("satp",       satp,       satp),
+    KVM_CSR_CFG("scounteren", scounteren, scounteren),
+    KVM_CSR_CFG("senvcfg",    senvcfg,    senvcfg),
 };
+
+static uint64_t kvm_csr_cfg_reg_id(const KVMCPUConfig *csr_cfg)
+{
+    return kvm_riscv_reg_id_ulong(KVM_REG_RISCV_CSR, csr_cfg->kvm_reg_id);
+}
 
 static void *kvmconfig_get_env_addr(RISCVCPU *cpu, KVMCPUConfig *csr_cfg)
 {
@@ -477,7 +484,7 @@ static void kvm_riscv_update_cpu_cfg_isa_ext(RISCVCPU *cpu, CPUState *cs)
             continue;
         }
 
-        id = KVM_RISCV_REG_ID_ULONG(KVM_REG_RISCV_ISA_EXT,
+        id = kvm_riscv_reg_id_ulong(KVM_REG_RISCV_ISA_EXT,
                                     multi_ext_cfg->kvm_reg_id);
         reg = kvm_cpu_cfg_get(cpu, multi_ext_cfg);
         ret = kvm_set_one_reg(cs, id, &reg);
@@ -610,7 +617,7 @@ static int kvm_riscv_get_regs_core(CPUState *cs)
     env->priv = reg;
 
     for (i = 1; i < 32; i++) {
-        uint64_t id = KVM_RISCV_REG_ID_ULONG(KVM_REG_RISCV_CORE, i);
+        uint64_t id = kvm_riscv_reg_id_ulong(KVM_REG_RISCV_CORE, i);
         ret = kvm_get_one_reg(cs, id, &reg);
         if (ret) {
             return ret;
@@ -641,7 +648,7 @@ static int kvm_riscv_put_regs_core(CPUState *cs)
     }
 
     for (i = 1; i < 32; i++) {
-        uint64_t id = KVM_RISCV_REG_ID_ULONG(KVM_REG_RISCV_CORE, i);
+        uint64_t id = kvm_riscv_reg_id_ulong(KVM_REG_RISCV_CORE, i);
         reg = env->gpr[i];
         ret = kvm_set_one_reg(cs, id, &reg);
         if (ret) {
@@ -665,7 +672,7 @@ static int kvm_riscv_get_regs_csr(CPUState *cs)
             continue;
         }
 
-        ret = kvm_get_one_reg(cs, csr_cfg->kvm_reg_id, &reg);
+        ret = kvm_get_one_reg(cs, kvm_csr_cfg_reg_id(csr_cfg), &reg);
         if (ret) {
             return ret;
         }
@@ -703,7 +710,7 @@ static int kvm_riscv_put_regs_csr(CPUState *cs)
             g_assert_not_reached();
         }
 
-        ret = kvm_set_one_reg(cs, csr_cfg->kvm_reg_id, &reg);
+        ret = kvm_set_one_reg(cs, kvm_csr_cfg_reg_id(csr_cfg), &reg);
         if (ret) {
             return ret;
         }
@@ -1088,7 +1095,7 @@ static void kvm_riscv_read_cbomz_blksize(RISCVCPU *cpu, KVMScratchCPU *kvmcpu,
     struct kvm_one_reg reg;
     int ret;
 
-    reg.id = KVM_RISCV_REG_ID_ULONG(KVM_REG_RISCV_CONFIG,
+    reg.id = kvm_riscv_reg_id_ulong(KVM_REG_RISCV_CONFIG,
                                     cbomz_cfg->kvm_reg_id);
     reg.addr = (uint64_t)kvmconfig_get_cfg_addr(cpu, cbomz_cfg);
     ret = ioctl(kvmcpu->cpufd, KVM_GET_ONE_REG, &reg);
@@ -1109,7 +1116,7 @@ static void kvm_riscv_read_multiext_legacy(RISCVCPU *cpu,
         KVMCPUConfig *multi_ext_cfg = &kvm_multi_ext_cfgs[i];
         struct kvm_one_reg reg;
 
-        reg.id = KVM_RISCV_REG_ID_ULONG(KVM_REG_RISCV_ISA_EXT,
+        reg.id = kvm_riscv_reg_id_ulong(KVM_REG_RISCV_ISA_EXT,
                                         multi_ext_cfg->kvm_reg_id);
         reg.addr = (uint64_t)&val;
         ret = ioctl(kvmcpu->cpufd, KVM_GET_ONE_REG, &reg);
@@ -1148,7 +1155,7 @@ static void kvm_riscv_read_csr_cfg_legacy(KVMScratchCPU *kvmcpu)
         KVMCPUConfig *csr_cfg = &kvm_csr_cfgs[i];
         struct kvm_one_reg reg;
 
-        reg.id = csr_cfg->kvm_reg_id;
+        reg.id = kvm_csr_cfg_reg_id(csr_cfg);
         reg.addr = (uint64_t)&val;
         ret = ioctl(kvmcpu->cpufd, KVM_GET_ONE_REG, &reg);
         if (ret != 0) {
@@ -1229,7 +1236,7 @@ static void kvm_riscv_read_csr_cfg(struct kvm_reg_list *reglist)
     for (int i = 0; i < ARRAY_SIZE(kvm_csr_cfgs); i++) {
         KVMCPUConfig *csr_cfg = &kvm_csr_cfgs[i];
 
-        reg_id = csr_cfg->kvm_reg_id;
+        reg_id = kvm_csr_cfg_reg_id(csr_cfg);
         reg_search = bsearch(&reg_id, reglist->reg, reglist->n,
                              sizeof(uint64_t), uint64_cmp);
         if (!reg_search) {
@@ -1288,7 +1295,7 @@ static void kvm_riscv_init_cfg(RISCVCPU *cpu, KVMScratchCPU *kvmcpu)
 
     for (i = 0; i < ARRAY_SIZE(kvm_multi_ext_cfgs); i++) {
         multi_ext_cfg = &kvm_multi_ext_cfgs[i];
-        reg_id = KVM_RISCV_REG_ID_ULONG(KVM_REG_RISCV_ISA_EXT,
+        reg_id = kvm_riscv_reg_id_ulong(KVM_REG_RISCV_ISA_EXT,
                                         multi_ext_cfg->kvm_reg_id);
         reg_search = bsearch(&reg_id, reglist->reg, reglist->n,
                              sizeof(uint64_t), uint64_cmp);
@@ -2078,7 +2085,7 @@ void riscv_kvm_cpu_finalize_features(RISCVCPU *cpu, Error **errp)
     if (cpu->cfg.ext_zicbom &&
         riscv_cpu_option_set(cpu, kvm_cbom_blocksize.name)) {
 
-        reg.id = KVM_RISCV_REG_ID_ULONG(KVM_REG_RISCV_CONFIG,
+        reg.id = kvm_riscv_reg_id_ulong(KVM_REG_RISCV_CONFIG,
                                         kvm_cbom_blocksize.kvm_reg_id);
         reg.addr = (uint64_t)&val;
         ret = ioctl(kvmcpu.cpufd, KVM_GET_ONE_REG, &reg);
@@ -2097,7 +2104,7 @@ void riscv_kvm_cpu_finalize_features(RISCVCPU *cpu, Error **errp)
     if (cpu->cfg.ext_zicboz &&
         riscv_cpu_option_set(cpu, kvm_cboz_blocksize.name)) {
 
-        reg.id = KVM_RISCV_REG_ID_ULONG(KVM_REG_RISCV_CONFIG,
+        reg.id = kvm_riscv_reg_id_ulong(KVM_REG_RISCV_CONFIG,
                                         kvm_cboz_blocksize.kvm_reg_id);
         reg.addr = (uint64_t)&val;
         ret = ioctl(kvmcpu.cpufd, KVM_GET_ONE_REG, &reg);
@@ -2116,7 +2123,7 @@ void riscv_kvm_cpu_finalize_features(RISCVCPU *cpu, Error **errp)
     if (cpu->cfg.ext_zicbop &&
         riscv_cpu_option_set(cpu, kvm_cbop_blocksize.name)) {
 
-        reg.id = KVM_RISCV_REG_ID_ULONG(KVM_REG_RISCV_CONFIG,
+        reg.id = kvm_riscv_reg_id_ulong(KVM_REG_RISCV_CONFIG,
                                         kvm_cbop_blocksize.kvm_reg_id);
         reg.addr = (uint64_t)&val;
         ret = ioctl(kvmcpu.cpufd, KVM_GET_ONE_REG, &reg);
@@ -2178,25 +2185,29 @@ static void kvm_cpu_accel_register_types(void)
 }
 type_init(kvm_cpu_accel_register_types);
 
+static void kvm_cpu_host_class_init(ObjectClass *c, const void *data)
+{
+    RISCVCPUClass *mcc = RISCV_CPU_CLASS(c);
+
+    if (target_riscv32()) {
+        mcc->def->misa_mxl_max = MXL_RV32;
+        mcc->def->cfg.max_satp_mode = VM_1_10_SV32;
+    } else {
+        mcc->def->misa_mxl_max = MXL_RV64;
+    }
+}
+
 static const TypeInfo riscv_kvm_cpu_type_infos[] = {
     {
         .name = TYPE_RISCV_CPU_HOST,
         .parent = TYPE_RISCV_CPU,
-#if defined(TARGET_RISCV32)
+        .class_init = kvm_cpu_host_class_init,
+        .is_available = target_is_base_riscv,
         .class_data = &(const RISCVCPUDef) {
-            .misa_mxl_max = MXL_RV32,
             .priv_spec = RISCV_PROFILE_ATTR_UNUSED,
             .vext_spec = RISCV_PROFILE_ATTR_UNUSED,
             .cfg.max_satp_mode = -1,
         },
-#elif defined(TARGET_RISCV64)
-        .class_data = &(const RISCVCPUDef) {
-            .misa_mxl_max = MXL_RV64,
-            .priv_spec = RISCV_PROFILE_ATTR_UNUSED,
-            .vext_spec = RISCV_PROFILE_ATTR_UNUSED,
-            .cfg.max_satp_mode = -1,
-        },
-#endif
     }
 };
 
