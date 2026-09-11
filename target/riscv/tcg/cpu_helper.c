@@ -1131,6 +1131,7 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
     }
 
     int ptshift;
+    int width = target_long_bits() / 4;
     target_ulong pte;
     hwaddr pte_addr;
     const hwaddr base_root = base;
@@ -1214,8 +1215,9 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
         } else {
             if (pte & PTE_RESERVED(svrsw60t59b)) {
                 qemu_log_mask(LOG_GUEST_ERROR, "%s: reserved bits set in PTE: "
-                              "addr: 0x%" HWADDR_PRIx " pte: 0x" TARGET_FMT_lx "\n",
-                              __func__, pte_addr, pte);
+                              "addr: 0x%" HWADDR_PRIx " pte: 0x%0*" PRIx64 "\n",
+                              __func__, pte_addr, width,
+                              extract64(pte, 0, target_long_bits()));
                 return TRANSLATE_FAIL;
             }
 
@@ -1223,8 +1225,9 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
                 /* Reserved without Svpbmt. */
                 qemu_log_mask(LOG_GUEST_ERROR, "%s: PBMT bits set in PTE, "
                               "and Svpbmt extension is disabled: "
-                              "addr: 0x%" HWADDR_PRIx " pte: 0x" TARGET_FMT_lx "\n",
-                              __func__, pte_addr, pte);
+                              "addr: 0x%" HWADDR_PRIx " pte: 0x%0*" PRIx64 "\n",
+                              __func__, pte_addr, width,
+                              extract64(pte, 0, target_long_bits()));
                 return TRANSLATE_FAIL;
             }
 
@@ -1242,8 +1245,9 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
             if ((pte & PTE_PBMT) == PTE_PBMT) {
                 qemu_log_mask(LOG_GUEST_ERROR, "%s: PBMT bits 62 and 61 are "
                         "reserved but are set in PTE: "
-                        "addr: 0x%" HWADDR_PRIx " pte: 0x" TARGET_FMT_lx "\n",
-                        __func__, pte_addr, pte);
+                        "addr: 0x%" HWADDR_PRIx " pte: 0x%0*" PRIx64 "\n",
+                        __func__, pte_addr, width,
+                        extract64(pte, 0, target_long_bits()));
                 return TRANSLATE_FAIL;
             }
 
@@ -1251,8 +1255,9 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
                 /* Reserved without Svnapot extension */
                 qemu_log_mask(LOG_GUEST_ERROR, "%s: N bit set in PTE, "
                               "and Svnapot extension is disabled: "
-                              "addr: 0x%" HWADDR_PRIx " pte: 0x" TARGET_FMT_lx "\n",
-                              __func__, pte_addr, pte);
+                              "addr: 0x%" HWADDR_PRIx " pte: 0x%0*" PRIx64 "\n",
+                              __func__, pte_addr, width,
+                              extract64(pte, 0, target_long_bits()));
                 return TRANSLATE_FAIL;
             }
 
@@ -1271,8 +1276,9 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
         if (pte & (PTE_D | PTE_A | PTE_U | PTE_ATTR)) {
             /* D, A, and U bits are reserved in non-leaf/inner PTEs */
             qemu_log_mask(LOG_GUEST_ERROR, "%s: D, A, or U bits set in non-leaf PTE: "
-                          "addr: 0x%" HWADDR_PRIx " pte: 0x" TARGET_FMT_lx "\n",
-                          __func__, pte_addr, pte);
+                          "addr: 0x%" HWADDR_PRIx " pte: 0x%0*" PRIx64 "\n",
+                          __func__, pte_addr, width,
+                          extract64(pte, 0, target_long_bits()));
             return TRANSLATE_FAIL;
         }
         /* Inner PTE, continue walking */
@@ -1286,16 +1292,18 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
     if (ppn & ((1ULL << ptshift) - 1)) {
         /* Misaligned PPN */
         qemu_log_mask(LOG_GUEST_ERROR, "%s: PPN bits in PTE is misaligned: "
-                      "addr: 0x%" HWADDR_PRIx " pte: 0x" TARGET_FMT_lx "\n",
-                      __func__, pte_addr, pte);
+                      "addr: 0x%" HWADDR_PRIx " pte: 0x%0*" PRIx64 "\n",
+                      __func__, pte_addr, width,
+                      extract64(pte, 0, target_long_bits()));
         return TRANSLATE_FAIL;
     }
     if (!pbmte && (pte & PTE_PBMT)) {
         /* Reserved without Svpbmt. */
         qemu_log_mask(LOG_GUEST_ERROR, "%s: PBMT bits set in PTE, "
                       "and Svpbmt extension is disabled: "
-                      "addr: 0x%" HWADDR_PRIx " pte: 0x" TARGET_FMT_lx "\n",
-                      __func__, pte_addr, pte);
+                      "addr: 0x%" HWADDR_PRIx " pte: 0x%0*" PRIx64 "\n",
+                      __func__, pte_addr, width,
+                      extract64(pte, 0, target_long_bits()));
         return TRANSLATE_FAIL;
     }
 
@@ -1311,8 +1319,9 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
     if ((pte & PTE_PBMT) == PTE_PBMT) {
         qemu_log_mask(LOG_GUEST_ERROR, "%s: PBMT bits 62 and 61 are "
                       "reserved but are set in leaf PTE: "
-                      "addr: 0x%" HWADDR_PRIx " pte: 0x" TARGET_FMT_lx "\n",
-                      __func__, pte_addr, pte);
+                      "addr: 0x%" HWADDR_PRIx " pte: 0x%0*" PRIx64 "\n",
+                      __func__, pte_addr, width,
+                      extract64(pte, 0, target_long_bits()));
         return TRANSLATE_FAIL;
     }
 
@@ -2173,10 +2182,14 @@ void riscv_cpu_do_interrupt(CPUState *cs)
                      riscv_cpu_get_trap_name(cause, async));
 
     qemu_log_mask(CPU_LOG_INT,
-                  "%s: hart:%"PRIu64", async:%d, cause:"TARGET_FMT_lx", "
-                  "epc:0x%"PRIx64", tval:0x"TARGET_FMT_lx", desc=%s\n",
-                  __func__, env->mhartid, async, cause, env->pc,
-                  tval, riscv_cpu_get_trap_name(cause, async));
+                  "%s: hart:%"PRIu64", async:%d, cause:%0*" PRIx64 ", "
+                  "epc:0x%"PRIx64", tval:0x%0*" PRIx64 ", desc=%s\n",
+                  __func__, env->mhartid, async,
+                  target_long_bits() / 4,
+                  extract64(cause, 0, target_long_bits()), env->pc,
+                  target_long_bits() / 4,
+                  extract64(tval, 0, target_long_bits()),
+                  riscv_cpu_get_trap_name(cause, async));
 
     mode = env->priv <= PRV_S && cause < 64 &&
         (((deleg >> cause) & 1) || s_injected || vs_injected) ? PRV_S : PRV_M;

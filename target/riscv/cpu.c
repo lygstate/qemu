@@ -625,8 +625,9 @@ static void riscv_dump_csr(CPURISCVState *env, int csrno, FILE *f)
      * to do the filtering of the registers that are present.
      */
     if (res == RISCV_EXCP_NONE) {
-        qemu_fprintf(f, " %-13s " TARGET_FMT_lx "\n",
-                     csr_ops[csrno].name, val);
+        qemu_fprintf(f, " %-13s %0*" PRIx64 "\n",
+                     csr_ops[csrno].name, target_long_bits() / 4,
+                     extract64(val, 0, target_long_bits()));
     }
 #endif
 }
