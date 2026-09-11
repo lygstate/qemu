@@ -585,7 +585,7 @@ static bool trans_subd(DisasContext *ctx, arg_subd *a)
 }
 
 static void gen_addi2_i128(TCGv retl, TCGv reth,
-                           TCGv srcl, TCGv srch, target_long imm)
+                           TCGv srcl, TCGv srch, tcg_imm_tl imm)
 {
     TCGv imml  = tcg_constant_tl(imm);
     TCGv immh  = tcg_constant_tl(-(imm < 0));
@@ -646,7 +646,7 @@ static bool trans_andi(DisasContext *ctx, arg_andi *a)
 
 static void gen_slli_i128(TCGv retl, TCGv reth,
                           TCGv src1l, TCGv src1h,
-                          target_long shamt)
+                          tcg_imm_tl shamt)
 {
     if (shamt >= 64) {
         tcg_gen_shli_tl(reth, src1l, shamt - 64);
@@ -662,14 +662,14 @@ static bool trans_slli(DisasContext *ctx, arg_slli *a)
     return gen_shift_imm_fn(ctx, a, EXT_NONE, tcg_gen_shli_tl, gen_slli_i128);
 }
 
-static void gen_srliw(TCGv dst, TCGv src, target_long shamt)
+static void gen_srliw(TCGv dst, TCGv src, tcg_imm_tl shamt)
 {
     tcg_gen_extract_tl(dst, src, shamt, 32 - shamt);
 }
 
 static void gen_srli_i128(TCGv retl, TCGv reth,
                           TCGv src1l, TCGv src1h,
-                          target_long shamt)
+                          tcg_imm_tl shamt)
 {
     if (shamt >= 64) {
         tcg_gen_shri_tl(retl, src1h, shamt - 64);
@@ -686,14 +686,14 @@ static bool trans_srli(DisasContext *ctx, arg_srli *a)
                                    tcg_gen_shri_tl, gen_srliw, gen_srli_i128);
 }
 
-static void gen_sraiw(TCGv dst, TCGv src, target_long shamt)
+static void gen_sraiw(TCGv dst, TCGv src, tcg_imm_tl shamt)
 {
     tcg_gen_sextract_tl(dst, src, shamt, 32 - shamt);
 }
 
 static void gen_srai_i128(TCGv retl, TCGv reth,
                           TCGv src1l, TCGv src1h,
-                          target_long shamt)
+                          tcg_imm_tl shamt)
 {
     if (shamt >= 64) {
         tcg_gen_sari_tl(retl, src1h, shamt - 64);

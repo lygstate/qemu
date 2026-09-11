@@ -210,7 +210,7 @@ static void decode_save_opc(DisasContext *ctx, uint64_t excp_uw2)
 }
 
 static void gen_pc_plus_diff(TCGv target, DisasContext *ctx,
-                             target_long diff)
+                             tcg_imm_tl diff)
 {
     target_ulong dest = ctx->base.pc_next + diff;
 
@@ -228,7 +228,7 @@ static void gen_pc_plus_diff(TCGv target, DisasContext *ctx,
     }
 }
 
-static void gen_update_pc(DisasContext *ctx, target_long diff)
+static void gen_update_pc(DisasContext *ctx, tcg_imm_tl diff)
 {
     gen_pc_plus_diff(cpu_pc, ctx, diff);
     ctx->pc_save = ctx->base.pc_next + diff;
@@ -286,7 +286,7 @@ static void exit_tb(DisasContext *ctx)
 }
 
 static void gen_goto_tb(DisasContext *ctx, unsigned tb_slot_idx,
-                        target_long diff)
+                        tcg_imm_tl diff)
 {
     target_ulong dest = ctx->base.pc_next + diff;
 
@@ -405,7 +405,7 @@ static void gen_set_gpr(DisasContext *ctx, int reg_num, TCGv t)
     }
 }
 
-static void gen_set_gpri(DisasContext *ctx, int reg_num, target_long imm)
+static void gen_set_gpri(DisasContext *ctx, int reg_num, tcg_imm_tl imm)
 {
     if (reg_num != 0) {
         switch (get_ol(ctx)) {
@@ -849,7 +849,7 @@ static int ex_rvc_shiftri(DisasContext *ctx, int imm)
 #include "decode-insn32.c.inc"
 
 static bool gen_logic_imm_fn(DisasContext *ctx, arg_i *a,
-                             void (*func)(TCGv, TCGv, target_long))
+                             void (*func)(TCGv, TCGv, tcg_imm_tl))
 {
     TCGv dest = dest_gpr(ctx, a->rd);
     TCGv src1 = get_gpr(ctx, a->rs1, EXT_NONE);
@@ -893,8 +893,8 @@ static bool gen_logic(DisasContext *ctx, arg_r *a,
 }
 
 static bool gen_arith_imm_fn(DisasContext *ctx, arg_i *a, DisasExtend ext,
-                             void (*func)(TCGv, TCGv, target_long),
-                             void (*f128)(TCGv, TCGv, TCGv, TCGv, target_long))
+                             void (*func)(TCGv, TCGv, tcg_imm_tl),
+                             void (*f128)(TCGv, TCGv, TCGv, TCGv, tcg_imm_tl))
 {
     TCGv dest = dest_gpr(ctx, a->rd);
     TCGv src1 = get_gpr(ctx, a->rs1, ext);
@@ -986,8 +986,8 @@ static bool gen_arith_per_ol(DisasContext *ctx, arg_r *a, DisasExtend ext,
 }
 
 static bool gen_shift_imm_fn(DisasContext *ctx, arg_shift *a, DisasExtend ext,
-                             void (*func)(TCGv, TCGv, target_long),
-                             void (*f128)(TCGv, TCGv, TCGv, TCGv, target_long))
+                             void (*func)(TCGv, TCGv, tcg_imm_tl),
+                             void (*f128)(TCGv, TCGv, TCGv, TCGv, tcg_imm_tl))
 {
     TCGv dest, src1;
     int max_len = get_olen(ctx);
@@ -1017,10 +1017,10 @@ static bool gen_shift_imm_fn(DisasContext *ctx, arg_shift *a, DisasExtend ext,
 
 static bool gen_shift_imm_fn_per_ol(DisasContext *ctx, arg_shift *a,
                                     DisasExtend ext,
-                                    void (*f_tl)(TCGv, TCGv, target_long),
-                                    void (*f_32)(TCGv, TCGv, target_long),
+                                    void (*f_tl)(TCGv, TCGv, tcg_imm_tl),
+                                    void (*f_32)(TCGv, TCGv, tcg_imm_tl),
                                     void (*f_128)(TCGv, TCGv, TCGv, TCGv,
-                                                  target_long))
+                                                  tcg_imm_tl))
 {
     int olen = get_olen(ctx);
     if (olen != target_long_bits()) {

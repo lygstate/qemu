@@ -253,7 +253,7 @@ static bool trans_ror(DisasContext *ctx, arg_ror *a)
     return gen_shift_per_ol(ctx, a, EXT_NONE, tcg_gen_rotr_tl, gen_rorw, NULL);
 }
 
-static void gen_roriw(TCGv ret, TCGv arg1, target_long shamt)
+static void gen_roriw(TCGv ret, TCGv arg1, tcg_imm_tl shamt)
 {
     TCGv_i32 t1 = tcg_temp_new_i32();
 
@@ -460,7 +460,7 @@ static bool trans_add_uw(DisasContext *ctx, arg_add_uw *a)
     return gen_arith(ctx, a, EXT_NONE, gen_add_uw, NULL);
 }
 
-static void gen_slli_uw(TCGv dest, TCGv src, target_long shamt)
+static void gen_slli_uw(TCGv dest, TCGv src, tcg_imm_tl shamt)
 {
     tcg_gen_deposit_z_tl(dest, src, shamt, MIN(32, target_long_bits() - shamt));
 }
