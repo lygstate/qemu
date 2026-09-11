@@ -213,6 +213,7 @@ static inline target_ulong adjust_addr_body(CPURISCVState *env,
 {
     RISCVPmPmm pmm = PMM_FIELD_DISABLED;
     uint32_t pmlen = 0;
+    unsigned kept;
     bool signext = false;
 
     /* do nothing for rv32 mode */
@@ -234,13 +235,16 @@ static inline target_ulong adjust_addr_body(CPURISCVState *env,
 
     signext = riscv_cpu_virt_mem_enabled(env, is_virt_addr);
     pmlen = riscv_pm_get_pmlen(pmm);
-    addr = addr << pmlen;
 
-    /* sign/zero extend masked address by N-1 bit */
+    /*
+     * Drop the top pmlen bits of XLEN. Do not rely on target_ulong
+     * shift wrap; common-system target_ulong is always 64 bits.
+     */
+    kept = target_long_bits() - pmlen;
     if (signext) {
-        addr = (target_long)addr >> pmlen;
+        addr = sextract64(addr, 0, kept);
     } else {
-        addr = addr >> pmlen;
+        addr = extract64(addr, 0, kept);
     }
 
     return addr;

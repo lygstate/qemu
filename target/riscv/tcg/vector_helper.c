@@ -1248,7 +1248,7 @@ void HELPER(NAME)(void *vd, void *v0, target_ulong s1, void *vs2,        \
         ETYPE s2 = *((ETYPE *)vs2 + H(i));                               \
         ETYPE carry = vext_elem_mask(v0, i);                             \
                                                                          \
-        *((ETYPE *)vd + H(i)) = DO_OP(s2, (ETYPE)(target_long)s1, carry);\
+        *((ETYPE *)vd + H(i)) = DO_OP(s2, (ETYPE)sextract64(s1, 0, target_long_bits()), carry);\
     }                                                                    \
     env->vstart = 0;                                                     \
     /* set tail elements to 1s */                                        \
@@ -1325,7 +1325,7 @@ void HELPER(NAME)(void *vd, void *v0, target_ulong s1,          \
         ETYPE s2 = *((ETYPE *)vs2 + H(i));                      \
         ETYPE carry = !vm && vext_elem_mask(v0, i);             \
         vext_set_elem_mask(vd, i,                               \
-                DO_OP(s2, (ETYPE)(target_long)s1, carry));      \
+                DO_OP(s2, (ETYPE)sextract64(s1, 0, target_long_bits()), carry));      \
     }                                                           \
     env->vstart = 0;                                            \
     /*
@@ -1609,7 +1609,7 @@ void HELPER(NAME)(void *vd, void *v0, target_ulong s1, void *vs2,   \
             continue;                                               \
         }                                                           \
         vext_set_elem_mask(vd, i,                                   \
-                DO_OP(s2, (ETYPE)(target_long)s1));                 \
+                DO_OP(s2, (ETYPE)sextract64(s1, 0, target_long_bits())));                 \
     }                                                               \
     env->vstart = 0;                                                \
     /*
@@ -2050,7 +2050,7 @@ GEN_VEXT_VV(vnmsub_vv_w, 4)
 GEN_VEXT_VV(vnmsub_vv_d, 8)
 
 #define OPIVX3(NAME, TD, T1, T2, TX1, TX2, HD, HS2, OP)             \
-static void do_##NAME(void *vd, target_long s1, void *vs2, int i)   \
+static void do_##NAME(void *vd, int64_t s1, void *vs2, int i)   \
 {                                                                   \
     TX2 s2 = *((T2 *)vs2 + HS2(i));                                 \
     TD d = *((TD *)vd + HD(i));                                     \
@@ -2246,7 +2246,7 @@ void HELPER(NAME)(void *vd, void *v0, target_ulong s1,               \
     for (i = env->vstart; i < vl; i++) {                             \
         ETYPE s2 = *((ETYPE *)vs2 + H(i));                           \
         ETYPE d = (!vext_elem_mask(v0, i) ? s2 :                     \
-                   (ETYPE)(target_long)s1);                          \
+                   (ETYPE)sextract64(s1, 0, target_long_bits()));                          \
         *((ETYPE *)vd + H(i)) = d;                                   \
     }                                                                \
     env->vstart = 0;                                                 \
@@ -2397,12 +2397,12 @@ GEN_VEXT_VV_RM(vsaddu_vv_h, 2)
 GEN_VEXT_VV_RM(vsaddu_vv_w, 4)
 GEN_VEXT_VV_RM(vsaddu_vv_d, 8)
 
-typedef void opivx2_rm_fn(void *vd, target_long s1, void *vs2, int i,
+typedef void opivx2_rm_fn(void *vd, int64_t s1, void *vs2, int i,
                           CPURISCVState *env, uint8_t vxrm);
 
 #define OPIVX2_RM(NAME, TD, T1, T2, TX1, TX2, HD, HS2, OP)          \
 static inline void                                                  \
-do_##NAME(void *vd, target_long s1, void *vs2, int i,               \
+do_##NAME(void *vd, int64_t s1, void *vs2, int i,               \
           CPURISCVState *env, uint8_t vxrm)                         \
 {                                                                   \
     TX2 s2 = *((T2 *)vs2 + HS2(i));                                 \
@@ -2410,7 +2410,7 @@ do_##NAME(void *vd, target_long s1, void *vs2, int i,               \
 }
 
 static inline void
-vext_vx_rm_1(void *vd, void *v0, target_long s1, void *vs2,
+vext_vx_rm_1(void *vd, void *v0, int64_t s1, void *vs2,
              CPURISCVState *env,
              uint32_t vl, uint32_t vm, uint8_t vxrm,
              opivx2_rm_fn *fn, uint32_t vma, uint32_t esz)
@@ -2427,7 +2427,7 @@ vext_vx_rm_1(void *vd, void *v0, target_long s1, void *vs2,
 }
 
 static inline void
-vext_vx_rm_2(void *vd, void *v0, target_long s1, void *vs2,
+vext_vx_rm_2(void *vd, void *v0, int64_t s1, void *vs2,
              CPURISCVState *env,
              uint32_t desc,
              opivx2_rm_fn *fn, uint32_t esz)
@@ -2468,7 +2468,8 @@ void HELPER(NAME)(void *vd, void *v0, target_ulong s1,    \
                   void *vs2, CPURISCVState *env,          \
                   uint32_t desc)                          \
 {                                                         \
-    vext_vx_rm_2(vd, v0, s1, vs2, env, desc,              \
+    vext_vx_rm_2(vd, v0, sextract64(s1, 0, target_long_bits()), \
+                 vs2, env, desc,                          \
                  do_##NAME, ESZ);                         \
 }
 
