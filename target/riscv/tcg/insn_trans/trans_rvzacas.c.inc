@@ -48,12 +48,12 @@ static void gen_set_gpr_pair(DisasContext *ctx, int reg_num, TCGv_i64 t)
     assert(get_ol(ctx) == MXL_RV32);
 
     if (reg_num != 0) {
-#ifdef TARGET_RISCV32
-        tcg_gen_extr_i64_i32(cpu_gpr[reg_num], cpu_gpr[reg_num + 1], t);
-#else
-        tcg_gen_ext32s_i64(cpu_gpr[reg_num], t);
-        tcg_gen_sari_i64(cpu_gpr[reg_num + 1], t, 32);
-#endif
+        if (tcg_tl_is_64()) {
+            tcg_gen_ext32s_i64(tcg_i64_from_tl(cpu_gpr[reg_num]), t);
+            tcg_gen_sari_i64(tcg_i64_from_tl(cpu_gpr[reg_num + 1]), t, 32);
+        } else {
+            tcg_gen_extr_i64_tl(cpu_gpr[reg_num], cpu_gpr[reg_num + 1], t);
+        }
 
         if (get_xl_max(ctx) == MXL_RV128) {
             tcg_gen_sari_tl(cpu_gprh[reg_num], cpu_gpr[reg_num], 63);
@@ -111,14 +111,19 @@ static bool trans_amocas_q(DisasContext *ctx, arg_amocas_q *a)
         return false;
     }
 
-#ifdef TARGET_RISCV64
+    if (!tcg_tl_is_64()) {
+        return false;
+    }
+
     TCGv_i128 dest = tcg_temp_new_i128();
     TCGv src1 = get_address(ctx, a->rs1, 0);
     TCGv_i128 src2 = tcg_temp_new_i128();
-    TCGv_i64 src2l = get_gpr(ctx, a->rs2, EXT_NONE);
-    TCGv_i64 src2h = get_gpr(ctx, a->rs2 == 0 ? 0 : a->rs2 + 1, EXT_NONE);
-    TCGv_i64 destl = get_gpr(ctx, a->rd, EXT_NONE);
-    TCGv_i64 desth = get_gpr(ctx, a->rd == 0 ? 0 : a->rd + 1, EXT_NONE);
+    TCGv_i64 src2l = tcg_i64_from_tl(get_gpr(ctx, a->rs2, EXT_NONE));
+    TCGv_i64 src2h = tcg_i64_from_tl(get_gpr(ctx, a->rs2 == 0 ? 0 :
+                                            a->rs2 + 1, EXT_NONE));
+    TCGv_i64 destl = tcg_i64_from_tl(get_gpr(ctx, a->rd, EXT_NONE));
+    TCGv_i64 desth = tcg_i64_from_tl(get_gpr(ctx, a->rd == 0 ? 0 :
+                                            a->rd + 1, EXT_NONE));
     MemOp memop = MO_ALIGN | MO_UO;
 
     memop |= ctx->mo_endianness;
@@ -130,10 +135,9 @@ static bool trans_amocas_q(DisasContext *ctx, arg_amocas_q *a)
     tcg_gen_extr_i128_i64(destl, desth, dest);
 
     if (a->rd != 0) {
-        gen_set_gpr(ctx, a->rd, destl);
-        gen_set_gpr(ctx, a->rd + 1, desth);
+        gen_set_gpr(ctx, a->rd, tcg_tl_from_i64(destl));
+        gen_set_gpr(ctx, a->rd + 1, tcg_tl_from_i64(desth));
     }
-#endif
 
     return true;
 }
