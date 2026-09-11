@@ -29,41 +29,39 @@
 #include "system/memory.h"
 #include "internals.h"
 
-#ifdef TARGET_RISCV64
-#define PTE_HEADER_FIELDS       "vaddr            paddr            "\
-                                "size             attr\n"
-#define PTE_HEADER_DELIMITER    "---------------- ---------------- "\
-                                "---------------- -------\n"
-#else
-#define PTE_HEADER_FIELDS       "vaddr    paddr            size     attr\n"
-#define PTE_HEADER_DELIMITER    "-------- ---------------- -------- -------\n"
-#endif
-
 #ifdef CONFIG_HMP
 
 /* Perform linear address sign extension */
 static target_ulong addr_canonical(int va_bits, target_ulong addr)
 {
-#ifdef TARGET_RISCV64
-    if (addr & (1UL << (va_bits - 1))) {
-        addr |= (hwaddr)-(1L << va_bits);
+    if (va_bits < (int)target_long_bits() &&
+        (addr & ((uint64_t)1 << (va_bits - 1)))) {
+        addr |= MAKE_64BIT_MASK(va_bits, 64 - va_bits);
     }
-#endif
 
     return addr;
 }
 
 static void print_pte_header(MonitorHMP *hmp)
 {
-    monitor_hmp_printf(hmp, PTE_HEADER_FIELDS);
-    monitor_hmp_printf(hmp, PTE_HEADER_DELIMITER);
+    if (target_long_bits() == 64) {
+        monitor_hmp_printf(hmp, "vaddr            paddr            "
+                                "size             attr\n");
+        monitor_hmp_printf(hmp, "---------------- ---------------- "
+                                "---------------- -------\n");
+    } else {
+        monitor_hmp_printf(hmp, "vaddr    paddr            size     attr\n");
+        monitor_hmp_printf(hmp, "-------- ---------------- -------- -------\n");
+    }
 }
 
 static void print_pte(MonitorHMP *hmp, int va_bits, target_ulong vaddr,
                       hwaddr paddr, target_ulong size, int attr)
 {
+    int width = target_long_bits() / 4;
+
     /* sanity check on vaddr */
-    if (vaddr >= (1UL << va_bits)) {
+    if (va_bits >= 64 || vaddr >= ((uint64_t)1 << va_bits)) {
         return;
     }
 
@@ -71,10 +69,13 @@ static void print_pte(MonitorHMP *hmp, int va_bits, target_ulong vaddr,
         return;
     }
 
-    monitor_hmp_printf(hmp, TARGET_FMT_lx " " HWADDR_FMT_plx " " TARGET_FMT_lx
+    monitor_hmp_printf(hmp, "%0*" PRIx64 " " HWADDR_FMT_plx " %0*" PRIx64
                        " %c%c%c%c%c%c%c\n",
-                       addr_canonical(va_bits, vaddr),
-                       paddr, size,
+                       width,
+                       extract64(addr_canonical(va_bits, vaddr), 0,
+                                 target_long_bits()),
+                       paddr, width,
+                       extract64(size, 0, target_long_bits()),
                        attr & PTE_R ? 'r' : '-',
                        attr & PTE_W ? 'w' : '-',
                        attr & PTE_X ? 'x' : '-',
