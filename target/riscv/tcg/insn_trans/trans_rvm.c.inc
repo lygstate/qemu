@@ -128,7 +128,7 @@ static void gen_mulhsu(TCGv ret, TCGv arg1, TCGv arg2)
 
     tcg_gen_mulu2_tl(rl, rh, arg1, arg2);
     /* fix up for one negative */
-    tcg_gen_sari_tl(rl, arg1, TARGET_LONG_BITS - 1);
+    tcg_gen_sari_tl(rl, arg1, target_long_bits() - 1);
     tcg_gen_and_tl(rl, rl, arg2);
     tcg_gen_sub_tl(ret, rh, rl);
 }
@@ -184,7 +184,7 @@ static void gen_div(TCGv ret, TCGv source1, TCGv source2)
     zero = tcg_constant_tl(0);
     one = tcg_constant_tl(1);
     mone = tcg_constant_tl(-1);
-    min = tcg_constant_tl(1ull << (TARGET_LONG_BITS - 1));
+    min = tcg_constant_tl(1ull << (target_long_bits() - 1));
 
     /*
      * If overflow, set temp2 to 1, else source2.
@@ -263,7 +263,7 @@ static void gen_rem(TCGv ret, TCGv source1, TCGv source2)
     zero = tcg_constant_tl(0);
     one = tcg_constant_tl(1);
     mone = tcg_constant_tl(-1);
-    min = tcg_constant_tl(1ull << (TARGET_LONG_BITS - 1));
+    min = tcg_constant_tl(1ull << (target_long_bits() - 1));
 
     /*
      * If overflow, set temp1 to 0, else source1.

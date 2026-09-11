@@ -46,7 +46,7 @@ static TCGv load_res;
 static TCGv load_val;
 
 /*
- * If an operation is being performed on less than TARGET_LONG_BITS,
+ * If an operation is being performed on less than target_long_bits(),
  * it may require the inputs to be sign- or zero-extended; which will
  * depend on the exact operation being performed.
  */
@@ -370,7 +370,7 @@ static TCGv get_gprh(DisasContext *ctx, int reg_num)
 
 static TCGv dest_gpr(DisasContext *ctx, int reg_num)
 {
-    if (reg_num == 0 || get_olen(ctx) < TARGET_LONG_BITS) {
+    if (reg_num == 0 || get_olen(ctx) < target_long_bits()) {
         return tcg_temp_new();
     }
     return cpu_gpr[reg_num];
@@ -975,7 +975,7 @@ static bool gen_arith_per_ol(DisasContext *ctx, arg_r *a, DisasExtend ext,
 {
     int olen = get_olen(ctx);
 
-    if (olen != TARGET_LONG_BITS) {
+    if (olen != target_long_bits()) {
         if (olen == 32) {
             f_tl = f_32;
         } else if (olen != 128) {
@@ -1023,7 +1023,7 @@ static bool gen_shift_imm_fn_per_ol(DisasContext *ctx, arg_shift *a,
                                                   target_long))
 {
     int olen = get_olen(ctx);
-    if (olen != TARGET_LONG_BITS) {
+    if (olen != target_long_bits()) {
         if (olen == 32) {
             f_tl = f_32;
         } else if (olen != 128) {
@@ -1088,7 +1088,7 @@ static bool gen_shift_per_ol(DisasContext *ctx, arg_r *a, DisasExtend ext,
                              void (*f_128)(TCGv, TCGv, TCGv, TCGv, TCGv))
 {
     int olen = get_olen(ctx);
-    if (olen != TARGET_LONG_BITS) {
+    if (olen != target_long_bits()) {
         if (olen == 32) {
             f_tl = f_32;
         } else if (olen != 128) {
@@ -1116,7 +1116,7 @@ static bool gen_unary_per_ol(DisasContext *ctx, arg_r2 *a, DisasExtend ext,
 {
     int olen = get_olen(ctx);
 
-    if (olen != TARGET_LONG_BITS) {
+    if (olen != target_long_bits()) {
         if (olen == 32) {
             f_tl = f_32;
         } else {
